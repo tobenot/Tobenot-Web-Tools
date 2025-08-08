@@ -1,27 +1,27 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
-export function ShareButton({ label = '分享', className = '' }: { label?: string; className?: string }) {
+export function ShareButton() {
   const [copied, setCopied] = useState(false)
 
-  async function handleShare() {
-    const url = window.location.href
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: document.title, url })
-        return
-      } catch {}
-    }
+  useEffect(() => {
+    if (!copied) return
+    const t = setTimeout(() => setCopied(false), 1200)
+    return () => clearTimeout(t)
+  }, [copied])
+
+  async function copy() {
     try {
-      await navigator.clipboard.writeText(url)
+      await navigator.clipboard.writeText(window.location.href)
       setCopied(true)
-      setTimeout(() => setCopied(false), 1600)
-    } catch {}
+    } catch {
+      // ignore
+    }
   }
 
   return (
-    <button onClick={handleShare} className={`inline-flex items-center gap-2 px-3 py-2 rounded-md border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors ${className}`}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-80"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v14"/></svg>
-      {copied ? '已复制' : label}
+    <button onClick={copy} className="inline-flex items-center gap-2 px-3 py-2 rounded-[3px] border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors">
+      <span>{copied ? '✅' : '🔗'}</span>
+      <span>{copied ? '已复制' : '分享'}</span>
     </button>
   )
 }

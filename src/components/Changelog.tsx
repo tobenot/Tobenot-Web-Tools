@@ -10,7 +10,7 @@ export function Changelog({ entries }: { entries: ChangelogEntry[] }) {
       <h2 className="text-xl font-semibold tracking-wide">更新日志</h2>
       <ol className="mt-4 space-y-4">
         {entries.map((e) => (
-          <li key={`${e.date}-${e.title}`} className="border-l-2 border-mech-edge pl-4">
+          <li key={`${e.date}-${e.title}`} className="border-l-2 border-mech-edge pl-4 hover:border-mech-accent transition-colors">
             <div className="text-sm text-mech-muted">{e.date}</div>
             <div className="font-medium mt-1">{e.title}</div>
             {e.notes && e.notes.length > 0 && (
