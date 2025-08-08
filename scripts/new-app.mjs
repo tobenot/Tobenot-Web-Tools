@@ -10,11 +10,14 @@ function parseArgs(argv) {
   const args = argv.slice(2)
   if (args.length === 0) return null
   const name = args[0]
-  const opts = { title: name }
+  const opts = { title: name, description: '' }
   for (let i = 1; i < args.length; i++) {
     const a = args[i]
     if (a === '--title' && args[i + 1]) {
       opts.title = args[i + 1]
+      i++
+    } else if ((a === '--desc' || a === '--description') && args[i + 1]) {
+      opts.description = args[i + 1]
       i++
     }
   }
@@ -54,10 +57,21 @@ function createIndexHtml(appDir, title) {
   fs.writeFileSync(path.join(appDir, 'index.html'), html, 'utf-8')
 }
 
+function createMetaJson(appDir, { title, description }) {
+  const meta = {
+    title,
+    description: description || `这是 ${title} 的简要说明。`,
+    version: '0.1.0',
+    updatedAt: new Date().toISOString().slice(0, 10),
+    tags: [],
+  }
+  fs.writeFileSync(path.join(appDir, 'meta.json'), JSON.stringify(meta, null, 2), 'utf-8')
+}
+
 async function main() {
   const args = parseArgs(process.argv)
   if (!args) {
-    console.error('用法: npm run new:app <name> -- --title "页面标题"')
+    console.error('用法: npm run new:app <name> -- --title "页面标题" [--desc "简介"]')
     process.exit(1)
   }
   const appDir = path.join(root, 'apps', args.name)
@@ -67,7 +81,9 @@ async function main() {
   }
   ensureDir(appDir)
   createIndexHtml(appDir, args.title)
+  createMetaJson(appDir, args)
   console.log(`已创建: apps/${args.name}/index.html`)
+  console.log(`已创建: apps/${args.name}/meta.json`)
 }
 
 main().catch((e) => {

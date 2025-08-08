@@ -4,35 +4,62 @@ import { Layout } from './components/Layout'
 import { Changelog, ChangelogEntry } from './components/Changelog'
 import { CalendarTool } from './tools/calendar/CalendarTool'
 import { getHashLocation } from './utils/hash'
+import { getHtmlApps } from './data/apps'
 
 const globalChangelog: ChangelogEntry[] = [
   { date: '2025-08-08', title: '项目初始化', notes: ['添加首页导航与机械风主题', '实现日历工具 v0.1（支持哈希分享 `?d=YYYY-MM-DD`）', '加入通用工具模板（分享、设计、更新日志）', '配置 GitHub Pages 自动部署'] },
 ]
 
 function Home() {
+  const apps = getHtmlApps()
   return (
-    <div className="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle p-6">
-      <h2 className="text-xl font-semibold tracking-wide">工具导航</h2>
-      <p className="text-mech-muted mt-2">选择一个工具，或分享带 `#` 的直达链接。</p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <a className="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle p-4 hover:border-mech-accent transition-colors" href="#calendar">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">日历工具</div>
-              <div className="text-sm text-mech-muted mt-1">快速查看与分享指定日期</div>
+    <div className="space-y-6">
+      <div className="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle p-6">
+        <h2 className="text-xl font-semibold tracking-wide">工具导航</h2>
+        <p className="text-mech-muted mt-2">选择一个工具，或分享带 `#` 的直达链接。</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <a className="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle p-4 hover:border-mech-accent transition-colors" href="#calendar">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium">日历工具</div>
+                <div className="text-sm text-mech-muted mt-1">快速查看与分享指定日期</div>
+              </div>
+              <span className="px-2 py-0.5 rounded-md border border-mech-edge text-xs text-mech-muted bg-white">v0.1</span>
             </div>
-            <span className="px-2 py-0.5 rounded-md border border-mech-edge text-xs text-mech-muted bg-white">v0.1</span>
-          </div>
-        </a>
-        <a className="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle p-4 hover:border-mech-accent transition-colors" href="#changelog">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">更新日志</div>
-              <div className="text-sm text-mech-muted mt-1">查看项目更新记录</div>
+          </a>
+          <a className="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle p-4 hover:border-mech-accent transition-colors" href="#changelog">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium">更新日志</div>
+                <div className="text-sm text-mech-muted mt-1">查看项目更新记录</div>
+              </div>
+              <span className="px-2 py-0.5 rounded-md border border-mech-edge text-xs text-mech-muted bg-white">站点</span>
             </div>
-            <span className="px-2 py-0.5 rounded-md border border-mech-edge text-xs text-mech-muted bg-white">站点</span>
+          </a>
+        </div>
+      </div>
+
+      <div className="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle p-6">
+        <h3 className="font-medium">独立 HTML 应用</h3>
+        {apps.length === 0 ? (
+          <p className="text-mech-muted mt-2">暂无应用。使用 <code>npm run new:app &lt;name&gt; -- --title "页面标题"</code> 创建。</p>
+        ) : (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {apps.map((app) => (
+              <a key={app.slug} className="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle p-4 hover:border-mech-accent transition-colors" href={app.url} target="_self">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium">{app.title}</div>
+                    {app.description && <div className="text-sm text-mech-muted mt-1 line-clamp-2">{app.description}</div>}
+                  </div>
+                  {app.version && (
+                    <span className="px-2 py-0.5 rounded-md border border-mech-edge text-xs text-mech-muted bg-white">{app.version}</span>
+                  )}
+                </div>
+              </a>
+            ))}
           </div>
-        </a>
+        )}
       </div>
     </div>
   )
