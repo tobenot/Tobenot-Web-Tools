@@ -13,13 +13,12 @@ export type HtmlAppMeta = {
  * This runs at build/runtime via Vite's import.meta.glob, bundling small JSON metadata.
  */
 export function getHtmlApps(): HtmlAppMeta[] {
-  const modules = import.meta.glob('../apps/*/meta.json', { eager: true }) as Record<string, any>
+  const modules = import.meta.glob('../../apps/*/meta.json', { eager: true }) as Record<string, any>
 
   const apps: HtmlAppMeta[] = []
-  const slugRegex = /\.\.\/apps\/([^/]+)\/meta\.json$/
-
-  for (const [path, mod] of Object.entries(modules)) {
-    const match = path.match(slugRegex)
+  for (const [pathKey, mod] of Object.entries(modules)) {
+    const normalizedPath = pathKey.replace(/\\/g, '/')
+    const match = normalizedPath.match(/(?:^|\/)apps\/([^/]+)\/meta\.json$/)
     if (!match) continue
     const slug = match[1]
     const raw = (mod && (mod.default ?? mod)) || {}
