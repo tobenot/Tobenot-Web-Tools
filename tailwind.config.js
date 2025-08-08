@@ -5,7 +5,7 @@ module.exports = {
     extend: {
       colors: {
         mech: {
-          bg: '#f7f7f8',
+                     bg: '#ffffff',
           panel: '#ffffff',
           edge: '#e5e7eb',
           accent: '#3b82f6',
