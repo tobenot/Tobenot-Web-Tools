@@ -117,15 +117,15 @@ export function CalendarTool() {
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <button className="btn" onClick={prevMonth} aria-label="上一月">←</button>
+            <button className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors" onClick={prevMonth} aria-label="上一月">←</button>
             <div className="text-lg font-medium tabular-nums tracking-wide">
               {year} 年 {month + 1} 月
             </div>
-            <button className="btn" onClick={nextMonth} aria-label="下一月">→</button>
+            <button className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors" onClick={nextMonth} aria-label="下一月">→</button>
           </div>
           <div className="flex items-center gap-2">
             <button
-              className="btn"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors"
               onClick={() => {
                 const d = new Date()
                 setYear(d.getFullYear())
@@ -152,11 +152,11 @@ export function CalendarTool() {
                     disabled={!cell.day}
                     onClick={() => cell.day && selectDay(cell.day)}
                     className={
-                      'aspect-square panel flex items-center justify-center select-none ' +
+                      'aspect-square bg-mech-panel border border-mech-edge rounded-xl shadow-subtle flex items-center justify-center select-none ' +
                       (cell.day
-                        ? 'hover:border-mech-accent/40 ' +
-                          (isSelected ? 'border-mech-accent/60 ring-1 ring-mech-accent/30 ' : '') +
-                          (isToday ? 'bg-mech-panel/90' : '')
+                        ? 'hover:border-mech-accent ' +
+                          (isSelected ? 'border-mech-accent ring-1 ring-mech-accent/30 ' : '') +
+                          (isToday ? 'bg-white' : '')
                         : 'opacity-30 cursor-default')
                     }
                     aria-pressed={isSelected}
@@ -180,7 +180,7 @@ export function CalendarTool() {
             )}
           </div>
           {isoSelected && (
-            <a className="btn btn-accent" href={`#calendar?d=${isoSelected}`}>
+            <a className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors" href={`#calendar?d=${isoSelected}`}>
               分享此日期
             </a>
           )}

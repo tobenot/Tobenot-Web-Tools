@@ -19,7 +19,7 @@ export function ShareButton({ label = '分享', className = '' }: { label?: stri
   }
 
   return (
-    <button onClick={handleShare} className={`btn btn-accent ${className}`}>
+    <button onClick={handleShare} className={`inline-flex items-center gap-2 px-3 py-2 rounded-md border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors ${className}`}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-80"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v14"/></svg>
       {copied ? '已复制' : label}
     </button>

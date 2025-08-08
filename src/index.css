@@ -1,29 +1,3 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@layer base {
-  html, body, #root {
-    height: 100%;
-  }
-  body {
-    @apply bg-mech-bg text-mech-text antialiased;
-    background-image: theme('backgroundImage.mesh'), theme('backgroundImage.grid');
-    background-size: auto, theme('backgroundSize.grid');
-  }
-}
-
-@layer components {
-  .panel {
-    @apply bg-mech-panel/80 border border-mech-edge/60 rounded-xl shadow-insetGlow backdrop-blur;
-  }
-  .btn {
-    @apply inline-flex items-center gap-2 px-3 py-2 rounded-md border border-mech-edge bg-mech-panel hover:bg-mech-panel/80 text-mech-text transition-colors;
-  }
-  .btn-accent {
-    @apply btn border-mech-accent/40 text-mech-text hover:text-white shadow-sm;
-  }
-  .badge {
-    @apply px-2 py-0.5 rounded-md border border-mech-edge text-xs text-mech-muted;
-  }
-}

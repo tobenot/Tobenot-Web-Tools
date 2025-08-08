@@ -1,46 +1,52 @@
-# Mecha Tools 机械风 Web 工具站
+# Mecha Tools
 
-- 技术栈：React + TypeScript + Tailwind CSS + Vite
-- 导航：基于哈希（`#calendar` 等），方便分享直达地址
-- UI：机械风暗色主题，可复用工具页模板（分享按钮、设计思路、更新日志）
-- 部署：推送到 `main` 自动构建并发布到 GitHub Pages（`gh-pages` 分支）
+基于 React + Vite + Tailwind 的 Web 工具集。已采用“白净机械风”主题与 Tailwind 最佳实践（不写自定义 CSS 文件，完全使用类名）。
 
 ## 开发
 
+- 启动开发：
+
 ```bash
-npm install
 npm run dev
 ```
 
-本地访问：`http://localhost:5173/`。
-
-## 构建
+- 构建：
 
 ```bash
 npm run build
-npm run preview
 ```
 
-## 部署（GitHub Actions）
+## 主题与样式
 
-- 在仓库设置中开启 GitHub Pages（分支选择 `gh-pages`）。
-- 推送到 `main` 分支将自动构建并发布到 `gh-pages` 分支。
-- Vite 已设置 `base: './'`，适配二级路径部署。
+- 所有样式通过 Tailwind 工具类完成，主题色定义在 `tailwind.config.js` 的 `theme.extend.colors.mech`。
+- 已启用插件：`@tailwindcss/forms`、`@tailwindcss/typography`。
+- 在页面上直接使用工具类组合，例如：
 
-## 目录结构
-
-```
-src/
-  components/
-  tools/
-    calendar/
-  utils/
+```html
+<div class="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle p-6">...</div>
 ```
 
-## 约定
+## 多个单页 HTML 应用（Multi-Page Build）
 
-- 路由使用 `#` 哈希：
-  - 首页：`#`
-  - 日历：`#calendar`（支持 `?d=YYYY-MM-DD` 预选日期）
-  - 更新日志：`#changelog`
-  - 关于/设计：`#about`
+- 目录：`apps/<app-name>/index.html`
+- 构建时会自动发现 `apps/*/index.html` 并输出到 `dist/apps/<app-name>/index.html`。
+- HTML 中直接引入共享样式：
+
+```html
+<link rel="stylesheet" href="/src/index.css" />
+```
+
+- 示例：`apps/hello/index.html`
+
+## 快速创建一个新页面
+
+```bash
+npm run new:app my-tool -- --title "我的工具"
+```
+
+它会生成：`apps/my-tool/index.html`，你可以直接在该文件继续开发，无需单独的 CSS 文件。
+
+## 路由
+
+- 站点根为 React 单页，使用 `#hash` 路由（见 `src/utils/hash.ts`）。
+- 纯 HTML 页面则存放于 `apps/`，不使用 React 路由，便于批量添加与部署。
