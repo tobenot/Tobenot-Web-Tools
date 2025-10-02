@@ -3,7 +3,6 @@ import { Header } from './components/Header'
 import { Layout } from './components/Layout'
 import { Changelog, ChangelogEntry } from './components/Changelog'
 import { CalendarTool } from './tools/calendar/CalendarTool'
-import { MarkdownReaderTool } from './tools/markdown-reader/MarkdownReaderTool'
 import { getHashLocation } from './utils/hash'
 import { getHtmlApps, HtmlAppMeta } from './data/apps'
 
@@ -26,15 +25,6 @@ function Home() {
       version: 'v0.1',
       category: 'utility',
       href: '#calendar'
-    },
-    {
-      id: 'markdown-reader',
-      title: 'Markdown 阅读器',
-      description: '支持TOC、滚动同步、主题切换的在线编辑器',
-      emoji: '✍️',
-      version: 'v1.0',
-      category: 'utility',
-      href: '#markdown-reader'
     },
     {
       id: 'changelog',
@@ -301,7 +291,6 @@ export default function App() {
       <main className="max-w-6xl mx-auto px-6 pb-16 pt-8">
         {route.path === '' && <Home />}
         {route.path === 'calendar' && <CalendarTool />}
-        {route.path === 'markdown-reader' && <MarkdownReaderTool />}
         {route.path === 'changelog' && (
           <div className="relative bg-white border-2 border-gray-200 p-6">
             <div 
