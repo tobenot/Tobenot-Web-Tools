@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<meta name="theme-color" content="#f7f7f8" />
+	<title>Markdown 阅读器 | Mecha Tools</title>
+	<style>
+		.toc a.active { color: #111827; font-weight: 600; }
+		.toc a { transition: color .15s ease; }
+		.preview h1, .preview h2, .preview h3, .preview h4, .preview h5, .preview h6 { scroll-margin-top: 84px; }
+		.split-resize-handle { width: 6px; cursor: col-resize; }
+
+		.preview.github-style {
+			font-size: 16px;
+			line-height: 1.6;
+			color: #24292f;
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+		}
+		.preview.github-style h1 { font-size: 2em; font-weight: 600; padding-bottom: 0.3em; border-bottom: 1px solid #d0d7de; margin-top: 24px; margin-bottom: 16px; }
+		.preview.github-style h2 { font-size: 1.5em; font-weight: 600; padding-bottom: 0.3em; border-bottom: 1px solid #d0d7de; margin-top: 24px; margin-bottom: 16px; }
+		.preview.github-style h3 { font-size: 1.25em; font-weight: 600; margin-top: 24px; margin-bottom: 16px; }
+		.preview.github-style h4 { font-size: 1em; font-weight: 600; margin-top: 24px; margin-bottom: 16px; }
+		.preview.github-style h5 { font-size: 0.875em; font-weight: 600; margin-top: 24px; margin-bottom: 16px; }
+		.preview.github-style h6 { font-size: 0.85em; font-weight: 600; color: #57606a; margin-top: 24px; margin-bottom: 16px; }
+		.preview.github-style p { margin-top: 0; margin-bottom: 16px; }
+		.preview.github-style blockquote { 
+			padding: 0 1em; 
+			color: #57606a; 
+			border-left: 0.25em solid #d0d7de; 
+			margin: 0 0 16px 0;
+		}
+		.preview.github-style ul { padding-left: 2em; margin-top: 0; margin-bottom: 16px; list-style-type: disc; }
+		.preview.github-style ol { padding-left: 2em; margin-top: 0; margin-bottom: 16px; }
+		.preview.github-style li { margin-top: 0.25em; }
+		.preview.github-style li + li { margin-top: 0.25em; }
+		.preview.github-style code {
+			padding: 0.2em 0.4em;
+			margin: 0;
+			font-size: 85%;
+			background-color: rgba(175, 184, 193, 0.2);
+			border-radius: 6px;
+			font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+		}
+		.preview.github-style pre {
+			padding: 16px;
+			overflow: auto;
+			font-size: 85%;
+			line-height: 1.45;
+			background-color: #f6f8fa;
+			border-radius: 6px;
+			margin-bottom: 16px;
+		}
+		.preview.github-style pre code {
+			display: block;
+			padding: 0;
+			margin: 0;
+			background-color: transparent;
+			border-radius: 0;
+		}
+		.preview.github-style a { color: #0969da; text-decoration: none; }
+		.preview.github-style a:hover { text-decoration: underline; }
+		.preview.github-style strong { font-weight: 600; }
+		.preview.github-style em { font-style: italic; }
+		.preview.github-style img { max-width: 100%; box-sizing: border-box; }
+		.preview.github-style table { border-spacing: 0; border-collapse: collapse; margin-top: 0; margin-bottom: 16px; width: 100%; }
+		.preview.github-style table tr { background-color: #ffffff; border-top: 1px solid #d0d7de; }
+		.preview.github-style table tr:nth-child(2n) { background-color: #f6f8fa; }
+		.preview.github-style table th, .preview.github-style table td { padding: 6px 13px; border: 1px solid #d0d7de; }
+		.preview.github-style table th { font-weight: 600; }
+		.preview.github-style hr { height: 0.25em; padding: 0; margin: 24px 0; background-color: #d0d7de; border: 0; }
+	</style>
+  <link rel="stylesheet" crossorigin href="../../assets/index-FcVpvAF7.css">
+</head>
+<body class="min-h-screen bg-mech-bg text-mech-text antialiased">
+	<main class="max-w-[1400px] mx-auto px-4 py-6 space-y-6">
+		<header class="sticky top-0 z-30 border-b border-mech-edge/70 backdrop-blur bg-mech-bg/70 -mx-4 px-4 py-3">
+			<div class="flex items-center justify-between">
+				<a class="font-semibold tracking-wider hover:text-black" href="/index.html">Mecha Tools</a>
+				<div class="flex items-center gap-2">
+					<button id="loadReadmeBtn" class="px-3 py-1.5 rounded-md border border-mech-edge bg-white hover:bg-neutral-50">载入 README.md</button>
+					<a class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-mech-edge bg-white hover:bg-neutral-50" href="https://tobenot.top/Tobenot-Web-Tools/">返回首页</a>
+				</div>
+			</div>
+		</header>
+
+		<section class="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-4">
+			<aside class="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle p-4 space-y-3 toc" style="max-height: calc(70vh + 42px); overflow-y: auto;">
+				<div class="text-sm font-semibold">目录</div>
+				<nav id="toc" class="space-y-1 text-sm"></nav>
+			</aside>
+
+			<div class="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle overflow-hidden">
+				<div class="grid grid-cols-2">
+					<div class="border-r border-mech-edge">
+						<div class="flex items-center justify-between px-3 py-2 border-b border-mech-edge bg-white/70 backdrop-blur">
+							<div class="text-sm font-medium">编辑</div>
+							<div class="flex items-center gap-2">
+								<button id="copyMdBtn" class="px-2 py-1 text-xs rounded border border-mech-edge hover:bg-neutral-50">复制</button>
+								<button id="clearBtn" class="px-2 py-1 text-xs rounded border border-mech-edge hover:bg-neutral-50">清空</button>
+							</div>
+						</div>
+						<textarea id="editor" spellcheck="false" class="w-full h-[70vh] p-4 font-mono text-sm outline-none resize-none" placeholder="# 这里写 Markdown..."></textarea>
+					</div>
+					<div class="relative">
+						<div class="flex items-center justify-between px-3 py-2 border-b border-mech-edge bg-white/70 backdrop-blur">
+							<div class="text-sm font-medium">预览</div>
+							<div class="flex items-center gap-2">
+								<label class="text-xs text-mech-muted">主题</label>
+								<select id="themeSelect" class="px-2 py-1 text-xs rounded border border-mech-edge">
+									<option value="github">GitHub</option>
+									<option value="prose">Prose</option>
+									<option value="light">Light</option>
+								</select>
+							</div>
+						</div>
+						<div id="preview" class="preview h-[70vh] overflow-auto px-6 py-4 prose prose-neutral max-w-none"></div>
+					</div>
+				</div>
+			</div>
+		</section>
+	</main>
+
+	<script>
+		let headingLineMap = [];
+		let syncLock = { editor: false, preview: false };
+		let headingCounter = 0;
+
+		function generateHeadingId(text) {
+			let id = text.replace(/\s+/g, '-').replace(/[^\w\u4e00-\u9fa5\-]/g, '').toLowerCase();
+			if (!id || id.length === 0) {
+				id = `heading-${++headingCounter}`;
+			}
+			return id;
+		}
+
+		function simpleMarkdownToHtml(md) {
+			const escapeHtml = s => s
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;');
+			headingCounter = 0;
+			let html = md.replace(/```([\s\S]*?)```/g, (m, code) => `<pre><code>${escapeHtml(code)}</code></pre>`);
+			html = html.replace(/^######\s+(.+)$/gm, (m, title) => `<h6 id="${generateHeadingId(title)}">${title}</h6>`)
+				.replace(/^#####\s+(.+)$/gm, (m, title) => `<h5 id="${generateHeadingId(title)}">${title}</h5>`)
+				.replace(/^####\s+(.+)$/gm, (m, title) => `<h4 id="${generateHeadingId(title)}">${title}</h4>`)
+				.replace(/^###\s+(.+)$/gm, (m, title) => `<h3 id="${generateHeadingId(title)}">${title}</h3>`)
+				.replace(/^##\s+(.+)$/gm, (m, title) => `<h2 id="${generateHeadingId(title)}">${title}</h2>`)
+				.replace(/^#\s+(.+)$/gm, (m, title) => `<h1 id="${generateHeadingId(title)}">${title}</h1>`);
+			html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1<\/strong>')
+				.replace(/\*(.*?)\*/g, '<em>$1<\/em>')
+				.replace(/`([^`]+)`/g, '<code>$1</code>')
+				.replace(/^>\s?(.+)$/gm, '<blockquote>$1</blockquote>')
+				.replace(/^\-\s+(.+)$/gm, '<li>$1</li>')
+				.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
+				.replace(/^(?!<h\d|<ul|<pre|<blockquote)(.+)$/gm, '<p>$1</p>');
+			return html;
+		}
+
+		function buildHeadingLineMap(md) {
+			const lines = md.split('\n');
+			const map = [];
+			headingCounter = 0;
+			lines.forEach((line, idx) => {
+				const match = line.match(/^(#{1,6})\s+(.+)$/);
+				if (match) {
+					const title = match[2];
+					const id = generateHeadingId(title);
+					map.push({ lineNumber: idx, id, title });
+				}
+			});
+			return map;
+		}
+
+		function buildToc(container, root) {
+			container.innerHTML = '';
+			const headings = root.querySelectorAll('h1, h2, h3');
+			headings.forEach(h => {
+				if (!h.id) return;
+				const a = document.createElement('a');
+				a.href = `#${h.id}`;
+				a.textContent = h.textContent;
+				a.className = `block pl-${h.tagName === 'H1' ? '0' : h.tagName === 'H2' ? '3' : '6'} py-1 text-mech-muted hover:text-black cursor-pointer`;
+				a.addEventListener('click', e => {
+					e.preventDefault();
+					syncScrollToHeading(h.id);
+				});
+				container.appendChild(a);
+			});
+
+			const intersectingHeadings = new Map();
+			const observer = new IntersectionObserver(entries => {
+				for (const entry of entries) {
+					if (entry.isIntersecting) {
+						intersectingHeadings.set(entry.target.id, entry);
+					} else {
+						intersectingHeadings.delete(entry.target.id);
+					}
+				}
+
+				let topmostEntry = null;
+				for (const entry of intersectingHeadings.values()) {
+					if (!topmostEntry || entry.boundingClientRect.top < topmostEntry.boundingClientRect.top) {
+						topmostEntry = entry;
+					}
+				}
+
+				container.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+				if (topmostEntry) {
+					const link = container.querySelector(`a[href="#${CSS.escape(topmostEntry.target.id)}"]`);
+					if (link) {
+						link.classList.add('active');
+					}
+				}
+			}, { root: document.getElementById('preview'), rootMargin: "0px 0px -80% 0px" });
+			headings.forEach(h => observer.observe(h));
+		}
+
+		function syncScrollToHeading(headingId) {
+			const editor = document.getElementById('editor');
+			const preview = document.getElementById('preview');
+
+			if (!headingId) return;
+			const target = preview.querySelector(`#${CSS.escape(headingId)}`);
+			if (!target) return;
+
+			// Temporarily disable sync listeners to prevent interference
+			editor.removeEventListener('scroll', syncScrollFromEditor);
+			preview.removeEventListener('scroll', syncScrollFromPreview);
+
+			const entry = headingLineMap.find(e => e.id === headingId);
+			if (entry) {
+				const lineHeight = parseInt(getComputedStyle(editor).lineHeight) || 20;
+				editor.scrollTop = entry.lineNumber * lineHeight;
+			}
+			target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+			// Re-enable listeners after a delay to allow smooth scroll to finish
+			setTimeout(() => {
+				editor.addEventListener('scroll', syncScrollFromEditor);
+				preview.addEventListener('scroll', syncScrollFromPreview);
+			}, 500);
+		}
+
+		function syncScrollFromEditor() {
+			if (syncLock.editor) return;
+			syncLock.preview = true;
+			const editor = document.getElementById('editor');
+			const preview = document.getElementById('preview');
+			const scrollRatio = editor.scrollTop / (editor.scrollHeight - editor.clientHeight || 1);
+			preview.scrollTop = scrollRatio * (preview.scrollHeight - preview.clientHeight);
+			setTimeout(() => { syncLock.preview = false; }, 100);
+		}
+
+		function syncScrollFromPreview() {
+			if (syncLock.preview) return;
+			syncLock.editor = true;
+			const editor = document.getElementById('editor');
+			const preview = document.getElementById('preview');
+			const scrollRatio = preview.scrollTop / (preview.scrollHeight - preview.clientHeight || 1);
+			editor.scrollTop = scrollRatio * (editor.scrollHeight - editor.clientHeight);
+			setTimeout(() => { syncLock.editor = false; }, 100);
+		}
+
+		async function loadReadme() {
+			const res = await fetch('/README.md');
+			const text = await res.text();
+			document.getElementById('editor').value = text;
+			render();
+		}
+
+		function render() {
+			const md = document.getElementById('editor').value;
+			const html = simpleMarkdownToHtml(md);
+			const preview = document.getElementById('preview');
+			headingLineMap = buildHeadingLineMap(md);
+			const theme = document.getElementById('themeSelect').value;
+			if (theme === 'github') {
+				preview.className = 'preview github-style h-[70vh] overflow-auto px-6 py-4';
+			} else if (theme === 'prose') {
+				preview.className = 'preview h-[70vh] overflow-auto px-6 py-4 prose prose-neutral max-w-none';
+			} else {
+				preview.className = 'preview h-[70vh] overflow-auto px-6 py-4';
+			}
+			preview.innerHTML = html;
+			buildToc(document.getElementById('toc'), preview);
+			preview.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(h => {
+				h.style.cursor = 'pointer';
+				h.addEventListener('click', () => syncScrollToHeading(h.id));
+			});
+		}
+
+		document.addEventListener('DOMContentLoaded', () => {
+			const editor = document.getElementById('editor');
+			const preview = document.getElementById('preview');
+			let typingTimer;
+			editor.addEventListener('input', () => {
+				clearTimeout(typingTimer);
+				typingTimer = setTimeout(render, 150);
+			});
+			editor.addEventListener('scroll', syncScrollFromEditor);
+			preview.addEventListener('scroll', syncScrollFromPreview);
+			document.getElementById('themeSelect').addEventListener('change', render);
+			document.getElementById('loadReadmeBtn').addEventListener('click', loadReadme);
+			document.getElementById('copyMdBtn').addEventListener('click', () => navigator.clipboard.writeText(editor.value));
+			document.getElementById('clearBtn').addEventListener('click', () => { editor.value = ''; render(); });
+			loadReadme();
+		});
+	</script>
+</body>
+</html>
+

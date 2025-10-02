@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<meta name="theme-color" content="#f7f7f8" />
+	<title>调色板生成器 | Mecha Tools</title>
+	<style>
+		.color-card {
+			transition: transform 0.2s ease, box-shadow 0.2s ease;
+			cursor: pointer;
+		}
+		.color-card:hover {
+			transform: translateY(-4px);
+			box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+		}
+		.color-card:active {
+			transform: translateY(-2px);
+		}
+		.toast {
+			position: fixed;
+			top: 24px;
+			right: 24px;
+			background: #10b981;
+			color: white;
+			padding: 12px 24px;
+			border-radius: 8px;
+			box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+			z-index: 1000;
+			animation: slideIn 0.3s ease;
+		}
+		@keyframes slideIn {
+			from {
+				transform: translateX(400px);
+				opacity: 0;
+			}
+			to {
+				transform: translateX(0);
+				opacity: 1;
+			}
+		}
+		.format-badge {
+			display: inline-block;
+			padding: 2px 8px;
+			font-size: 0.75rem;
+			border-radius: 4px;
+			background: #f3f4f6;
+			color: #6b7280;
+			font-family: 'Courier New', monospace;
+		}
+		.scheme-preview {
+			display: flex;
+			height: 4px;
+			border-radius: 2px;
+			overflow: hidden;
+			margin-top: 4px;
+		}
+	</style>
+  <link rel="stylesheet" crossorigin href="../../assets/index-FcVpvAF7.css">
+</head>
+<body class="min-h-screen bg-mech-bg text-mech-text antialiased">
+	<main class="max-w-6xl mx-auto px-4 py-8 space-y-8">
+		<header class="sticky top-0 z-30 border-b border-mech-edge/70 backdrop-blur bg-mech-bg/70 -mx-4 px-4 py-3">
+			<div class="flex items-center justify-between">
+				<a class="font-semibold tracking-wider hover:text-black" href="/index.html">Mecha Tools</a>
+				<a class="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors" href="https://tobenot.top/Tobenot-Web-Tools/">返回首页</a>
+			</div>
+		</header>
+
+		<section class="text-center space-y-3">
+			<h1 class="text-4xl font-bold tracking-wide bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+				调色板生成器
+			</h1>
+			<p class="text-mech-muted text-lg">生成和谐配色方案，一键复制多种颜色格式</p>
+		</section>
+
+		<section class="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle p-6 space-y-6">
+			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+				<div class="space-y-2">
+					<label class="block text-sm font-medium">基础颜色</label>
+					<div class="flex gap-2">
+						<input type="color" id="baseColor" value="#3b82f6" class="w-14 h-10 rounded-lg border-2 border-mech-edge cursor-pointer" />
+						<input type="text" id="colorInput" value="#3b82f6" placeholder="#3b82f6" class="flex-1 px-3 py-2 border border-mech-edge rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm" />
+					</div>
+				</div>
+
+				<div class="space-y-2">
+					<label class="block text-sm font-medium">配色方案</label>
+					<select id="schemeType" class="w-full px-3 py-2 border border-mech-edge rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+						<option value="monochromatic">单色系 Monochromatic</option>
+						<option value="analogous">类似色 Analogous</option>
+						<option value="complementary">互补色 Complementary</option>
+						<option value="triadic">三角色 Triadic</option>
+						<option value="tetradic">四角色 Tetradic</option>
+						<option value="splitComplementary">分离互补 Split</option>
+					</select>
+				</div>
+
+				<div class="space-y-2">
+					<label class="block text-sm font-medium">颜色数量</label>
+					<div class="flex items-center gap-3">
+						<input type="range" id="colorCount" min="3" max="12" value="6" class="flex-1" />
+						<span id="colorCountValue" class="text-lg font-semibold tabular-nums w-8 text-center">6</span>
+					</div>
+				</div>
+
+				<div class="space-y-2">
+					<label class="block text-sm font-medium">复制格式</label>
+					<select id="copyFormat" class="w-full px-3 py-2 border border-mech-edge rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+						<option value="hex">HEX</option>
+						<option value="rgb">RGB</option>
+						<option value="hsl">HSL</option>
+						<option value="hsv">HSV</option>
+					</select>
+				</div>
+			</div>
+
+			<div class="flex flex-wrap gap-3">
+				<button id="generateBtn" class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm">
+					生成调色板
+				</button>
+				<button id="randomBtn" class="px-5 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium shadow-sm">
+					随机颜色
+				</button>
+				<button id="exportBtn" class="px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium shadow-sm">
+					导出 JSON
+				</button>
+				<button id="copyAllBtn" class="px-5 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium shadow-sm">
+					复制全部
+				</button>
+			</div>
+		</section>
+
+		<section class="space-y-4">
+			<h2 class="text-2xl font-semibold">生成的调色板</h2>
+			<div id="paletteContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+			</div>
+		</section>
+
+		<section class="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle p-6">
+			<h3 class="text-lg font-semibold mb-4">快速转换</h3>
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+				<div>
+					<label class="block text-xs font-medium text-mech-muted mb-1">HEX</label>
+					<input type="text" id="hexValue" readonly class="w-full px-3 py-2 border border-mech-edge rounded-lg bg-white font-mono text-sm cursor-pointer hover:bg-neutral-50" placeholder="点击颜色卡片" />
+				</div>
+				<div>
+					<label class="block text-xs font-medium text-mech-muted mb-1">RGB</label>
+					<input type="text" id="rgbValue" readonly class="w-full px-3 py-2 border border-mech-edge rounded-lg bg-white font-mono text-sm cursor-pointer hover:bg-neutral-50" placeholder="点击颜色卡片" />
+				</div>
+				<div>
+					<label class="block text-xs font-medium text-mech-muted mb-1">HSL</label>
+					<input type="text" id="hslValue" readonly class="w-full px-3 py-2 border border-mech-edge rounded-lg bg-white font-mono text-sm cursor-pointer hover:bg-neutral-50" placeholder="点击颜色卡片" />
+				</div>
+				<div>
+					<label class="block text-xs font-medium text-mech-muted mb-1">HSV</label>
+					<input type="text" id="hsvValue" readonly class="w-full px-3 py-2 border border-mech-edge rounded-lg bg-white font-mono text-sm cursor-pointer hover:bg-neutral-50" placeholder="点击颜色卡片" />
+				</div>
+			</div>
+		</section>
+	</main>
+
+	<script>
+		class ColorConverter {
+			static hexToRgb(hex) {
+				const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+				return result ? {
+					r: parseInt(result[1], 16),
+					g: parseInt(result[2], 16),
+					b: parseInt(result[3], 16)
+				} : null;
+			}
+
+			static rgbToHex(r, g, b) {
+				return "#" + [r, g, b].map(x => {
+					const hex = x.toString(16);
+					return hex.length === 1 ? "0" + hex : hex;
+				}).join("");
+			}
+
+			static rgbToHsl(r, g, b) {
+				r /= 255;
+				g /= 255;
+				b /= 255;
+				const max = Math.max(r, g, b);
+				const min = Math.min(r, g, b);
+				let h, s, l = (max + min) / 2;
+
+				if (max === min) {
+					h = s = 0;
+				} else {
+					const d = max - min;
+					s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+					switch (max) {
+						case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+						case g: h = (b - r) / d + 2; break;
+						case b: h = (r - g) / d + 4; break;
+					}
+					h /= 6;
+				}
+				return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+			}
+
+			static rgbToHsv(r, g, b) {
+				r /= 255;
+				g /= 255;
+				b /= 255;
+				const max = Math.max(r, g, b);
+				const min = Math.min(r, g, b);
+				const diff = max - min;
+				let h, s, v = max;
+
+				s = max === 0 ? 0 : diff / max;
+
+				if (diff === 0) {
+					h = 0;
+				} else {
+					switch (max) {
+						case r: h = ((g - b) / diff) % 6; break;
+						case g: h = (b - r) / diff + 2; break;
+						case b: h = (r - g) / diff + 4; break;
+					}
+					h = (h * 60 + 360) % 360;
+				}
+
+				return { h: Math.round(h), s: Math.round(s * 100), v: Math.round(v * 100) };
+			}
+
+			static hslToRgb(h, s, l) {
+				h /= 360;
+				s /= 100;
+				l /= 100;
+				const c = (1 - Math.abs(2 * l - 1)) * s;
+				const x = c * (1 - Math.abs((h * 6) % 2 - 1));
+				const m = l - c / 2;
+				let r, g, b;
+
+				if (h < 1/6) { r = c; g = x; b = 0; }
+				else if (h < 2/6) { r = x; g = c; b = 0; }
+				else if (h < 3/6) { r = 0; g = c; b = x; }
+				else if (h < 4/6) { r = 0; g = x; b = c; }
+				else if (h < 5/6) { r = x; g = 0; b = c; }
+				else { r = c; g = 0; b = x; }
+
+				return {
+					r: Math.round((r + m) * 255),
+					g: Math.round((g + m) * 255),
+					b: Math.round((b + m) * 255)
+				};
+			}
+
+			static formatColor(hex, format) {
+				const rgb = this.hexToRgb(hex);
+				if (!rgb) return hex;
+
+				switch (format) {
+					case 'hex':
+						return hex;
+					case 'rgb':
+						return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+					case 'hsl':
+						const hsl = this.rgbToHsl(rgb.r, rgb.g, rgb.b);
+						return `hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)`;
+					case 'hsv':
+						const hsv = this.rgbToHsv(rgb.r, rgb.g, rgb.b);
+						return `hsv(${hsv.h}, ${hsv.s}%, ${hsv.v}%)`;
+					default:
+						return hex;
+				}
+			}
+		}
+
+		class PaletteGenerator {
+			static generate(baseColor, schemeType, count) {
+				const baseRgb = ColorConverter.hexToRgb(baseColor);
+				if (!baseRgb) return [];
+
+				const baseHsl = ColorConverter.rgbToHsl(baseRgb.r, baseRgb.g, baseRgb.b);
+				const colors = [];
+
+				for (let i = 0; i < count; i++) {
+					let newHsl = { ...baseHsl };
+					
+					switch (schemeType) {
+						case 'monochromatic':
+							newHsl.l = Math.max(10, Math.min(90, baseHsl.l + (i - Math.floor(count/2)) * (70 / count)));
+							break;
+						case 'analogous':
+							newHsl.h = (baseHsl.h + i * 30) % 360;
+							newHsl.l = Math.max(30, Math.min(70, baseHsl.l + (i % 3 - 1) * 15));
+							break;
+						case 'complementary':
+							newHsl.h = i % 2 === 0 ? baseHsl.h : (baseHsl.h + 180) % 360;
+							newHsl.l = Math.max(30, Math.min(70, baseHsl.l + (i % 3 - 1) * 20));
+							break;
+						case 'triadic':
+							newHsl.h = (baseHsl.h + Math.floor(i / 2) * 120) % 360;
+							newHsl.l = Math.max(30, Math.min(70, baseHsl.l + (i % 2 ? 15 : -15)));
+							break;
+						case 'tetradic':
+							newHsl.h = (baseHsl.h + Math.floor(i / 2) * 90) % 360;
+							newHsl.l = Math.max(30, Math.min(70, baseHsl.l + (i % 2 ? 15 : -15)));
+							break;
+						case 'splitComplementary':
+							const offsets = [0, 150, 210];
+							newHsl.h = (baseHsl.h + offsets[i % 3]) % 360;
+							newHsl.l = Math.max(30, Math.min(70, baseHsl.l + (i % 3 - 1) * 15));
+							break;
+					}
+
+					const newRgb = ColorConverter.hslToRgb(newHsl.h, newHsl.s, newHsl.l);
+					colors.push(ColorConverter.rgbToHex(newRgb.r, newRgb.g, newRgb.b));
+				}
+
+				return colors;
+			}
+		}
+
+		class UI {
+			static showToast(message) {
+				const toast = document.createElement('div');
+				toast.className = 'toast';
+				toast.textContent = message;
+				document.body.appendChild(toast);
+				setTimeout(() => toast.remove(), 2000);
+			}
+
+			static copyToClipboard(text) {
+				navigator.clipboard.writeText(text).then(() => {
+					this.showToast(`已复制：${text}`);
+				});
+			}
+
+			static updateFormatDisplay(hex) {
+				const rgb = ColorConverter.hexToRgb(hex);
+				if (!rgb) return;
+
+				const hsl = ColorConverter.rgbToHsl(rgb.r, rgb.g, rgb.b);
+				const hsv = ColorConverter.rgbToHsv(rgb.r, rgb.g, rgb.b);
+
+				document.getElementById('hexValue').value = hex;
+				document.getElementById('rgbValue').value = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+				document.getElementById('hslValue').value = `hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)`;
+				document.getElementById('hsvValue').value = `hsv(${hsv.h}, ${hsv.s}%, ${hsv.v}%)`;
+			}
+
+			static renderPalette(colors, format) {
+				const container = document.getElementById('paletteContainer');
+				container.innerHTML = '';
+
+				colors.forEach(color => {
+					const rgb = ColorConverter.hexToRgb(color);
+					const brightness = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+					const textColor = brightness > 128 ? '#000000' : '#ffffff';
+
+					const card = document.createElement('div');
+					card.className = 'color-card bg-white border border-mech-edge rounded-xl shadow-subtle overflow-hidden';
+					card.innerHTML = `
+						<div class="relative h-28 flex items-center justify-center" style="background-color: ${color}">
+							<span class="format-badge" style="background: ${textColor}22; color: ${textColor}; font-weight: 600;">${ColorConverter.formatColor(color, format)}</span>
+						</div>
+						<div class="p-3 text-center">
+							<div class="font-mono text-sm font-semibold">${color}</div>
+							<div class="text-xs text-mech-muted mt-1">点击复制</div>
+						</div>
+					`;
+					
+					card.addEventListener('click', () => {
+						const formattedColor = ColorConverter.formatColor(color, format);
+						UI.copyToClipboard(formattedColor);
+						UI.updateFormatDisplay(color);
+					});
+					
+					container.appendChild(card);
+				});
+			}
+		}
+
+		document.addEventListener('DOMContentLoaded', function() {
+			const baseColorInput = document.getElementById('baseColor');
+			const colorInput = document.getElementById('colorInput');
+			const schemeType = document.getElementById('schemeType');
+			const colorCount = document.getElementById('colorCount');
+			const colorCountValue = document.getElementById('colorCountValue');
+			const copyFormat = document.getElementById('copyFormat');
+			const generateBtn = document.getElementById('generateBtn');
+			const randomBtn = document.getElementById('randomBtn');
+			const exportBtn = document.getElementById('exportBtn');
+			const copyAllBtn = document.getElementById('copyAllBtn');
+
+			let currentPalette = [];
+
+			function generatePalette() {
+				const colors = PaletteGenerator.generate(
+					colorInput.value,
+					schemeType.value,
+					parseInt(colorCount.value)
+				);
+				currentPalette = colors;
+				UI.renderPalette(colors, copyFormat.value);
+				if (colors.length > 0) {
+					UI.updateFormatDisplay(colors[0]);
+				}
+			}
+
+			baseColorInput.addEventListener('input', function() {
+				colorInput.value = this.value;
+				generatePalette();
+			});
+
+			colorInput.addEventListener('input', function() {
+				if (this.value.match(/^#[0-9A-Fa-f]{6}$/)) {
+					baseColorInput.value = this.value;
+					generatePalette();
+				}
+			});
+
+			colorCount.addEventListener('input', function() {
+				colorCountValue.textContent = this.value;
+				generatePalette();
+			});
+
+			schemeType.addEventListener('change', generatePalette);
+			copyFormat.addEventListener('change', () => {
+				if (currentPalette.length > 0) {
+					UI.renderPalette(currentPalette, copyFormat.value);
+				}
+			});
+
+			generateBtn.addEventListener('click', generatePalette);
+			
+			randomBtn.addEventListener('click', function() {
+				const randomColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+				baseColorInput.value = randomColor;
+				colorInput.value = randomColor;
+				generatePalette();
+			});
+
+			exportBtn.addEventListener('click', function() {
+				if (currentPalette.length === 0) return;
+				
+				const palette = {
+					name: 'Generated Palette',
+					scheme: schemeType.value,
+					baseColor: colorInput.value,
+					colors: currentPalette,
+					timestamp: new Date().toISOString()
+				};
+				
+				const dataStr = JSON.stringify(palette, null, 2);
+				const dataBlob = new Blob([dataStr], {type: 'application/json'});
+				const url = URL.createObjectURL(dataBlob);
+				
+				const link = document.createElement('a');
+				link.href = url;
+				link.download = `palette-${Date.now()}.json`;
+				link.click();
+				
+				URL.revokeObjectURL(url);
+				UI.showToast('已导出调色板');
+			});
+
+			copyAllBtn.addEventListener('click', function() {
+				if (currentPalette.length === 0) return;
+				
+				const format = copyFormat.value;
+				const formatted = currentPalette.map(c => ColorConverter.formatColor(c, format)).join('\n');
+				UI.copyToClipboard(formatted);
+			});
+
+			['hexValue', 'rgbValue', 'hslValue', 'hsvValue'].forEach(id => {
+				document.getElementById(id).addEventListener('click', function() {
+					if (this.value) {
+						UI.copyToClipboard(this.value);
+					}
+				});
+			});
+
+			generatePalette();
+		});
+	</script>
+</body>
+</html>
