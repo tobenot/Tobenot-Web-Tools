@@ -1,8 +1,0 @@
-{
-	"title": "Markdown 阅读器",
-	"description": "左侧编辑右侧预览，支持目录与标题跳转，可一键载入 README.md",
-	"version": "1.0.0",
-	"updatedAt": "2025-10-02",
-	"tags": ["markdown", "reader", "design-doc"]
-}
-
