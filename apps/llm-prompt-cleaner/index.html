@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<meta name="theme-color" content="#f4f6f8" />
+	<title>LLM Prompt 清洗工具 | Mecha Tools</title>
+	<style>
+		:root {
+			--bg-color: #f4f6f8;
+			--card-bg: #ffffff;
+			--primary-color: #2563eb;
+			--hover-color: #1d4ed8;
+			--text-color: #1e293b;
+			--border-color: #cbd5e1;
+		}
+
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+			background-color: var(--bg-color);
+			color: var(--text-color);
+			margin: 0;
+			padding: 20px;
+			height: 100vh;
+			box-sizing: border-box;
+			display: flex;
+			flex-direction: column;
+		}
+
+		h1 {
+			font-size: 1.5rem;
+			margin: 0 0 10px 0;
+			color: #333;
+			text-align: center;
+		}
+
+		.top-nav {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			margin-bottom: 12px;
+			gap: 8px;
+		}
+
+		.top-nav a {
+			color: #0f172a;
+			text-decoration: none;
+			font-size: 14px;
+			padding: 6px 10px;
+			border-radius: 6px;
+			border: 1px solid var(--border-color);
+			background: #fff;
+		}
+
+		.top-nav a:hover {
+			background: #eef2ff;
+		}
+
+		.container {
+			display: flex;
+			flex: 1;
+			gap: 20px;
+			height: calc(100% - 60px);
+		}
+
+		@media (max-width: 768px) {
+			.container {
+				flex-direction: column;
+				height: auto;
+			}
+		}
+
+		.box {
+			flex: 1;
+			display: flex;
+			flex-direction: column;
+			background: var(--card-bg);
+			border-radius: 8px;
+			box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+			padding: 15px;
+			border: 1px solid var(--border-color);
+			min-height: 260px;
+		}
+
+		.box-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin-bottom: 10px;
+			font-weight: 600;
+			color: #64748b;
+		}
+
+		textarea {
+			flex: 1;
+			width: 100%;
+			border: 1px solid var(--border-color);
+			border-radius: 6px;
+			padding: 10px;
+			font-size: 14px;
+			line-height: 1.6;
+			resize: none;
+			box-sizing: border-box;
+			font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+		}
+
+		textarea:focus {
+			outline: 2px solid var(--primary-color);
+			border-color: transparent;
+		}
+
+		.controls {
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			gap: 10px;
+			padding: 0 10px;
+		}
+
+		@media (max-width: 768px) {
+			.controls {
+				flex-direction: row;
+				flex-wrap: wrap;
+				padding: 0;
+			}
+		}
+
+		button {
+			background-color: var(--primary-color);
+			color: white;
+			border: none;
+			padding: 10px 16px;
+			border-radius: 6px;
+			cursor: pointer;
+			font-size: 14px;
+			transition: background 0.2s;
+			white-space: nowrap;
+		}
+
+		button:hover {
+			background-color: var(--hover-color);
+		}
+
+		button.secondary {
+			background-color: #64748b;
+		}
+
+		button.secondary:hover {
+			background-color: #475569;
+		}
+
+		button.success {
+			background-color: #10b981;
+		}
+
+		button.success:hover {
+			background-color: #059669;
+		}
+
+		.stats {
+			margin-top: 5px;
+			font-size: 12px;
+			color: #64748b;
+		}
+
+		.badge {
+			background: #e2e8f0;
+			padding: 2px 6px;
+			border-radius: 4px;
+			color: #334155;
+			font-weight: bold;
+			display: none;
+		}
+	</style>
+  <link rel="stylesheet" crossorigin href="../../assets/index-BYN6lzpW.css">
+</head>
+<body>
+	<nav class="top-nav">
+		<a href="/index.html">Mecha Tools</a>
+		<a href="https://tobenot.top/Tobenot-Web-Tools/">返回首页</a>
+	</nav>
+
+	<h1>🧹 LLM 文本清洗工具 (Token 优化)</h1>
+
+	<div class="container">
+		<div class="box">
+			<div class="box-header">
+				<span>原始文本</span>
+				<button class="secondary" onclick="clearAll()" style="padding: 4px 8px; font-size: 12px;">清空</button>
+			</div>
+			<textarea id="inputText" placeholder="请在此粘贴杂乱的文本..."></textarea>
+			<div class="stats" id="inputStats">字符数: 0 | 行数: 0</div>
+		</div>
+
+		<div class="controls">
+			<button class="success" onclick="oneClickClean()" title="去多余换行、多余空格、双引号">一键处理</button>
+			<button onclick="smartMerge()" title="连接断开的中文句子和数字单位，保留段落结构">✨ 智能去换行</button>
+			<button class="secondary" onclick="removeExtraSpaces()" title="仅把多个空格变成一个空格">去除多余空格</button>
+			<button class="secondary" onclick="removeQuotes()" title="去掉所有双引号">去除双引号</button>
+			<button class="secondary" onclick="compressAll()" title="变成一整段">暴力压缩 (无换行)</button>
+		</div>
+
+		<div class="box">
+			<div class="box-header">
+				<span>清洗后文本</span>
+				<span class="badge" id="savingsBadge">减少 0%</span>
+			</div>
+			<textarea id="outputText" readonly placeholder="处理结果将显示在这里..."></textarea>
+			<div class="stats" id="outputStats">字符数: 0 | 行数: 0</div>
+			<button id="copyBtn" class="success" onclick="copyResult()" style="margin-top: 10px;">📋 复制结果</button>
+		</div>
+	</div>
+
+	<script>
+		const inputEl = document.getElementById('inputText');
+		const outputEl = document.getElementById('outputText');
+		const inputStats = document.getElementById('inputStats');
+		const outputStats = document.getElementById('outputStats');
+		const savingsBadge = document.getElementById('savingsBadge');
+		const copyBtn = document.getElementById('copyBtn');
+
+		inputEl.addEventListener('input', () => {
+			updateStats(inputEl.value, inputStats);
+		});
+
+		function removeExtraSpaces() {
+			let text = inputEl.value;
+			text = text.replace(/[ \t|]+/g, ' ');
+			text = text.replace(/\n\s*\n/g, '\n');
+			text = text.split('\n').map(line => line.trim()).join('\n');
+			text = text.replace(/｜ /g, '');
+			setOutput(text);
+		}
+
+		function oneClickClean() {
+			let text = inputEl.value;
+			text = text.replace(/\r\n/g, '\n');
+			text = text.replace(/\n\s*\n/g, '\n');
+			text = text.split('\n').map(line => line.trim()).join('\n');
+			text = text.replace(/[ \t]+/g, ' ');
+			text = text.replace(/"/g, '');
+			text = text.replace(/\|/g, '');
+			setOutput(text);
+		}
+
+		function removeQuotes() {
+			let text = inputEl.value;
+			text = text.replace(/"/g, '');
+			text = text.replace(/\|/g, '');
+			setOutput(text);
+		}
+
+		function compressAll() {
+			let text = inputEl.value;
+			text = text.replace(/\s+/g, ' ');
+			text = text.replace(/\|/g, '');
+			setOutput(text);
+		}
+
+		function smartMerge() {
+			let text = inputEl.value;
+			text = text.replace(/\r\n/g, '\n');
+			text = text.replace(/\|/g, '');
+			text = text.split('\n').map(line => line.trim()).filter(line => line !== '').join('\n');
+			text = text.replace(/(\d+)\n([\u4e00-\u9fa5])/g, '$1$2');
+			text = text.replace(/([\u4e00-\u9fa5])\n([\u4e00-\u9fa5])/g, '$1$2');
+			text = text.replace(/([\u4e00-\u9fa5])\n(\d+)/g, '$1$2');
+			text = text.replace(/([，、：])\n([\u4e00-\u9fa5])/g, '$1$2');
+			setOutput(text);
+		}
+
+		function setOutput(text) {
+			outputEl.value = text;
+			updateStats(text, outputStats);
+			calculateSavings();
+		}
+
+		function updateStats(text, element) {
+			const charCount = text.length;
+			const lineCount = text ? text.split(/\r\n|\r|\n/).length : 0;
+			element.textContent = `字符数: ${charCount} | 行数: ${lineCount}`;
+		}
+
+		function calculateSavings() {
+			const inLen = inputEl.value.length;
+			const outLen = outputEl.value.length;
+			if (inLen <= 0) {
+				savingsBadge.style.display = 'none';
+				return;
+			}
+			const diff = inLen - outLen;
+			const percent = ((diff / inLen) * 100).toFixed(1);
+			savingsBadge.style.display = 'inline-block';
+			savingsBadge.textContent = `减少 ${diff} 字符 (${percent}%)`;
+			savingsBadge.style.background = diff > 0 ? '#dcfce7' : '#e2e8f0';
+			savingsBadge.style.color = diff > 0 ? '#166534' : '#334155';
+		}
+
+		function clearAll() {
+			inputEl.value = '';
+			outputEl.value = '';
+			updateStats('', inputStats);
+			updateStats('', outputStats);
+			savingsBadge.style.display = 'none';
+		}
+
+		async function copyResult() {
+			if (!outputEl.value) return;
+			const originalText = copyBtn.innerText;
+			try {
+				await navigator.clipboard.writeText(outputEl.value);
+				copyBtn.innerText = '✅ 已复制!';
+				setTimeout(() => {
+					copyBtn.innerText = originalText;
+				}, 2000);
+			} catch (error) {
+				copyBtn.innerText = '复制失败';
+				setTimeout(() => {
+					copyBtn.innerText = originalText;
+				}, 2000);
+			}
+		}
+	</script>
+</body>
+</html>
