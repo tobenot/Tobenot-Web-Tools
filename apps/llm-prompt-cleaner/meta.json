@@ -1,0 +1,7 @@
+{
+	"title": "LLM Prompt 清洗工具",
+	"description": "清洗文本中的空格、换行、引号，降低提示词冗余。",
+	"version": "0.1.0",
+	"updatedAt": "2026-03-04",
+	"tags": ["llm", "prompt", "text", "cleaner", "token"]
+}
