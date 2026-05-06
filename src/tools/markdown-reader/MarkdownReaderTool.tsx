@@ -70,6 +70,31 @@ function processData(data) {
 
 [查看完整文档](https://example.com/docs)`
 
+/* ─── 基础排版恢复（抵消 Tailwind Preflight reset） ─── */
+const BASE_PREVIEW_CSS = `
+  .md-preview { font-family: 'PingFang SC','Microsoft YaHei',sans-serif; line-height: 1.8; color: #333; padding: 20px 30px; }
+  .md-preview h1 { font-size: 2em; font-weight: bold; margin: 0.67em 0; }
+  .md-preview h2 { font-size: 1.5em; font-weight: bold; margin: 0.83em 0; }
+  .md-preview h3 { font-size: 1.25em; font-weight: bold; margin: 1em 0; }
+  .md-preview h4 { font-size: 1.1em; font-weight: bold; margin: 1em 0; }
+  .md-preview h5, .md-preview h6 { font-size: 1em; font-weight: bold; margin: 1em 0; }
+  .md-preview p { margin: 1em 0; }
+  .md-preview ul { list-style: disc; padding-left: 2em; margin: 1em 0; }
+  .md-preview ol { list-style: decimal; padding-left: 2em; margin: 1em 0; }
+  .md-preview li { margin: 0.5em 0; }
+  .md-preview blockquote { margin: 1em 0; padding: 10px 20px; border-left: 4px solid #ddd; background: #f9f9f9; }
+  .md-preview pre { margin: 1em 0; padding: 16px; background: #f6f8fa; border-radius: 6px; overflow-x: auto; }
+  .md-preview code { font-family: Menlo,Monaco,Consolas,"Courier New",monospace; font-size: 0.9em; }
+  .md-preview a { color: #3498db; text-decoration: underline; }
+  .md-preview img { max-width: 100%; height: auto; }
+  .md-preview hr { border: none; border-top: 1px solid #eee; margin: 2em 0; }
+  .md-preview table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+  .md-preview th, .md-preview td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+  .md-preview th { background: #f6f8fa; font-weight: 600; }
+  .md-preview strong { font-weight: bold; }
+  .md-preview em { font-style: italic; }
+`
+
 /* ─── 各风格的 CSS（嵌入 style 标签） ─── */
 const STYLE_CSS: Record<StyleKey, string> = {
   xiaohongshu: `
@@ -273,7 +298,7 @@ export function MarkdownReaderTool() {
   return (
     <div className="flex flex-col" style={{ height: 'calc(100vh - 80px)' }}>
       {/* 样式注入 */}
-      <style>{Object.values(STYLE_CSS).join('\n')}</style>
+      <style>{BASE_PREVIEW_CSS + '\n' + Object.values(STYLE_CSS).join('\n')}</style>
 
       {/* 工具栏 */}
       <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-gray-200 bg-white shrink-0">
