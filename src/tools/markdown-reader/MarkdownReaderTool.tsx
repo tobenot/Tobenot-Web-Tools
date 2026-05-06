@@ -172,10 +172,13 @@ export function MarkdownReaderTool() {
   const [ready, setReady] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [tocOpen, setTocOpen] = useState(true)
+  const [syncScroll, setSyncScroll] = useState(true)
   const [activeHeadingId, setActiveHeadingId] = useState<string>('')
   const previewRef = useRef<HTMLDivElement>(null)
   const previewWrapRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const scrollSyncSourceRef = useRef<'editor' | 'preview' | null>(null)
+  const scrollSyncTimerRef = useRef<number | null>(null)
 
   /* 加载外部脚本 */
   useEffect(() => {
@@ -215,33 +218,76 @@ export function MarkdownReaderTool() {
     return items
   }, [html])
 
-  /* 滚动高亮：监听预览区域的 scroll 事件 */
+  const resetScrollSyncSource = useCallback(() => {
+    if (scrollSyncTimerRef.current !== null) {
+      window.clearTimeout(scrollSyncTimerRef.current)
+    }
+    scrollSyncTimerRef.current = window.setTimeout(() => {
+      scrollSyncSourceRef.current = null
+      scrollSyncTimerRef.current = null
+    }, 120)
+  }, [])
+
+  const syncScrollByRatio = useCallback((source: HTMLElement, target: HTMLElement) => {
+    const sourceMax = source.scrollHeight - source.clientHeight
+    const targetMax = target.scrollHeight - target.clientHeight
+    target.scrollTop = sourceMax > 0 ? (source.scrollTop / sourceMax) * targetMax : 0
+  }, [])
+
+  const syncEditorToPreview = useCallback(() => {
+    const editor = textareaRef.current
+    const preview = previewWrapRef.current
+    if (!syncScroll || !editor || !preview || scrollSyncSourceRef.current === 'preview') return
+    scrollSyncSourceRef.current = 'editor'
+    syncScrollByRatio(editor, preview)
+    resetScrollSyncSource()
+  }, [resetScrollSyncSource, syncScroll, syncScrollByRatio])
+
+  const syncPreviewToEditor = useCallback(() => {
+    const editor = textareaRef.current
+    const preview = previewWrapRef.current
+    if (!syncScroll || !editor || !preview || scrollSyncSourceRef.current === 'editor') return
+    scrollSyncSourceRef.current = 'preview'
+    syncScrollByRatio(preview, editor)
+    resetScrollSyncSource()
+  }, [resetScrollSyncSource, syncScroll, syncScrollByRatio])
+
+  useEffect(() => () => {
+    if (scrollSyncTimerRef.current !== null) {
+      window.clearTimeout(scrollSyncTimerRef.current)
+    }
+  }, [])
+
+  /* 滚动高亮 + 预览到编辑器同步：监听预览区域的 scroll 事件 */
   useEffect(() => {
     const container = previewWrapRef.current
-    if (!container || tocItems.length === 0) return
+    if (!container) return
 
     const handleScroll = () => {
-      const headings = container.querySelectorAll<HTMLElement>('[id^="toc-heading-"]')
-      let currentId = ''
-      const offset = 60 // 视口偏移量
+      if (tocItems.length > 0) {
+        const headings = container.querySelectorAll<HTMLElement>('[id^="toc-heading-"]')
+        let currentId = ''
+        const offset = 60 // 视口偏移量
 
-      for (const heading of headings) {
-        const rect = heading.getBoundingClientRect()
-        const containerRect = container.getBoundingClientRect()
-        if (rect.top - containerRect.top <= offset) {
-          currentId = heading.id
-        } else {
-          break
+        for (const heading of headings) {
+          const rect = heading.getBoundingClientRect()
+          const containerRect = container.getBoundingClientRect()
+          if (rect.top - containerRect.top <= offset) {
+            currentId = heading.id
+          } else {
+            break
+          }
         }
+        setActiveHeadingId(currentId || (tocItems[0]?.id ?? ''))
       }
-      setActiveHeadingId(currentId || (tocItems[0]?.id ?? ''))
+      syncPreviewToEditor()
     }
 
     container.addEventListener('scroll', handleScroll, { passive: true })
     // 初始化
     handleScroll()
     return () => container.removeEventListener('scroll', handleScroll)
-  }, [tocItems])
+  }, [syncPreviewToEditor, tocItems])
 
   /* 点击 TOC 跳转 */
   const scrollToHeading = useCallback((id: string) => {
@@ -405,10 +451,17 @@ export function MarkdownReaderTool() {
         <div className="w-px h-6 bg-gray-300 mx-1" />
 
         <button
-          onClick={() => setTocOpen(prev => !prev)}
+          onClick={() => setTocOpen(!tocOpen)}
           className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${tocOpen ? 'bg-indigo-500 text-white hover:bg-indigo-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
         >
           📑 目录
+        </button>
+        <button
+          onClick={() => setSyncScroll(!syncScroll)}
+          className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${syncScroll ? 'bg-rose-500 text-white hover:bg-rose-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+          title="编辑器与预览区双向滚动同步"
+        >
+          📍 同步滚动
         </button>
 
         <div className="ml-auto">
@@ -432,6 +485,7 @@ export function MarkdownReaderTool() {
             ref={textareaRef}
             value={md}
             onChange={(e) => setMd(e.target.value)}
+            onScroll={syncEditorToPreview}
             className="w-full h-full resize-none p-4 text-sm leading-relaxed border-r border-gray-200 bg-white focus:outline-none font-mono"
             placeholder="在此输入 Markdown..."
           />
