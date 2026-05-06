@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 /* ─── marked CDN 动态加载 ─── */
 declare global {
@@ -70,6 +70,13 @@ function processData(data) {
 
 [查看完整文档](https://example.com/docs)`
 
+/* ─── TOC 类型 ─── */
+interface TocItem {
+  id: string
+  text: string
+  level: number
+}
+
 /* ─── 基础排版恢复（抵消 Tailwind Preflight reset） ─── */
 const BASE_PREVIEW_CSS = `
   .md-preview { font-family: 'PingFang SC','Microsoft YaHei',sans-serif; line-height: 1.8; color: #333; padding: 20px 30px; }
@@ -93,6 +100,12 @@ const BASE_PREVIEW_CSS = `
   .md-preview th { background: #f6f8fa; font-weight: 600; }
   .md-preview strong { font-weight: bold; }
   .md-preview em { font-style: italic; }
+
+  /* ─── TOC 面板样式 ─── */
+  .toc-panel { font-size: 13px; line-height: 1.6; }
+  .toc-panel .toc-item { display: block; padding: 3px 8px; border-radius: 4px; cursor: pointer; color: #555; text-decoration: none; transition: all 0.15s ease; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .toc-panel .toc-item:hover { background: #f0f4ff; color: #4f46e5; }
+  .toc-panel .toc-item.active { background: #eef2ff; color: #4338ca; font-weight: 600; border-left: 3px solid #4f46e5; padding-left: 5px; }
 `
 
 /* ─── 各风格的 CSS（嵌入 style 标签） ─── */
@@ -158,7 +171,10 @@ export function MarkdownReaderTool() {
   const [html, setHtml] = useState('')
   const [ready, setReady] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [tocOpen, setTocOpen] = useState(true)
+  const [activeHeadingId, setActiveHeadingId] = useState<string>('')
   const previewRef = useRef<HTMLDivElement>(null)
+  const previewWrapRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   /* 加载外部脚本 */
@@ -173,11 +189,70 @@ export function MarkdownReaderTool() {
   useEffect(() => {
     if (!ready) return
     try {
-      setHtml(window.marked.parse(md))
+      // 解析并为标题注入 id
+      let parsed = window.marked.parse(md) as string
+      let headingIndex = 0
+      parsed = parsed.replace(/<h([1-6])([^>]*)>(.*?)<\/h[1-6]>/gi, (_match, level, attrs, content) => {
+        const id = `toc-heading-${headingIndex++}`
+        return `<h${level}${attrs} id="${id}">${content}</h${level}>`
+      })
+      setHtml(parsed)
     } catch {
       setHtml('<p style="color:red">Markdown 解析错误</p>')
     }
   }, [md, ready])
+
+  /* 从 html 中提取 TOC 项 */
+  const tocItems: TocItem[] = useMemo(() => {
+    const items: TocItem[] = []
+    const regex = /<h([1-6])[^>]*id="(toc-heading-\d+)"[^>]*>(.*?)<\/h[1-6]>/gi
+    let match: RegExpExecArray | null
+    while ((match = regex.exec(html)) !== null) {
+      // 去掉 html 标签以获取纯文本
+      const text = match[3].replace(/<[^>]*>/g, '')
+      items.push({ id: match[2], text, level: parseInt(match[1]) })
+    }
+    return items
+  }, [html])
+
+  /* 滚动高亮：监听预览区域的 scroll 事件 */
+  useEffect(() => {
+    const container = previewWrapRef.current
+    if (!container || tocItems.length === 0) return
+
+    const handleScroll = () => {
+      const headings = container.querySelectorAll<HTMLElement>('[id^="toc-heading-"]')
+      let currentId = ''
+      const offset = 60 // 视口偏移量
+
+      for (const heading of headings) {
+        const rect = heading.getBoundingClientRect()
+        const containerRect = container.getBoundingClientRect()
+        if (rect.top - containerRect.top <= offset) {
+          currentId = heading.id
+        } else {
+          break
+        }
+      }
+      setActiveHeadingId(currentId || (tocItems[0]?.id ?? ''))
+    }
+
+    container.addEventListener('scroll', handleScroll, { passive: true })
+    // 初始化
+    handleScroll()
+    return () => container.removeEventListener('scroll', handleScroll)
+  }, [tocItems])
+
+  /* 点击 TOC 跳转 */
+  const scrollToHeading = useCallback((id: string) => {
+    const container = previewWrapRef.current
+    if (!container) return
+    const el = container.querySelector(`#${id}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      setActiveHeadingId(id)
+    }
+  }, [])
 
   /* 辅助编辑 */
   const wrapSelection = useCallback((before: string, after: string) => {
@@ -327,6 +402,15 @@ export function MarkdownReaderTool() {
           导出全部页面
         </button>
 
+        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+        <button
+          onClick={() => setTocOpen(prev => !prev)}
+          className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${tocOpen ? 'bg-indigo-500 text-white hover:bg-indigo-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+        >
+          📑 目录
+        </button>
+
         <div className="ml-auto">
           <select
             value={style}
@@ -353,18 +437,39 @@ export function MarkdownReaderTool() {
           />
         </div>
 
-        {/* 预览 */}
-        <div className="flex-1 min-w-0 min-h-0 overflow-auto">
-          {!ready ? (
-            <div className="flex items-center justify-center h-full text-gray-500 text-sm">加载渲染引擎中...</div>
-          ) : (
-            <div
-              ref={previewRef}
-              className={`md-preview style-${style}`}
-              style={{ lineHeight: 1.8, minHeight: '100%' }}
-              dangerouslySetInnerHTML={{ __html: html }}
-            />
+        {/* 预览 + TOC */}
+        <div className="flex-1 min-w-0 min-h-0 flex">
+          {/* TOC 侧栏 */}
+          {tocOpen && tocItems.length > 0 && (
+            <div className="toc-panel w-48 shrink-0 border-r border-gray-200 bg-gray-50/80 overflow-y-auto p-3">
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">📑 目录导航</div>
+              {tocItems.map(item => (
+                <div
+                  key={item.id}
+                  className={`toc-item ${activeHeadingId === item.id ? 'active' : ''}`}
+                  style={{ paddingLeft: `${(item.level - 1) * 12 + 8}px` }}
+                  onClick={() => scrollToHeading(item.id)}
+                  title={item.text}
+                >
+                  {item.text}
+                </div>
+              ))}
+            </div>
           )}
+
+          {/* 预览内容 */}
+          <div ref={previewWrapRef} className="flex-1 min-w-0 min-h-0 overflow-auto">
+            {!ready ? (
+              <div className="flex items-center justify-center h-full text-gray-500 text-sm">加载渲染引擎中...</div>
+            ) : (
+              <div
+                ref={previewRef}
+                className={`md-preview style-${style}`}
+                style={{ lineHeight: 1.8, minHeight: '100%' }}
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>
