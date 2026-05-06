@@ -298,10 +298,14 @@ export default function App() {
   return (
     <Layout>
       <Header />
-      <main className="max-w-6xl mx-auto px-6 pb-16 pt-8">
+      {route.path === 'markdown-reader' && (
+        <main className="w-full px-4 pb-16 pt-8">
+          <MarkdownReaderTool />
+        </main>
+      )}
+      <main className={`max-w-6xl mx-auto px-6 pb-16 pt-8${route.path === 'markdown-reader' ? ' hidden' : ''}`}>
         {route.path === '' && <Home />}
         {route.path === 'calendar' && <CalendarTool />}
-        {route.path === 'markdown-reader' && <MarkdownReaderTool />}
         {route.path === 'changelog' && (
           <div className="relative bg-white border-2 border-gray-200 p-6">
             <div 

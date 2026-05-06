@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ToolLayout } from '../../components/ToolLayout'
 
 /* ─── marked CDN 动态加载 ─── */
 declare global {
@@ -272,21 +271,12 @@ export function MarkdownReaderTool() {
   }, [])
 
   return (
-    <ToolLayout
-      title="Markdown 阅读器"
-      description="精美的 Markdown 实时预览，支持多种风格切换与图片导出。"
-      designNotes={[
-        '支持小红书、简约清新、深夜模式、少女粉、商务五种预设风格',
-        '快捷工具栏插入 Markdown 语法',
-        '支持导出当前预览为高清 PNG 图片',
-        '支持多屏分页导出',
-      ]}
-    >
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 80px)' }}>
       {/* 样式注入 */}
       <style>{Object.values(STYLE_CSS).join('\n')}</style>
 
       {/* 工具栏 */}
-      <div className="flex flex-wrap items-center gap-2 mb-4 pb-3 border-b border-gray-200">
+      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-gray-200 bg-white shrink-0">
         <button onClick={() => wrapSelection('**', '**')} className="px-3 py-1.5 text-sm font-medium bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors">加粗</button>
         <button onClick={() => wrapSelection('*', '*')} className="px-3 py-1.5 text-sm font-medium bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors">斜体</button>
         <button onClick={() => insertAtLineStart('## ')} className="px-3 py-1.5 text-sm font-medium bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors">标题</button>
@@ -325,21 +315,21 @@ export function MarkdownReaderTool() {
         </div>
       </div>
 
-      {/* 编辑器 + 预览双栏 */}
-      <div className="flex flex-col lg:flex-row gap-4" style={{ minHeight: '60vh' }}>
+      {/* 编辑器 + 预览双栏（撑满剩余高度） */}
+      <div className="flex flex-col lg:flex-row flex-1 min-h-0">
         {/* 编辑器 */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 min-h-0">
           <textarea
             ref={textareaRef}
             value={md}
             onChange={(e) => setMd(e.target.value)}
-            className="w-full h-full min-h-[400px] lg:min-h-0 resize-none p-4 text-sm leading-relaxed border-2 border-gray-200 rounded bg-white focus:border-indigo-400 focus:outline-none font-mono"
+            className="w-full h-full resize-none p-4 text-sm leading-relaxed border-r border-gray-200 bg-white focus:outline-none font-mono"
             placeholder="在此输入 Markdown..."
           />
         </div>
 
         {/* 预览 */}
-        <div className="flex-1 min-w-0 overflow-auto border-2 border-gray-200 rounded">
+        <div className="flex-1 min-w-0 min-h-0 overflow-auto">
           {!ready ? (
             <div className="flex items-center justify-center h-full text-gray-500 text-sm">加载渲染引擎中...</div>
           ) : (
@@ -352,6 +342,6 @@ export function MarkdownReaderTool() {
           )}
         </div>
       </div>
-    </ToolLayout>
+    </div>
   )
 }
