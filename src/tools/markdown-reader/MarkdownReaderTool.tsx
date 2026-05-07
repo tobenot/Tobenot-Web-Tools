@@ -24,12 +24,39 @@ function loadScript(src: string): Promise<void> {
   })
 }
 
-function normalizeMermaidBlocks(html: string): string {
+type KrokiDiagramType = 'plantuml' | 'graphviz'
+
+const KROKI_DIAGRAM_ENDPOINTS: Record<KrokiDiagramType, string> = {
+  plantuml: 'plantuml',
+  graphviz: 'graphviz',
+}
+
+const KROKI_DIAGRAM_LABELS: Record<KrokiDiagramType, string> = {
+  plantuml: 'PlantUML',
+  graphviz: 'Graphviz',
+}
+
+function isKrokiDiagramType(type: string | undefined): type is KrokiDiagramType {
+  return type === 'plantuml' || type === 'graphviz'
+}
+
+function normalizeDiagramBlocks(html: string): string {
   return html.replace(
-    /<pre><code class="[^"]*\blanguage-mermaid\b[^"]*">([\s\S]*?)<\/code><\/pre>/gi,
-    '<div class="mermaid">$1</div>',
+    /<pre><code class="[^"]*\blanguage-([a-z0-9_-]+)\b[^"]*">([\s\S]*?)<\/code><\/pre>/gi,
+    (match, rawLanguage: string, content: string) => {
+      const language = rawLanguage.toLowerCase()
+      if (language === 'mermaid') return `<div class="mermaid">${content}</div>`
+      if (language === 'plantuml' || language === 'puml') {
+        return `<div class="kroki-diagram" data-diagram-type="plantuml"><pre class="kroki-source">${content}</pre><div class="kroki-output">PlantUML 图表渲染中...</div></div>`
+      }
+      if (language === 'graphviz' || language === 'dot') {
+        return `<div class="kroki-diagram" data-diagram-type="graphviz"><pre class="kroki-source">${content}</pre><div class="kroki-output">Graphviz 图表渲染中...</div></div>`
+      }
+      return match
+    },
   )
 }
+
 
 /* ─── 样式定义 ─── */
 
@@ -113,10 +140,18 @@ const BASE_PREVIEW_CSS = `
   .md-preview th { background: #f6f8fa; font-weight: 600; }
   .md-preview strong { font-weight: bold; }
   .md-preview em { font-style: italic; }
-  .md-preview .mermaid { margin: 1.5em 0; padding: 16px; overflow-x: auto; text-align: center; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; }
-  .md-preview .mermaid svg { max-width: 100%; height: auto; }
-  .md-preview .mermaid-error { margin: 1em 0; padding: 12px; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; white-space: pre-wrap; text-align: left; }
-  .style-dark .mermaid { background: #252525; border-color: #3a3a3a; }
+  .md-preview .mermaid,
+  .md-preview .kroki-diagram { margin: 1.5em 0; padding: 16px; overflow-x: auto; text-align: center; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; }
+  .md-preview .mermaid svg,
+  .md-preview .kroki-output img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+
+  .md-preview .kroki-source { display: none; }
+  .md-preview .kroki-output { min-height: 24px; }
+  .md-preview .mermaid-error,
+  .md-preview .kroki-error { margin: 1em 0; padding: 12px; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; white-space: pre-wrap; text-align: left; }
+  .style-dark .mermaid,
+  .style-dark .kroki-diagram { background: #252525; border-color: #3a3a3a; }
+
 
   /* ─── TOC 面板样式 ─── */
 
@@ -250,7 +285,8 @@ export function MarkdownReaderTool() {
     if (!ready) return
     try {
       // 解析并为标题注入 id
-      let parsed = normalizeMermaidBlocks(window.marked.parse(md) as string)
+      let parsed = normalizeDiagramBlocks(window.marked.parse(md) as string)
+
       let headingIndex = 0
       parsed = parsed.replace(/<h([1-6])([^>]*)>(.*?)<\/h[1-6]>/gi, (_match, level, attrs, content) => {
         const id = `toc-heading-${headingIndex++}`
@@ -292,9 +328,76 @@ export function MarkdownReaderTool() {
     return () => window.clearTimeout(timer)
   }, [html, mermaidReady, ready, style])
 
-  /* 从 html 中提取 TOC 项 */
+  /* 渲染 PlantUML / Graphviz 图表 */
+  useEffect(() => {
+    if (!ready || !html) return
 
+    const controller = new AbortController()
+    const objectUrls: string[] = []
+
+    const timer = window.setTimeout(() => {
+      const nodes: HTMLElement[] = previewRef.current
+        ? Array.from(previewRef.current.querySelectorAll<HTMLElement>('.kroki-diagram[data-diagram-type]'))
+        : []
+
+      nodes.forEach((node) => {
+        void (async () => {
+          const type = node.dataset.diagramType
+          if (!isKrokiDiagramType(type)) return
+
+          const label = KROKI_DIAGRAM_LABELS[type]
+          const source = node.querySelector<HTMLElement>('.kroki-source')?.textContent?.trim()
+          const output = node.querySelector<HTMLElement>('.kroki-output')
+          if (!source || !output) return
+
+          output.classList.remove('kroki-error')
+          output.textContent = `${label} 图表渲染中...`
+
+          try {
+            const response = await fetch(`https://kroki.io/${KROKI_DIAGRAM_ENDPOINTS[type]}/svg`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+              body: source,
+              signal: controller.signal,
+            })
+
+            if (!response.ok) {
+              const message = await response.text()
+              throw new Error(message || `HTTP ${response.status}`)
+            }
+
+            const svg = await response.text()
+            if (controller.signal.aborted) return
+
+            const objectUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
+            objectUrls.push(objectUrl)
+
+            const img = document.createElement('img')
+            img.src = objectUrl
+            img.alt = `${label} 图表`
+
+            output.textContent = ''
+            output.appendChild(img)
+          } catch (error) {
+            if (controller.signal.aborted) return
+            console.error(`${label} 渲染失败`, error)
+            output.classList.add('kroki-error')
+            output.textContent = `${label} 渲染失败：${error instanceof Error ? error.message : String(error)}`
+          }
+        })()
+      })
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+      objectUrls.forEach((url) => URL.revokeObjectURL(url))
+    }
+  }, [html, ready, style])
+
+  /* 从 html 中提取 TOC 项 */
   const tocItems: TocItem[] = useMemo(() => {
+
     const items: TocItem[] = []
     const regex = /<h([1-6])[^>]*id="(toc-heading-\d+)"[^>]*>(.*?)<\/h[1-6]>/gi
     let match: RegExpExecArray | null
