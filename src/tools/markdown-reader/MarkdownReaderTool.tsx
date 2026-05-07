@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-/* ─── marked CDN 动态加载 ─── */
+/* ─── CDN 动态加载 ─── */
 declare global {
   interface Window {
     marked: { parse: (md: string) => string }
     html2canvas: (el: HTMLElement, opts?: any) => Promise<HTMLCanvasElement>
+    mermaid: {
+      initialize: (config: Record<string, unknown>) => void
+      run: (options?: { nodes?: HTMLElement[] }) => Promise<void>
+    }
   }
 }
+
 
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -19,7 +24,15 @@ function loadScript(src: string): Promise<void> {
   })
 }
 
+function normalizeMermaidBlocks(html: string): string {
+  return html.replace(
+    /<pre><code class="[^"]*\blanguage-mermaid\b[^"]*">([\s\S]*?)<\/code><\/pre>/gi,
+    '<div class="mermaid">$1</div>',
+  )
+}
+
 /* ─── 样式定义 ─── */
+
 type StyleKey = 'xiaohongshu' | 'clean' | 'dark' | 'pink' | 'business'
 
 const STYLE_OPTIONS: { key: StyleKey; label: string }[] = [
@@ -100,8 +113,13 @@ const BASE_PREVIEW_CSS = `
   .md-preview th { background: #f6f8fa; font-weight: 600; }
   .md-preview strong { font-weight: bold; }
   .md-preview em { font-style: italic; }
+  .md-preview .mermaid { margin: 1.5em 0; padding: 16px; overflow-x: auto; text-align: center; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; }
+  .md-preview .mermaid svg { max-width: 100%; height: auto; }
+  .md-preview .mermaid-error { margin: 1em 0; padding: 12px; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; white-space: pre-wrap; text-align: left; }
+  .style-dark .mermaid { background: #252525; border-color: #3a3a3a; }
 
   /* ─── TOC 面板样式 ─── */
+
   .toc-panel { font-size: 13px; line-height: 1.6; }
   .toc-panel .toc-item { display: block; padding: 3px 8px; border-radius: 4px; cursor: pointer; color: #555; text-decoration: none; transition: all 0.15s ease; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .toc-panel .toc-item:hover { background: #f0f4ff; color: #4f46e5; }
@@ -170,7 +188,9 @@ export function MarkdownReaderTool() {
   const [style, setStyle] = useState<StyleKey>('business')
   const [html, setHtml] = useState('')
   const [ready, setReady] = useState(false)
+  const [mermaidReady, setMermaidReady] = useState(false)
   const [exporting, setExporting] = useState(false)
+
   const [tocOpen, setTocOpen] = useState(true)
   const [syncScroll, setSyncScroll] = useState(true)
   const [activeHeadingId, setActiveHeadingId] = useState<string>('')
@@ -186,26 +206,62 @@ export function MarkdownReaderTool() {
       loadScript('https://cdn.jsdelivr.net/npm/marked/marked.min.js'),
       loadScript('https://html2canvas.hertzen.com/dist/html2canvas.min.js'),
     ]).then(() => setReady(true))
+
+    loadScript('https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js')
+      .then(() => setMermaidReady(true))
+      .catch((error) => console.error('Mermaid 加载失败', error))
   }, [])
+
 
   /* 渲染 Markdown */
   useEffect(() => {
     if (!ready) return
     try {
       // 解析并为标题注入 id
-      let parsed = window.marked.parse(md) as string
+      let parsed = normalizeMermaidBlocks(window.marked.parse(md) as string)
       let headingIndex = 0
       parsed = parsed.replace(/<h([1-6])([^>]*)>(.*?)<\/h[1-6]>/gi, (_match, level, attrs, content) => {
         const id = `toc-heading-${headingIndex++}`
         return `<h${level}${attrs} id="${id}">${content}</h${level}>`
       })
       setHtml(parsed)
+
     } catch {
       setHtml('<p style="color:red">Markdown 解析错误</p>')
     }
   }, [md, ready])
 
+  /* 渲染 Mermaid 图表 */
+  useEffect(() => {
+    if (!ready || !mermaidReady || !html || !window.mermaid) return
+
+    window.mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      theme: style === 'dark' ? 'dark' : 'default',
+    })
+
+    const timer = window.setTimeout(() => {
+      const nodes: HTMLElement[] = previewRef.current
+        ? Array.from(previewRef.current.querySelectorAll<HTMLElement>('.mermaid'))
+        : []
+      if (nodes.length === 0) return
+
+
+      window.mermaid.run({ nodes }).catch((error) => {
+        console.error('Mermaid 渲染失败', error)
+        nodes.forEach((node) => {
+          node.classList.add('mermaid-error')
+          node.textContent = `Mermaid 渲染失败：${error instanceof Error ? error.message : String(error)}`
+        })
+      })
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [html, mermaidReady, ready, style])
+
   /* 从 html 中提取 TOC 项 */
+
   const tocItems: TocItem[] = useMemo(() => {
     const items: TocItem[] = []
     const regex = /<h([1-6])[^>]*id="(toc-heading-\d+)"[^>]*>(.*?)<\/h[1-6]>/gi
@@ -517,11 +573,13 @@ export function MarkdownReaderTool() {
               <div className="flex items-center justify-center h-full text-gray-500 text-sm">加载渲染引擎中...</div>
             ) : (
               <div
+                key={style}
                 ref={previewRef}
                 className={`md-preview style-${style}`}
                 style={{ lineHeight: 1.8, minHeight: '100%' }}
                 dangerouslySetInnerHTML={{ __html: html }}
               />
+
             )}
           </div>
         </div>
