@@ -11,6 +11,14 @@ const globalChangelog: ChangelogEntry[] = [
   { date: '2025-08-08', title: '项目初始化', notes: ['添加首页导航与机械风主题', '实现日历工具 v0.1（支持哈希分享 `?d=YYYY-MM-DD`）', '加入通用工具模板（分享、设计、更新日志）', '配置 GitHub Pages 自动部署'] },
 ]
 
+const pageTitleMap: Record<string, string> = {
+  '': 'Mecha Tools | 现代机械风 Web 工具站',
+  calendar: '日历工具 | Mecha Tools',
+  'markdown-reader': 'Markdown 阅读器 | Mecha Tools',
+  changelog: '更新日志 | Mecha Tools',
+  about: '关于与设计 | Mecha Tools'
+}
+
 function Home() {
   const apps = getHtmlApps()
   const [searchTerm, setSearchTerm] = useState('')
@@ -294,6 +302,10 @@ export default function App() {
   }, [])
 
   const route = useMemo(() => getHashLocation(), [hashKey])
+
+  useEffect(() => {
+    document.title = pageTitleMap[route.path] ?? 'Mecha Tools | 现代机械风 Web 工具站'
+  }, [route.path])
 
   return (
     <Layout hideFooter={route.path === 'markdown-reader'}>
