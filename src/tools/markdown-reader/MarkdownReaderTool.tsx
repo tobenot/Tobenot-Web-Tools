@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
+
 
 /* ─── CDN 动态加载 ─── */
 declare global {
@@ -221,6 +223,10 @@ const STYLE_CSS: Record<StyleKey, string> = {
 /* ─── localStorage 持久化 ─── */
 const STORAGE_KEY_MD = 'md-reader:content'
 const STORAGE_KEY_STYLE = 'md-reader:style'
+const STORAGE_KEY_EDITOR_WIDTH = 'md-reader:editor-width'
+const DEFAULT_EDITOR_WIDTH = 36
+const MIN_EDITOR_WIDTH = 24
+const MAX_EDITOR_WIDTH = 55
 
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
@@ -229,6 +235,20 @@ function loadFromStorage<T>(key: string, fallback: T): T {
   } catch { /* 无痕模式或存储不可用 */ }
   return fallback
 }
+
+function clampEditorWidth(value: number): number {
+  return Math.min(MAX_EDITOR_WIDTH, Math.max(MIN_EDITOR_WIDTH, value))
+}
+
+function loadEditorWidthFromStorage(): number {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_EDITOR_WIDTH)
+    const value = raw === null ? Number.NaN : Number(raw)
+    if (Number.isFinite(value)) return clampEditorWidth(value)
+  } catch { /* ignore */ }
+  return DEFAULT_EDITOR_WIDTH
+}
+
 
 export function MarkdownReaderTool() {
   const [md, setMd] = useState(() => loadFromStorage(STORAGE_KEY_MD, DEFAULT_MD))
@@ -241,11 +261,15 @@ export function MarkdownReaderTool() {
   const [tocOpen, setTocOpen] = useState(true)
   const [syncScroll, setSyncScroll] = useState(true)
   const [activeHeadingId, setActiveHeadingId] = useState<string>('')
+  const [editorWidth, setEditorWidth] = useState(loadEditorWidthFromStorage)
+  const [isResizingColumns, setIsResizingColumns] = useState(false)
+  const layoutRef = useRef<HTMLDivElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const previewWrapRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const scrollSyncSourceRef = useRef<'editor' | 'preview' | null>(null)
   const scrollSyncTimerRef = useRef<number | null>(null)
+
 
   /* 自动保存到 localStorage（防抖 500ms） */
   const saveTimerRef = useRef<number | null>(null)
@@ -267,7 +291,14 @@ export function MarkdownReaderTool() {
     } catch { /* ignore */ }
   }, [style])
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_EDITOR_WIDTH, String(editorWidth))
+    } catch { /* ignore */ }
+  }, [editorWidth])
+
   /* 加载外部脚本 */
+
   useEffect(() => {
     Promise.all([
       loadScript('https://cdn.jsdelivr.net/npm/marked/marked.min.js'),
@@ -443,6 +474,50 @@ export function MarkdownReaderTool() {
     resetScrollSyncSource()
   }, [resetScrollSyncSource, syncScroll, syncScrollByRatio])
 
+  const updateEditorWidthByPointer = useCallback((clientX: number) => {
+    const layout = layoutRef.current
+    if (!layout) return
+    const rect = layout.getBoundingClientRect()
+    if (rect.width <= 0) return
+    setEditorWidth(clampEditorWidth(((clientX - rect.left) / rect.width) * 100))
+  }, [])
+
+  const startColumnResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    updateEditorWidthByPointer(event.clientX)
+    setIsResizingColumns(true)
+  }, [updateEditorWidthByPointer])
+
+  const handleResizeKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+    event.preventDefault()
+    setEditorWidth((current) => clampEditorWidth(current + (event.key === 'ArrowRight' ? 2 : -2)))
+  }, [])
+
+  useEffect(() => {
+    if (!isResizingColumns) return
+
+    const originalCursor = document.body.style.cursor
+    const originalUserSelect = document.body.style.userSelect
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const handlePointerMove = (event: PointerEvent) => updateEditorWidthByPointer(event.clientX)
+    const stopResize = () => setIsResizingColumns(false)
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', stopResize)
+    window.addEventListener('pointercancel', stopResize)
+
+    return () => {
+      document.body.style.cursor = originalCursor
+      document.body.style.userSelect = originalUserSelect
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', stopResize)
+      window.removeEventListener('pointercancel', stopResize)
+    }
+  }, [isResizingColumns, updateEditorWidthByPointer])
+
   useEffect(() => () => {
     if (scrollSyncTimerRef.current !== null) {
       window.clearTimeout(scrollSyncTimerRef.current)
@@ -450,6 +525,7 @@ export function MarkdownReaderTool() {
   }, [])
 
   /* 滚动高亮 + 预览到编辑器同步：监听预览区域的 scroll 事件 */
+
   useEffect(() => {
     const container = previewWrapRef.current
     if (!container) return
@@ -655,7 +731,22 @@ export function MarkdownReaderTool() {
           📍 同步滚动
         </button>
 
+        <label className="hidden lg:flex items-center gap-2 px-2 text-xs text-gray-500">
+          左栏
+          <input
+            type="range"
+            min={MIN_EDITOR_WIDTH}
+            max={MAX_EDITOR_WIDTH}
+            value={editorWidth}
+            onChange={(e) => setEditorWidth(clampEditorWidth(Number(e.target.value)))}
+            className="w-24 accent-indigo-500"
+            title="调整编辑区宽度"
+          />
+          <span className="w-9 text-right text-gray-600">{Math.round(editorWidth)}%</span>
+        </label>
+
         <div className="ml-auto">
+
           <select
             value={style}
             onChange={(e) => setStyle(e.target.value as StyleKey)}
@@ -669,9 +760,9 @@ export function MarkdownReaderTool() {
       </div>
 
       {/* 编辑器 + 预览双栏（撑满剩余高度） */}
-      <div className="flex flex-col lg:flex-row flex-1 min-h-0">
+      <div ref={layoutRef} className="flex flex-col lg:flex-row flex-1 min-h-0">
         {/* 编辑器 */}
-        <div className="flex-1 min-w-0 min-h-0">
+        <div className="min-w-0 min-h-0" style={{ flex: `0 0 ${editorWidth}%` }}>
           <textarea
             ref={textareaRef}
             value={md}
@@ -682,8 +773,22 @@ export function MarkdownReaderTool() {
           />
         </div>
 
+        <div
+          role="separator"
+          aria-label="调整编辑区和预览区宽度"
+          aria-orientation="vertical"
+          tabIndex={0}
+          onPointerDown={startColumnResize}
+          onKeyDown={handleResizeKeyDown}
+          className={`hidden lg:flex w-2 shrink-0 cursor-col-resize items-center justify-center border-x border-gray-200 bg-gray-100 transition-colors hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-300 ${isResizingColumns ? 'bg-indigo-100' : ''}`}
+          title="拖动调整左右栏宽度，或用左右方向键微调"
+        >
+          <div className="h-10 w-0.5 rounded-full bg-gray-300" />
+        </div>
+
         {/* 预览 + TOC */}
         <div className="flex-1 min-w-0 min-h-0 flex">
+
           {/* TOC 侧栏 */}
           {tocOpen && tocItems.length > 0 && (
             <div className="toc-panel w-48 shrink-0 overscroll-contain border-r border-gray-200 bg-gray-50/80 overflow-y-auto p-3">
