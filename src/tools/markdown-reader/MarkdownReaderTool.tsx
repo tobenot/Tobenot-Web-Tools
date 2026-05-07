@@ -183,9 +183,21 @@ const STYLE_CSS: Record<StyleKey, string> = {
   `,
 }
 
+/* ─── localStorage 持久化 ─── */
+const STORAGE_KEY_MD = 'md-reader:content'
+const STORAGE_KEY_STYLE = 'md-reader:style'
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw !== null) return raw as unknown as T
+  } catch { /* 无痕模式或存储不可用 */ }
+  return fallback
+}
+
 export function MarkdownReaderTool() {
-  const [md, setMd] = useState(DEFAULT_MD)
-  const [style, setStyle] = useState<StyleKey>('business')
+  const [md, setMd] = useState(() => loadFromStorage(STORAGE_KEY_MD, DEFAULT_MD))
+  const [style, setStyle] = useState<StyleKey>(() => loadFromStorage<StyleKey>(STORAGE_KEY_STYLE, 'business'))
   const [html, setHtml] = useState('')
   const [ready, setReady] = useState(false)
   const [mermaidReady, setMermaidReady] = useState(false)
@@ -199,6 +211,26 @@ export function MarkdownReaderTool() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const scrollSyncSourceRef = useRef<'editor' | 'preview' | null>(null)
   const scrollSyncTimerRef = useRef<number | null>(null)
+
+  /* 自动保存到 localStorage（防抖 500ms） */
+  const saveTimerRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = window.setTimeout(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY_MD, md)
+      } catch { /* quota exceeded or unavailable */ }
+    }, 500)
+    return () => {
+      if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
+    }
+  }, [md])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_STYLE, style)
+    } catch { /* ignore */ }
+  }, [style])
 
   /* 加载外部脚本 */
   useEffect(() => {
