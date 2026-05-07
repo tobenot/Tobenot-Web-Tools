@@ -417,7 +417,7 @@ export function MarkdownReaderTool() {
   }, [])
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 80px)' }}>
+    <div className="flex flex-col overflow-hidden" style={{ height: '100%' }}>
       {/* 样式注入 */}
       <style>{BASE_PREVIEW_CSS + '\n' + Object.values(STYLE_CSS).join('\n')}</style>
 
@@ -486,7 +486,7 @@ export function MarkdownReaderTool() {
             value={md}
             onChange={(e) => setMd(e.target.value)}
             onScroll={syncEditorToPreview}
-            className="w-full h-full resize-none p-4 text-sm leading-relaxed border-r border-gray-200 bg-white focus:outline-none font-mono"
+            className="w-full h-full resize-none overscroll-contain p-4 text-sm leading-relaxed border-r border-gray-200 bg-white focus:outline-none font-mono"
             placeholder="在此输入 Markdown..."
           />
         </div>
@@ -495,7 +495,7 @@ export function MarkdownReaderTool() {
         <div className="flex-1 min-w-0 min-h-0 flex">
           {/* TOC 侧栏 */}
           {tocOpen && tocItems.length > 0 && (
-            <div className="toc-panel w-48 shrink-0 border-r border-gray-200 bg-gray-50/80 overflow-y-auto p-3">
+            <div className="toc-panel w-48 shrink-0 overscroll-contain border-r border-gray-200 bg-gray-50/80 overflow-y-auto p-3">
               <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">📑 目录导航</div>
               {tocItems.map(item => (
                 <div
@@ -512,7 +512,7 @@ export function MarkdownReaderTool() {
           )}
 
           {/* 预览内容 */}
-          <div ref={previewWrapRef} className="flex-1 min-w-0 min-h-0 overflow-auto">
+          <div ref={previewWrapRef} className="flex-1 min-w-0 min-h-0 overflow-auto overscroll-contain">
             {!ready ? (
               <div className="flex items-center justify-center h-full text-gray-500 text-sm">加载渲染引擎中...</div>
             ) : (

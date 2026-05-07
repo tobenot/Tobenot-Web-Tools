@@ -296,10 +296,10 @@ export default function App() {
   const route = useMemo(() => getHashLocation(), [hashKey])
 
   return (
-    <Layout>
+    <Layout hideFooter={route.path === 'markdown-reader'}>
       <Header />
       {route.path === 'markdown-reader' && (
-        <main className="w-full px-4 pb-16 pt-8">
+        <main className="w-full overflow-hidden p-4" style={{ height: 'calc(100vh - 66px)' }}>
           <MarkdownReaderTool />
         </main>
       )}

@@ -1,9 +1,14 @@
 import { PropsWithChildren } from 'react'
 
-export function Layout({ children }: PropsWithChildren) {
+interface LayoutProps extends PropsWithChildren {
+  hideFooter?: boolean
+}
+
+export function Layout({ children, hideFooter = false }: LayoutProps) {
   return (
     <div className="min-h-full bg-white">
       {children}
+      {!hideFooter && (
       <footer className="max-w-6xl mx-auto px-6 pb-12 pt-16">
         <div className="relative bg-white border-2 border-gray-200 p-6">
           {/* 顶部彩色装饰线 */}
@@ -39,6 +44,7 @@ export function Layout({ children }: PropsWithChildren) {
           </div>
         </div>
       </footer>
+      )}
       
       {/* 内联CSS动画 */}
       <style>{`
