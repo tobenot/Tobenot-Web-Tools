@@ -119,6 +119,11 @@ interface TocItem {
   level: number
 }
 
+interface ReadingProgress {
+  scrollTop: number
+  scrollRatio: number
+}
+
 /* ─── 基础排版恢复（抵消 Tailwind Preflight reset） ─── */
 const BASE_PREVIEW_CSS = `
   .md-preview { font-family: 'PingFang SC','Microsoft YaHei',sans-serif; line-height: 1.8; color: #333; padding: 20px 30px; }
@@ -229,7 +234,6 @@ const DEFAULT_EDITOR_WIDTH = 36
 const MIN_EDITOR_WIDTH = 24
 const MAX_EDITOR_WIDTH = 55
 
-
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key)
@@ -251,12 +255,7 @@ function loadEditorWidthFromStorage(): number {
   return DEFAULT_EDITOR_WIDTH
 }
 
-interface ReadingProgress {
-  previewRatio: number
-  editorRatio: number
-}
-
-function clampScrollRatio(value: number): number {
+function clampReadingRatio(value: number): number {
   if (!Number.isFinite(value)) return 0
   return Math.min(1, Math.max(0, value))
 }
@@ -266,18 +265,29 @@ function loadReadingProgressFromStorage(): ReadingProgress | null {
     const raw = localStorage.getItem(STORAGE_KEY_READING_PROGRESS)
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<ReadingProgress>
+    const scrollTop = Number(parsed.scrollTop)
+    const scrollRatio = Number(parsed.scrollRatio)
     return {
-      previewRatio: clampScrollRatio(Number(parsed.previewRatio)),
-      editorRatio: clampScrollRatio(Number(parsed.editorRatio)),
+      scrollTop: Number.isFinite(scrollTop) ? Math.max(0, scrollTop) : 0,
+      scrollRatio: clampReadingRatio(scrollRatio),
     }
-  } catch {
-    return null
-  }
+  } catch { /* ignore */ }
+  return null
+}
+
+function getScrollRatio(element: HTMLElement): number {
+  const max = element.scrollHeight - element.clientHeight
+  return max > 0 ? clampReadingRatio(element.scrollTop / max) : 0
+}
+
+function getScrollTopFromProgress(element: HTMLElement, progress: ReadingProgress): number {
+  const max = Math.max(0, element.scrollHeight - element.clientHeight)
+  const scrollTop = max > 0 ? progress.scrollRatio * max : progress.scrollTop
+  return Math.min(max, Math.max(0, scrollTop))
 }
 
 
 export function MarkdownReaderTool() {
-
   const [md, setMd] = useState(() => loadFromStorage(STORAGE_KEY_MD, DEFAULT_MD))
   const [style, setStyle] = useState<StyleKey>(() => loadFromStorage<StyleKey>(STORAGE_KEY_STYLE, 'business'))
   const [html, setHtml] = useState('')
@@ -296,9 +306,8 @@ export function MarkdownReaderTool() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const scrollSyncSourceRef = useRef<'editor' | 'preview' | null>(null)
   const scrollSyncTimerRef = useRef<number | null>(null)
-  const readingProgressRef = useRef<ReadingProgress | null>(loadReadingProgressFromStorage())
-  const hasRestoredReadingProgressRef = useRef(false)
-
+  const readingProgressSaveTimerRef = useRef<number | null>(null)
+  const readingProgressRestoredRef = useRef(false)
 
 
   /* 自动保存到 localStorage（防抖 500ms） */
@@ -470,6 +479,53 @@ export function MarkdownReaderTool() {
     return items
   }, [html])
 
+  const saveReadingProgressNow = useCallback(() => {
+    const container = previewWrapRef.current
+    if (!container) return
+    const progress: ReadingProgress = {
+      scrollTop: container.scrollTop,
+      scrollRatio: getScrollRatio(container),
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY_READING_PROGRESS, JSON.stringify(progress))
+    } catch { /* ignore */ }
+  }, [])
+
+  const saveReadingProgress = useCallback(() => {
+    if (!readingProgressRestoredRef.current) return
+    if (readingProgressSaveTimerRef.current !== null) {
+      window.clearTimeout(readingProgressSaveTimerRef.current)
+    }
+    readingProgressSaveTimerRef.current = window.setTimeout(() => {
+      saveReadingProgressNow()
+      readingProgressSaveTimerRef.current = null
+    }, 120)
+  }, [saveReadingProgressNow])
+
+  const restoreReadingProgress = useCallback(() => {
+    const container = previewWrapRef.current
+    if (!container) return
+    const progress = loadReadingProgressFromStorage()
+    if (progress) {
+      container.scrollTop = getScrollTopFromProgress(container, progress)
+    }
+    readingProgressRestoredRef.current = true
+  }, [])
+
+  useEffect(() => {
+    if (!ready || !html || readingProgressRestoredRef.current) return
+    const frame = window.requestAnimationFrame(restoreReadingProgress)
+    return () => window.cancelAnimationFrame(frame)
+  }, [html, ready, restoreReadingProgress])
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (readingProgressRestoredRef.current) saveReadingProgressNow()
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [saveReadingProgressNow])
+
   const resetScrollSyncSource = useCallback(() => {
     if (scrollSyncTimerRef.current !== null) {
       window.clearTimeout(scrollSyncTimerRef.current)
@@ -504,31 +560,7 @@ export function MarkdownReaderTool() {
     resetScrollSyncSource()
   }, [resetScrollSyncSource, syncScroll, syncScrollByRatio])
 
-  const persistReadingProgress = useCallback(() => {
-    const preview = previewWrapRef.current
-    const editor = textareaRef.current
-    if (!preview && !editor) return
-
-    const previewMax = preview ? preview.scrollHeight - preview.clientHeight : 0
-    const editorMax = editor ? editor.scrollHeight - editor.clientHeight : 0
-    const nextProgress: ReadingProgress = {
-      previewRatio: preview && previewMax > 0 ? clampScrollRatio(preview.scrollTop / previewMax) : 0,
-      editorRatio: editor && editorMax > 0 ? clampScrollRatio(editor.scrollTop / editorMax) : 0,
-    }
-
-    readingProgressRef.current = nextProgress
-    try {
-      localStorage.setItem(STORAGE_KEY_READING_PROGRESS, JSON.stringify(nextProgress))
-    } catch { /* ignore */ }
-  }, [])
-
-  const handleEditorScroll = useCallback(() => {
-    syncEditorToPreview()
-    persistReadingProgress()
-  }, [persistReadingProgress, syncEditorToPreview])
-
   const updateEditorWidthByPointer = useCallback((clientX: number) => {
-
     const layout = layoutRef.current
     if (!layout) return
     const rect = layout.getBoundingClientRect()
@@ -602,46 +634,16 @@ export function MarkdownReaderTool() {
         setActiveHeadingId(currentId || (tocItems[0]?.id ?? ''))
       }
       syncPreviewToEditor()
-      persistReadingProgress()
+      saveReadingProgress()
     }
-
 
     container.addEventListener('scroll', handleScroll, { passive: true })
     // 初始化
     handleScroll()
     return () => container.removeEventListener('scroll', handleScroll)
-  }, [persistReadingProgress, syncPreviewToEditor, tocItems])
-
-  useEffect(() => {
-    if (!ready || !html || hasRestoredReadingProgressRef.current) return
-
-    const progress = readingProgressRef.current
-    hasRestoredReadingProgressRef.current = true
-    if (!progress) return
-
-    const restoreTimer = window.setTimeout(() => {
-      const preview = previewWrapRef.current
-      const editor = textareaRef.current
-
-      if (preview) {
-        const previewMax = preview.scrollHeight - preview.clientHeight
-        preview.scrollTop = previewMax > 0 ? clampScrollRatio(progress.previewRatio) * previewMax : 0
-      }
-      if (editor) {
-        const editorMax = editor.scrollHeight - editor.clientHeight
-        editor.scrollTop = editorMax > 0 ? clampScrollRatio(progress.editorRatio) * editorMax : 0
-      }
-    }, 0)
-
-    return () => window.clearTimeout(restoreTimer)
-  }, [html, ready])
-
-  useEffect(() => () => {
-    persistReadingProgress()
-  }, [persistReadingProgress])
+  }, [saveReadingProgress, syncPreviewToEditor, tocItems])
 
   /* 点击 TOC 跳转 */
-
   const scrollToHeading = useCallback((id: string) => {
     const container = previewWrapRef.current
     if (!container) return
@@ -852,8 +854,7 @@ export function MarkdownReaderTool() {
             ref={textareaRef}
             value={md}
             onChange={(e) => setMd(e.target.value)}
-            onScroll={handleEditorScroll}
-
+            onScroll={syncEditorToPreview}
             className="w-full h-full resize-none overscroll-contain p-4 text-sm leading-relaxed border-r border-gray-200 bg-white focus:outline-none font-mono"
             placeholder="在此输入 Markdown..."
           />
