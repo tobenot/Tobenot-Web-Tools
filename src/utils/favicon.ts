@@ -28,6 +28,7 @@ export const faviconMap: Record<string, string> = {
     innerSvg: '<rect x="17" y="19" width="30" height="28" rx="4" fill="none" stroke="#fff" stroke-width="4"/><path d="M17 28h30M25 15v8M39 15v8" stroke="#fff" stroke-width="4" stroke-linecap="round"/><circle cx="25" cy="36" r="2.5" fill="#fff"/><circle cx="32" cy="36" r="2.5" fill="#fff"/><circle cx="39" cy="36" r="2.5" fill="#fff"/>'
   }),
   'markdown-reader': createFavicon({ bg: '#7c3aed', fg: '#ffffff', text: 'Md' }),
+  'prompt-gallery': createFavicon({ bg: '#0f766e', fg: '#ffffff', text: 'Pr' }),
   changelog: createFavicon({
     bg: '#ea580c',
     fg: '#ffffff',

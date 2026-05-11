@@ -4,6 +4,7 @@ import { Layout } from './components/Layout'
 import { Changelog, ChangelogEntry } from './components/Changelog'
 import { CalendarTool } from './tools/calendar/CalendarTool'
 import { MarkdownReaderTool } from './tools/markdown-reader/MarkdownReaderTool'
+import { PromptGalleryTool } from './tools/prompt-gallery/PromptGalleryTool'
 import { getHashLocation } from './utils/hash'
 import { setFavicon } from './utils/favicon'
 import { getHtmlApps, HtmlAppMeta } from './data/apps'
@@ -17,6 +18,7 @@ const pageTitleMap: Record<string, string> = {
   '': 'Mecha Tools | 现代机械风 Web 工具站',
   calendar: '日历工具 | Mecha Tools',
   'markdown-reader': 'Markdown 阅读器 | Mecha Tools',
+  'prompt-gallery': '提示词展柜 | Mecha Tools',
   changelog: '更新日志 | Mecha Tools',
   about: '关于与设计 | Mecha Tools'
 }
@@ -45,6 +47,15 @@ function Home() {
       version: 'v0.1',
       category: 'utility',
       href: '#markdown-reader'
+    },
+    {
+      id: 'prompt-gallery',
+      title: '提示词展柜',
+      description: '浏览、预览并复制常用提示词预设',
+      emoji: 'Pr',
+      version: 'v0.1',
+      category: 'utility',
+      href: '#prompt-gallery'
     },
     {
       id: 'changelog',
@@ -322,6 +333,7 @@ export default function App() {
       <main className={`max-w-6xl mx-auto px-6 pb-16 pt-8${route.path === 'markdown-reader' ? ' hidden' : ''}`}>
         {route.path === '' && <Home />}
         {route.path === 'calendar' && <CalendarTool />}
+        {route.path === 'prompt-gallery' && <PromptGalleryTool />}
         {route.path === 'changelog' && (
           <div className="relative bg-white border-2 border-gray-200 p-6">
             <div 
