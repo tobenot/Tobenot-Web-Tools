@@ -9,7 +9,7 @@ export function Layout({ children, hideFooter = false }: LayoutProps) {
     <div className="min-h-full bg-white">
       {children}
       {!hideFooter && (
-      <footer className="max-w-6xl mx-auto px-6 pb-12 pt-16">
+      <footer className="w-full px-6 pb-12 pt-16">
         <div className="relative bg-white border-2 border-gray-200 p-6">
           {/* 顶部彩色装饰线 */}
           <div 

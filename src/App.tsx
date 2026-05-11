@@ -330,7 +330,7 @@ export default function App() {
           <MarkdownReaderTool />
         </main>
       )}
-      <main className={`max-w-6xl mx-auto px-6 pb-16 pt-8${route.path === 'markdown-reader' ? ' hidden' : ''}`}>
+      <main className={`w-full px-6 pb-16 pt-8${route.path === 'markdown-reader' ? ' hidden' : ''}`}>
         {route.path === '' && <Home />}
         {route.path === 'calendar' && <CalendarTool />}
         {route.path === 'prompt-gallery' && <PromptGalleryTool />}
