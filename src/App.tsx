@@ -5,7 +5,9 @@ import { Changelog, ChangelogEntry } from './components/Changelog'
 import { CalendarTool } from './tools/calendar/CalendarTool'
 import { MarkdownReaderTool } from './tools/markdown-reader/MarkdownReaderTool'
 import { getHashLocation } from './utils/hash'
+import { setFavicon } from './utils/favicon'
 import { getHtmlApps, HtmlAppMeta } from './data/apps'
+
 
 const globalChangelog: ChangelogEntry[] = [
   { date: '2025-08-08', title: '项目初始化', notes: ['添加首页导航与机械风主题', '实现日历工具 v0.1（支持哈希分享 `?d=YYYY-MM-DD`）', '加入通用工具模板（分享、设计、更新日志）', '配置 GitHub Pages 自动部署'] },
@@ -305,9 +307,11 @@ export default function App() {
 
   useEffect(() => {
     document.title = pageTitleMap[route.path] ?? 'Mecha Tools | 现代机械风 Web 工具站'
+    setFavicon(route.path)
   }, [route.path])
 
   return (
+
     <Layout hideFooter={route.path === 'markdown-reader'}>
       <Header />
       {route.path === 'markdown-reader' && (

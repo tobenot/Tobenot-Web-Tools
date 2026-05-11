@@ -28,15 +28,38 @@ function ensureDir(p) {
   if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true })
 }
 
+function escapeSvgText(text) {
+  return text.replace(/[&<>]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[char]))
+}
+
+function colorFromName(name) {
+  const colors = ['#2563eb', '#7c3aed', '#16a34a', '#ea580c', '#0891b2', '#db2777']
+  let hash = 0
+  for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) >>> 0
+  return colors[hash % colors.length]
+}
+
+function createFaviconDataUri(name, title) {
+  const label = escapeSvgText(Array.from(title.trim())[0] || 'M')
+  const bg = colorFromName(name)
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="${bg}"/><path d="M12 16h40M12 48h40" stroke="rgba(255,255,255,.35)" stroke-width="4" stroke-linecap="round"/><text x="32" y="42" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#fff">${label}</text></svg>`
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`
+}
+
 function createIndexHtml(appDir, title) {
+  const appName = path.basename(appDir)
+  const favicon = createFaviconDataUri(appName, title)
   const html = `<!doctype html>
 <html lang="zh-CN">
+
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f7f7f8" />
+    <link rel="icon" type="image/svg+xml" href="${favicon}" />
     <title>${title} | Mecha Tools</title>
     <link rel="stylesheet" href="/src/index.css" />
+
   </head>
   <body class="min-h-screen bg-mech-bg text-mech-text antialiased">
     <main class="max-w-5xl mx-auto px-4 py-8 space-y-6">
