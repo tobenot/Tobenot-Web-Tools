@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import JSZip from 'jszip'
 
 /* ─── 类型 ─── */
 type RGB = [number, number, number]
@@ -346,15 +347,32 @@ export function BgRemoverTool() {
     link.click()
   }, [])
 
-  /* 下载全部 */
-  const downloadAll = useCallback(() => {
+  /* 下载全部 — 打包为 zip */
+  const [zipping, setZipping] = useState(false)
+  const downloadAll = useCallback(async () => {
     const processed = images.filter(img => img.processedUrl)
-    processed.forEach((image, index) => {
-      setTimeout(() => {
-        downloadSingle(image)
-      }, index * 300)
-    })
-  }, [images, downloadSingle])
+    if (processed.length === 0) return
+    setZipping(true)
+    try {
+      const zip = new JSZip()
+      for (const image of processed) {
+        // data URL → Blob
+        const res = await fetch(image.processedUrl!)
+        const blob = await res.blob()
+        const fileName = `去底_${image.file.name.replace(/\.[^.]+$/, '')}.png`
+        zip.file(fileName, blob)
+      }
+      const content = await zip.generateAsync({ type: 'blob' })
+      const url = URL.createObjectURL(content)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `去底结果_${processed.length}张.zip`
+      link.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setZipping(false)
+    }
+  }, [images])
 
   /* 删除图片 */
   const removeImage = useCallback((id: string) => {
@@ -795,9 +813,10 @@ export function BgRemoverTool() {
                 {images.some(img => img.processedUrl) && (
                   <button
                     onClick={downloadAll}
-                    className="w-full px-4 py-2.5 text-sm font-medium bg-emerald-700 text-white hover:bg-emerald-800 transition-colors"
+                    disabled={zipping}
+                    className="w-full px-4 py-2.5 text-sm font-medium bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    下载全部结果 ({images.filter(i => i.processedUrl).length}张)
+                    {zipping ? '打包中...' : `下载全部结果 ZIP (${images.filter(i => i.processedUrl).length}张)`}
                   </button>
                 )}
               </div>
