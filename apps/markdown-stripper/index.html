@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f7f8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%237c3aed%22%2F%3E%3Cpath%20d%3D%22M12%2016h40M12%2048h40%22%20stroke%3D%22rgba(255%2C255%2C255%2C.35)%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%2F%3E%3Ctext%20x%3D%2232%22%20y%3D%2242%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%2C%20Helvetica%2C%20sans-serif%22%20font-size%3D%2230%22%20font-weight%3D%22800%22%20fill%3D%22%23fff%22%3EM%3C%2Ftext%3E%3C%2Fsvg%3E" />
+    <title>Markdown格式移除器 | Mecha Tools</title>
+    <link rel="stylesheet" href="/src/index.css" />
+  </head>
+  <body class="min-h-screen bg-mech-bg text-mech-text antialiased relative">
+    <!-- 背景网格 -->
+    <div 
+      class="fixed inset-0 opacity-[0.015] pointer-events-none"
+      style="background-image: linear-gradient(to right, #0f172a 1px, transparent 1px), linear-gradient(to bottom, #0f172a 1px, transparent 1px); background-size: 32px 32px;"
+    ></div>
+
+    <main class="max-w-6xl mx-auto px-4 py-8 space-y-6 relative">
+      <header class="sticky top-0 z-30 border-b border-mech-edge/70 backdrop-blur bg-mech-bg/70 -mx-4 px-4 py-3">
+        <div class="flex items-center justify-between">
+          <a class="font-semibold tracking-wider hover:text-blue-600 transition-colors" href="/">Mecha Tools</a>
+          <a class="inline-flex items-center gap-2 px-3 py-2 rounded-sm border-2 border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors text-sm font-medium" href="/">返回首页</a>
+        </div>
+      </header>
+
+      <div class="bg-mech-panel border-2 border-mech-edge p-6 relative">
+        <div 
+          class="absolute -top-0.5 -left-0.5 -right-0.5 h-1 opacity-70 pointer-events-none"
+          style="background: linear-gradient(90deg, #ff6b6b, #f7d794, #1dd1a1, #54a0ff, #5f27cd, #ff6b6b); background-size: 300% 100%; animation: gradient-flow 16s linear infinite;"
+        ></div>
+        
+        <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
+          <div class="flex items-center gap-3">
+            <span class="text-3xl">🧹</span>
+            <h1 class="text-2xl font-bold tracking-wide text-gray-900">Markdown 格式移除器</h1>
+          </div>
+          <div class="inline-flex items-center gap-2 px-3 py-1 bg-gray-50 border-2 border-gray-200 text-sm font-mono" style="border-radius: 2px;">
+            <span id="charCount" class="font-bold text-blue-600">0</span>
+            <span class="text-gray-500">字符</span>
+          </div>
+        </div>
+
+        <!-- 控制区 -->
+        <div class="bg-gray-50 border-2 border-gray-200 p-4 mb-6" style="border-radius: 2px;">
+          <div class="flex flex-wrap gap-3 items-center">
+            <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 select-none font-medium">
+              <input type="checkbox" id="selectAll" class="text-blue-600 rounded-sm border-gray-300 focus:ring-blue-500">
+              全选
+            </label>
+            <div class="w-px h-6 bg-gray-300 mx-1 hidden sm:block"></div>
+            <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 select-none text-sm text-gray-700">
+              <input type="checkbox" data-opt="bold" checked class="text-blue-600 rounded-sm border-gray-300 focus:ring-blue-500"> 加粗
+            </label>
+            <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 select-none text-sm text-gray-700">
+              <input type="checkbox" data-opt="inlineCode" checked class="text-blue-600 rounded-sm border-gray-300 focus:ring-blue-500"> 内联反引号
+            </label>
+            <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 select-none text-sm text-gray-700">
+              <input type="checkbox" data-opt="italic" class="text-blue-600 rounded-sm border-gray-300 focus:ring-blue-500"> 斜体
+            </label>
+            <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 select-none text-sm text-gray-700">
+              <input type="checkbox" data-opt="strikethrough" class="text-blue-600 rounded-sm border-gray-300 focus:ring-blue-500"> 删除线
+            </label>
+            <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 select-none text-sm text-gray-700">
+              <input type="checkbox" data-opt="headings" class="text-blue-600 rounded-sm border-gray-300 focus:ring-blue-500"> 标题
+            </label>
+            <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 select-none text-sm text-gray-700">
+              <input type="checkbox" data-opt="links" class="text-blue-600 rounded-sm border-gray-300 focus:ring-blue-500"> 链接
+            </label>
+            <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 select-none text-sm text-gray-700">
+              <input type="checkbox" data-opt="images" class="text-blue-600 rounded-sm border-gray-300 focus:ring-blue-500"> 图片
+            </label>
+            <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 select-none text-sm text-gray-700">
+              <input type="checkbox" data-opt="blockquotes" class="text-blue-600 rounded-sm border-gray-300 focus:ring-blue-500"> 引用
+            </label>
+            <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 select-none text-sm text-gray-700">
+              <input type="checkbox" data-opt="lists" class="text-blue-600 rounded-sm border-gray-300 focus:ring-blue-500"> 列表标记
+            </label>
+            <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 select-none text-sm text-gray-700">
+              <input type="checkbox" data-opt="codeFences" class="text-blue-600 rounded-sm border-gray-300 focus:ring-blue-500"> 代码块围栏
+            </label>
+            <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 select-none text-sm text-gray-700">
+              <input type="checkbox" data-opt="horizontalRules" class="text-blue-600 rounded-sm border-gray-300 focus:ring-blue-500"> 分割线
+            </label>
+            <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 select-none text-sm text-gray-700">
+              <input type="checkbox" data-opt="tables" class="text-blue-600 rounded-sm border-gray-300 focus:ring-blue-500"> 表格
+            </label>
+            <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 select-none text-sm text-gray-700">
+              <input type="checkbox" data-opt="htmlTags" class="text-blue-600 rounded-sm border-gray-300 focus:ring-blue-500"> HTML标签
+            </label>
+            <label class="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded cursor-pointer hover:bg-gray-50 select-none text-sm text-gray-700">
+              <input type="checkbox" data-opt="escapes" class="text-blue-600 rounded-sm border-gray-300 focus:ring-blue-500"> 转义反斜杠
+            </label>
+          </div>
+        </div>
+
+        <!-- 输入输出区 -->
+        <div class="grid md:grid-cols-2 gap-6 mb-6">
+          <div class="space-y-2">
+            <label class="block font-semibold text-gray-800">输入 Markdown</label>
+            <textarea 
+              id="inputArea" 
+              placeholder="在此粘贴 Markdown..." 
+              class="w-full min-h-[400px] p-4 font-mono text-sm border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors resize-y"
+              style="border-radius: 2px;"
+              spellcheck="false"
+            ></textarea>
+          </div>
+          <div class="space-y-2">
+            <label class="block font-semibold text-gray-800">输出纯文本</label>
+            <textarea 
+              id="outputArea" 
+              placeholder="处理结果将在此显示..." 
+              readonly 
+              class="w-full min-h-[400px] p-4 font-mono text-sm border-2 border-gray-200 bg-gray-50 focus:outline-none resize-y"
+              style="border-radius: 2px;"
+              spellcheck="false"
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- 底部操作区 -->
+        <div class="flex flex-wrap gap-3 pt-4 border-t border-gray-100">
+          <button id="processBtn" class="px-6 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium transition-colors border-2 border-blue-200 hover:border-blue-300" style="border-radius: 2px;">
+            处理
+          </button>
+          <button id="copyBtn" class="px-6 py-2 bg-white hover:bg-gray-50 text-gray-700 font-medium transition-colors border-2 border-gray-200 hover:border-gray-300" style="border-radius: 2px;">
+            复制结果
+          </button>
+          <button id="swapBtn" class="px-6 py-2 bg-white hover:bg-gray-50 text-gray-700 font-medium transition-colors border-2 border-gray-200 hover:border-gray-300" style="border-radius: 2px;" title="将结果复制到输入框">
+            结果 → 输入
+          </button>
+          <button id="clearBtn" class="px-6 py-2 bg-white hover:bg-red-50 text-red-600 font-medium transition-colors border-2 border-gray-200 hover:border-red-200 ml-auto" style="border-radius: 2px;">
+            清空
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <style>
+      @keyframes gradient-flow {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 100% 50%; }
+      }
+    </style>
+
+    <script>
+      const inputArea = document.getElementById('inputArea');
+      const outputArea = document.getElementById('outputArea');
+      const processBtn = document.getElementById('processBtn');
+      const copyBtn = document.getElementById('copyBtn');
+      const swapBtn = document.getElementById('swapBtn');
+      const clearBtn = document.getElementById('clearBtn');
+      const charCount = document.getElementById('charCount');
+      const selectAll = document.getElementById('selectAll');
+      const optionBoxes = Array.from(document.querySelectorAll('input[type="checkbox"][data-opt]'));
+
+      function readOptions() {
+        const options = {};
+        for (const box of optionBoxes) options[box.dataset.opt] = box.checked;
+        return options;
+      }
+
+      function setAllOptions(checked) {
+        for (const box of optionBoxes) box.checked = checked;
+      }
+
+      function updateSelectAllState() {
+        const allChecked = optionBoxes.every(b => b.checked);
+        const noneChecked = optionBoxes.every(b => !b.checked);
+        selectAll.indeterminate = !allChecked && !noneChecked;
+        selectAll.checked = allChecked;
+      }
+
+      function stripMarkdown(text, o) {
+        let s = text;
+
+        if (o.codeFences) {
+          s = s.replace(/```[^\n]*\n?([\s\S]*?)\n?```/g, '$1');
+          s = s.replace(/~~~[^\n]*\n?([\s\S]*?)\n?~~~/g, '$1');
+        }
+        if (o.inlineCode) {
+          s = s.replace(/`([^`]+)`/g, '$1');
+        }
+        if (o.images) {
+          s = s.replace(/!\[([^\]]*)\]\((?:[^)]+)\)/g, '$1');
+        }
+        if (o.links) {
+          s = s.replace(/\[([^\]]+)\]\((?:[^)]+)\)/g, '$1');
+          s = s.replace(/<([^>\s]+)>/g, '$1');
+        }
+        if (o.bold) {
+          s = s.replace(/(\*\*|__)(.*?)\1/g, '$2');
+        }
+        if (o.italic) {
+          s = s.replace(/(^|[^\*])\*(?!\s)([^*]+?)\*(?!\w)/g, '$1$2');
+          s = s.replace(/(^|[^_])_(?!\s)([^_]+?)_(?!\w)/g, '$1$2');
+        }
+        if (o.strikethrough) {
+          s = s.replace(/~~(.*?)~~/g, '$1');
+        }
+        if (o.headings) {
+          s = s.replace(/^\s{0,3}#{1,6}\s+/gm, '');
+          s = s.replace(/^\s*(.+)\n=+\s*$/gm, '$1');
+          s = s.replace(/^\s*(.+)\n-+\s*$/gm, '$1');
+        }
+        if (o.blockquotes) {
+          s = s.replace(/^\s{0,3}>\s?/gm, '');
+        }
+        if (o.lists) {
+          s = s.replace(/^\s{0,3}[-*+]\s+/gm, '');
+          s = s.replace(/^\s{0,3}\d+\.\s+/gm, '');
+        }
+        if (o.horizontalRules) {
+          s = s.replace(/^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/gm, '');
+        }
+        if (o.tables) {
+          s = s.replace(/^\s*\|/gm, '');
+          s = s.replace(/\|\s*/g, '\t');
+          s = s.replace(/^\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+$/gm, '');
+        }
+        if (o.htmlTags) {
+          s = s.replace(/<\/?[^>]+>/g, '');
+        }
+        if (o.escapes) {
+          s = s.replace(/\\([\\`*_{}\[\]()#+\-!.>~|])/g, '$1');
+        }
+
+        s = s.replace(/[ \t]+\n/g, '\n');
+        s = s.replace(/\n{3,}/g, '\n\n');
+        return s.trimEnd();
+      }
+
+      function processNow() {
+        const text = inputArea.value;
+        charCount.textContent = String(text.length);
+        const options = readOptions();
+        outputArea.value = stripMarkdown(text, options);
+      }
+
+      processBtn.addEventListener('click', processNow);
+      inputArea.addEventListener('input', processNow);
+      for (const box of optionBoxes) box.addEventListener('change', () => { updateSelectAllState(); processNow(); });
+      selectAll.addEventListener('change', () => { setAllOptions(selectAll.checked); updateSelectAllState(); processNow(); });
+
+      copyBtn.addEventListener('click', async () => {
+        const text = outputArea.value;
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          const originalText = copyBtn.textContent;
+          copyBtn.textContent = '已复制 ✓';
+          copyBtn.classList.replace('text-gray-700', 'text-green-700');
+          copyBtn.classList.replace('bg-white', 'bg-green-50');
+          copyBtn.classList.replace('border-gray-200', 'border-green-200');
+          
+          setTimeout(() => {
+            copyBtn.textContent = originalText;
+            copyBtn.classList.replace('text-green-700', 'text-gray-700');
+            copyBtn.classList.replace('bg-green-50', 'bg-white');
+            copyBtn.classList.replace('border-green-200', 'border-gray-200');
+          }, 1500);
+        } catch (_) {
+          outputArea.select();
+          document.execCommand('copy');
+        }
+      });
+
+      swapBtn.addEventListener('click', () => {
+        inputArea.value = outputArea.value;
+        processNow();
+        inputArea.focus();
+      });
+
+      clearBtn.addEventListener('click', () => {
+        inputArea.value = '';
+        outputArea.value = '';
+        charCount.textContent = '0';
+        inputArea.focus();
+      });
+
+      updateSelectAllState();
+      processNow();
+    </script>
+  </body>
+</html>

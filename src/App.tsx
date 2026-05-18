@@ -5,6 +5,9 @@ import { Changelog, ChangelogEntry } from './components/Changelog'
 import { CalendarTool } from './tools/calendar/CalendarTool'
 import { MarkdownReaderTool } from './tools/markdown-reader/MarkdownReaderTool'
 import { PromptGalleryTool } from './tools/prompt-gallery/PromptGalleryTool'
+import { SpaceTabConverterTool } from './tools/space-tab-converter/SpaceTabConverterTool'
+import { BgRemoverTool } from './tools/bg-remover/BgRemoverTool'
+import { JsonViewerTool } from './tools/json-viewer/JsonViewerTool'
 import { getHashLocation } from './utils/hash'
 import { setFavicon } from './utils/favicon'
 import { getHtmlApps, HtmlAppMeta } from './data/apps'
@@ -19,6 +22,9 @@ const pageTitleMap: Record<string, string> = {
   calendar: '日历工具 | Mecha Tools',
   'markdown-reader': 'Markdown 阅读器 | Mecha Tools',
   'prompt-gallery': '提示词展柜 | Mecha Tools',
+  'json-viewer': 'JSON 表格查看器 | Mecha Tools',
+  'bg-remover': '图片去底工具 | Mecha Tools',
+  'space-tab-converter': '空格/Tab 转换器 | Mecha Tools',
   changelog: '更新日志 | Mecha Tools',
   about: '关于与设计 | Mecha Tools'
 }
@@ -56,6 +62,33 @@ function Home() {
       version: 'v0.1',
       category: 'utility',
       href: '#prompt-gallery'
+    },
+    {
+      id: 'bg-remover',
+      title: '图片去底工具',
+      description: '批量去除图片背景底色，支持取色、容差调节与边缘羽化',
+      emoji: '🖼️',
+      version: 'v0.1',
+      category: 'utility',
+      href: '#bg-remover'
+    },
+    {
+      id: 'space-tab-converter',
+      title: '空格/Tab 转换器',
+      description: '代码缩进空格与 Tab 相互转换工具',
+      emoji: '↔️',
+      version: 'v0.1',
+      category: 'utility',
+      href: '#space-tab-converter'
+    },
+    {
+      id: 'json-viewer',
+      title: 'JSON 表格查看器',
+      description: '易读的 JSON 表格化视图，支持嵌套表格和文件导入',
+      emoji: '📊',
+      version: 'v0.1',
+      category: 'utility',
+      href: '#json-viewer'
     },
     {
       id: 'changelog',
@@ -334,6 +367,9 @@ export default function App() {
         {route.path === '' && <Home />}
         {route.path === 'calendar' && <CalendarTool />}
         {route.path === 'prompt-gallery' && <PromptGalleryTool />}
+        {route.path === 'bg-remover' && <BgRemoverTool />}
+        {route.path === 'space-tab-converter' && <SpaceTabConverterTool />}
+        {route.path === 'json-viewer' && <JsonViewerTool />}
         {route.path === 'changelog' && (
           <div className="relative bg-white border-2 border-gray-200 p-6">
             <div 

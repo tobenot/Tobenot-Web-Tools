@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="zh-CN">
+
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%237c3aed%22%2F%3E%3Cpath%20d%3D%22M12%2016h40M12%2048h40%22%20stroke%3D%22rgba(255%2C255%2C255%2C.35)%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%2F%3E%3Ctext%20x%3D%2232%22%20y%3D%2242%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%2C%20Helvetica%2C%20sans-serif%22%20font-size%3D%2230%22%20font-weight%3D%22800%22%20fill%3D%22%23fff%22%3E%E6%96%87%3C%2Ftext%3E%3C%2Fsvg%3E" />
+    <title>文件名与内容拼接工具 | Mecha Tools</title>
+    <link rel="stylesheet" href="/src/index.css" />
+  </head>
+
+  <body class="min-h-screen bg-slate-50 text-mech-text antialiased">
+    <main class="max-w-5xl mx-auto px-4 py-8 space-y-6">
+      <header class="sticky top-0 z-30 border-b border-mech-edge/70 backdrop-blur bg-slate-50/70 -mx-4 px-4 py-3">
+        <div class="flex items-center justify-between">
+          <a class="font-semibold tracking-wider hover:text-black" href="/index.html">Mecha Tools</a>
+          <a class="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors text-sm" href="/index.html#">返回首页</a>
+        </div>
+      </header>
+
+      <!-- Hero Section -->
+      <section class="flex flex-col md:flex-row items-start justify-between gap-4">
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl font-bold tracking-wide">文件名与内容拼接工具 v2.0</h1>
+          <p class="text-mech-muted text-sm">一键整理文件名与内容，复制即用。</p>
+          <div class="flex gap-2 mt-1">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">实时模式</span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700">快照模式</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3 w-full md:w-auto">
+          <div class="bg-white border border-mech-edge rounded-xl p-4 shadow-subtle min-w-[120px]">
+            <div class="text-xs text-mech-muted mb-1">当前模式</div>
+            <div class="text-lg font-bold">
+              <span id="modeBadge" class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">未选择</span>
+            </div>
+          </div>
+          <div class="bg-white border border-mech-edge rounded-xl p-4 shadow-subtle min-w-[120px]">
+            <div class="text-xs text-mech-muted mb-1">文件数量</div>
+            <div class="text-xl font-bold"><span id="fileCount">0</span></div>
+          </div>
+          <div class="bg-white border border-mech-edge rounded-xl p-4 shadow-subtle min-w-[120px]">
+            <div class="text-xs text-mech-muted mb-1">总大小</div>
+            <div class="text-xl font-bold" id="totalSize">0 B</div>
+          </div>
+        </div>
+      </section>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Controls Card -->
+        <div class="bg-white border border-mech-edge rounded-xl p-6 shadow-subtle flex flex-col gap-5">
+          <div class="flex items-center justify-between">
+            <h3 class="font-semibold text-lg">添加文件</h3>
+            <div class="flex items-center gap-3 text-xs text-mech-muted">
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>实时可刷新</div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>静态快照</div>
+            </div>
+          </div>
+
+          <button id="selectFilesBtn" class="w-full py-3.5 text-base font-bold text-white bg-green-500 hover:bg-green-600 rounded-xl transition-all active:scale-[0.99] shadow-lg shadow-green-500/25 flex items-center justify-center gap-2">
+            选择文件 (实时更新)
+          </button>
+          
+          <div class="text-center text-mech-muted font-medium text-sm">或</div>
+
+          <div id="dropArea" class="border-2 border-dashed border-slate-300 bg-slate-50 rounded-xl p-6 text-center cursor-pointer transition-colors hover:border-blue-400 hover:bg-blue-50/50">
+            <h2 class="font-semibold text-slate-700 mb-1">拖拽文件到此处 (快照模式)</h2>
+            <input type="file" id="fileInput" class="hidden" multiple>
+            <p class="text-xs text-mech-muted">支持多文件，按住 Shift/Ctrl 选择</p>
+          </div>
+
+          <div id="statusBar" class="px-4 py-3 rounded-lg text-center font-semibold text-sm hidden"></div>
+
+          <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-mech-edge">
+            <button id="copyBtn" class="px-4 py-2 text-sm font-semibold text-white bg-green-500 hover:bg-green-600 rounded-lg transition-transform active:scale-95 shadow-sm">复制结果</button>
+            <button id="refreshBtn" class="hidden px-4 py-2 text-sm font-semibold text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-transform active:scale-95 shadow-sm">刷新预览</button>
+            <button id="clearBtn" class="px-4 py-2 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-transform active:scale-95 shadow-sm">清空列表</button>
+            <a href="#" id="showChangelog" class="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-transform active:scale-95 ml-auto">更新日志</a>
+          </div>
+        </div>
+
+        <!-- Preview Card -->
+        <div class="bg-white border border-mech-edge rounded-xl p-6 shadow-subtle flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <h3 class="font-semibold text-lg">文件预览</h3>
+            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-50 text-slate-600 border border-slate-200">按序列展示</span>
+          </div>
+
+          <div class="flex justify-between text-mech-muted text-xs px-2 font-medium">
+            <span>文件名</span>
+            <span>模式与大小</span>
+          </div>
+
+          <div id="output" class="border border-mech-edge rounded-lg p-2 min-h-[200px] max-h-[400px] overflow-y-auto bg-slate-50/30">
+            <p class="text-mech-muted text-sm text-center py-4">请选择或拖入文件</p>
+          </div>
+        </div>
+      </div>
+
+      <footer class="text-center text-mech-muted text-xs py-4">
+        已启用两种模式，随时刷新或复制。
+      </footer>
+    </main>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed top-5 right-5 z-[9999] flex flex-col items-end gap-3 pointer-events-none"></div>
+
+    <!-- Changelog Modal -->
+    <div id="changelogModal" class="fixed inset-0 z-[10000] hidden items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 transition-opacity duration-300 opacity-0">
+      <div class="bg-white p-6 border border-mech-edge w-full max-w-lg rounded-xl relative shadow-2xl transform scale-95 transition-transform duration-300">
+        <button class="modal-close absolute top-4 right-4 text-slate-400 hover:text-slate-800 text-xl font-bold leading-none">&times;</button>
+        <h2 class="text-xl font-bold mb-4">更新日志</h2>
+        <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+          <div>
+            <h3 class="font-semibold text-slate-800 border-b border-mech-edge pb-1 mb-2">v2.0 (2025-07-29)</h3>
+            <ul class="list-disc pl-5 text-sm text-slate-600 space-y-1">
+              <li><strong>核心升级：</strong>新增实时模式，可选择多个文件并重复读取最新内容。</li>
+              <li><strong>双模式支持：</strong>保留拖拽快照模式，适应不同场景。</li>
+              <li><strong>UI/UX 优化：</strong>引入状态栏和 Toast 通知，反馈更清晰。</li>
+              <li><strong>功能增强：</strong>实时模式下提供刷新预览。</li>
+              <li>主操作按钮为绿色。</li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="font-semibold text-slate-800 border-b border-mech-edge pb-1 mb-2">v1.0 (2025-06-22)</h3>
+            <ul class="list-disc pl-5 text-sm text-slate-600 space-y-1">
+              <li>初版发布，实现文件拖拽、内容拼接和自动复制。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Script -->
+    <script>
+		const dropArea = document.getElementById('dropArea');
+		const fileInput = document.getElementById('fileInput');
+		const selectFilesBtn = document.getElementById('selectFilesBtn');
+		const output = document.getElementById('output');
+		const copyBtn = document.getElementById('copyBtn');
+		const clearBtn = document.getElementById('clearBtn');
+		const refreshBtn = document.getElementById('refreshBtn');
+		const statusBar = document.getElementById('statusBar');
+		const toastContainer = document.getElementById('toastContainer');
+		const changelogModal = document.getElementById('changelogModal');
+		const showChangelogLink = document.getElementById('showChangelog');
+		const modalCloseBtn = document.querySelector('.modal-close');
+		const modeBadge = document.getElementById('modeBadge');
+		const fileCountValue = document.getElementById('fileCount');
+		const totalSizeValue = document.getElementById('totalSize');
+		let currentMode = 'none';
+		let currentFiles = [];
+
+		function sortFiles(files) {
+			const headerExts = ['h', 'hpp', 'hh', 'hxx', 'inl'];
+			const sourceExts = ['cpp', 'cc', 'cxx', 'c', 'inc'];
+			const getExt = (name) => {
+				const parts = name.split('.');
+				return parts.length > 1 ? parts.pop().toLowerCase() : '';
+			};
+			const getBase = (name) => name.replace(/\.[^.]+$/, '');
+			const getPriority = (ext) => {
+				if (headerExts.includes(ext)) return 0;
+				if (sourceExts.includes(ext)) return 1;
+				return 2;
+			};
+			return [...files].sort((a, b) => {
+				const baseA = getBase(a.name);
+				const baseB = getBase(b.name);
+				if (baseA !== baseB) return baseA.localeCompare(baseB);
+				const extA = getExt(a.name);
+				const extB = getExt(b.name);
+				const priorityA = getPriority(extA);
+				const priorityB = getPriority(extB);
+				if (priorityA !== priorityB) return priorityA - priorityB;
+				return a.name.localeCompare(b.name);
+			});
+		}
+
+		selectFilesBtn.addEventListener('click', handleFileSelection);
+		dropArea.addEventListener('click', () => fileInput.click());
+		fileInput.addEventListener('change', () => processSnapshotFiles(fileInput.files));
+		['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eName => dropArea.addEventListener(eName, preventDefaults, false));
+		['dragenter', 'dragover'].forEach(eName => dropArea.addEventListener(eName, () => {
+			dropArea.classList.add('border-blue-500', 'bg-blue-50');
+		}));
+		['dragleave', 'drop'].forEach(eName => dropArea.addEventListener(eName, () => {
+			dropArea.classList.remove('border-blue-500', 'bg-blue-50');
+		}));
+		dropArea.addEventListener('drop', (e) => processSnapshotFiles(e.dataTransfer.files));
+		copyBtn.addEventListener('click', handleCopy);
+		refreshBtn.addEventListener('click', () => handleRefresh(false));
+		clearBtn.addEventListener('click', clearAll);
+
+		function openModal() {
+			changelogModal.classList.remove('hidden');
+			changelogModal.classList.add('flex');
+			// small delay for transition
+			setTimeout(() => {
+				changelogModal.classList.remove('opacity-0');
+				changelogModal.querySelector('.modal-content')?.classList.remove('scale-95');
+			}, 10);
+		}
+		function closeModal() {
+			changelogModal.classList.add('opacity-0');
+			changelogModal.querySelector('.modal-content')?.classList.add('scale-95');
+			setTimeout(() => {
+				changelogModal.classList.add('hidden');
+				changelogModal.classList.remove('flex');
+			}, 300);
+		}
+
+		showChangelogLink.addEventListener('click', (e) => { e.preventDefault(); openModal(); });
+		modalCloseBtn.addEventListener('click', closeModal);
+		changelogModal.addEventListener('click', (e) => { if (e.target === changelogModal) { closeModal(); } });
+		
+		function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+		
+		function clearAll() {
+			currentMode = 'none';
+			currentFiles = [];
+			renderFileList();
+			updateSummary();
+			showStatusBar('当前列表已清空', 'info');
+			refreshBtn.classList.add('hidden');
+		}
+
+		async function handleFileSelection() {
+			if (!window.showOpenFilePicker) {
+				showStatusBar('您的浏览器不支持实时模式，请使用拖拽功能。', 'error', 0);
+				showToast('推荐使用最新版 Chrome 或 Edge 浏览器', 'info');
+				return;
+			}
+			try {
+				const fileHandles = await window.showOpenFilePicker({ multiple: true });
+				const resolvedHandles = await Promise.all(fileHandles.map(async handle => {
+					const fileData = await handle.getFile();
+					return { name: handle.name, handle: handle, size: fileData.size };
+				}));
+				currentMode = 'handle';
+				currentFiles = sortFiles(resolvedHandles);
+				renderFileList();
+				updateSummary();
+				showStatusBar(`已加载 ${currentFiles.length} 个文件 (实时模式)`, 'success');
+				refreshBtn.classList.remove('hidden');
+			} catch (err) {
+				if (err.name !== 'AbortError') {
+					showStatusBar('选择文件操作已取消或失败', 'error');
+				}
+			}
+		}
+
+		function processSnapshotFiles(files) {
+			if (files.length === 0) return;
+			let processedCount = 0;
+			const newFilesData = [];
+			showStatusBar(`正在处理 ${files.length} 个文件...`, 'info', 0);
+			Array.from(files).forEach(file => {
+				const reader = new FileReader();
+				reader.onload = (e) => newFilesData.push({ name: file.name, content: e.target.result, size: file.size });
+				reader.onloadend = () => {
+					processedCount++;
+					if (processedCount === files.length) {
+						currentMode = 'snapshot';
+						currentFiles = sortFiles(newFilesData);
+						renderFileList();
+						updateSummary();
+						showStatusBar(`已加载 ${files.length} 个文件 (快照模式)`, 'success');
+						refreshBtn.classList.add('hidden');
+					}
+				};
+				reader.onerror = () => {
+					showToast(`无法读取文件 ${file.name}`, 'error');
+					processedCount++;
+				};
+				reader.readAsText(file);
+			});
+		}
+
+		async function handleCopy() {
+			if (currentFiles.length === 0) {
+				showStatusBar('没有可复制的内容', 'error');
+				return;
+			}
+			showStatusBar('正在准备复制...', 'info', 0);
+			if (currentMode === 'handle') {
+				await handleRefresh(true);
+			} else {
+				const content = generateCombinedContent(currentFiles);
+				copyToClipboard(content);
+			}
+		}
+
+		async function handleRefresh(shouldCopyToClipboard = false) {
+			if (currentMode !== 'handle' || currentFiles.length === 0) return;
+			showStatusBar('正在读取最新文件内容...', 'info', 0);
+			try {
+				const promises = currentFiles.map(async (file) => {
+					const fileData = await file.handle.getFile();
+					const content = await fileData.text();
+					return { name: file.name, content: content, size: fileData.size };
+				});
+				const resolvedFiles = await Promise.all(promises);
+				if (shouldCopyToClipboard) {
+					const combinedContent = generateCombinedContent(resolvedFiles);
+					copyToClipboard(combinedContent);
+				} else {
+					currentFiles = currentFiles.map(file => {
+						const refreshed = resolvedFiles.find(f => f.name === file.name);
+						if (refreshed) {
+							return { ...file, size: refreshed.size, content: refreshed.content };
+						}
+						return file;
+					});
+					renderFileList();
+					updateSummary();
+					showStatusBar('文件预览已刷新', 'success');
+				}
+			} catch (err) {
+				showStatusBar('刷新文件内容失败！可能是文件已被移动或删除。', 'error', 0);
+			}
+		}
+
+		function generateCombinedContent(filesWithContent) {
+			return filesWithContent.map(file => `--- ${file.name} ---\n${file.content}`).join('\n\n');
+		}
+
+		function copyToClipboard(text) {
+			navigator.clipboard.writeText(text).then(() => {
+				const timestamp = new Date().toLocaleTimeString('zh-CN');
+				showStatusBar(`内容已于 ${timestamp} 成功复制到剪贴板！`, 'success');
+				showToast('复制成功！', 'success');
+			}).catch(() => {
+				showStatusBar('复制失败，请检查浏览器权限', 'error');
+			});
+		}
+
+		function formatSize(bytes) {
+			if (!bytes || bytes <= 0) return '0 B';
+			const units = ['B', 'KB', 'MB', 'GB'];
+			const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+			const size = bytes / Math.pow(1024, index);
+			return `${size.toFixed(size >= 10 ? 0 : 2)} ${units[index]}`;
+		}
+
+		function updateSummary(filesData = null) {
+			const files = filesData || currentFiles;
+			if (currentMode === 'handle') {
+				modeBadge.textContent = '实时模式';
+				modeBadge.className = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700';
+			} else if (currentMode === 'snapshot') {
+				modeBadge.textContent = '快照模式';
+				modeBadge.className = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700';
+			} else {
+				modeBadge.textContent = '未选择';
+				modeBadge.className = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600';
+			}
+			fileCountValue.textContent = files.length;
+			const total = files.reduce((sum, file) => {
+				if (file.size) return sum + file.size;
+				if (file.content) return sum + file.content.length;
+				return sum;
+			}, 0);
+			totalSizeValue.textContent = formatSize(total);
+		}
+
+		function renderFileList(filesToRender = null) {
+			const files = filesToRender || currentFiles;
+			output.innerHTML = '';
+			if (files.length === 0) {
+				output.innerHTML = '<p class="text-mech-muted text-sm text-center py-4">请选择或拖入文件</p>';
+				return;
+			}
+			files.forEach(file => {
+				const fileItem = document.createElement('div');
+				fileItem.className = 'flex items-center justify-between gap-3 p-3 border border-mech-edge rounded-lg bg-white mb-2 shadow-sm';
+				
+				const fileName = document.createElement('div');
+				fileName.className = 'font-bold text-sm text-slate-800 break-all';
+				fileName.textContent = file.name;
+				
+				const meta = document.createElement('div');
+				meta.className = 'flex items-center gap-2 text-xs text-mech-muted whitespace-nowrap';
+				
+				const pill = document.createElement('span');
+				const isHandle = currentMode === 'handle';
+				pill.className = `inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${isHandle ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'}`;
+				pill.textContent = isHandle ? '实时' : '快照';
+				
+				const sizeText = document.createElement('span');
+				const sizeValue = file.size ? file.size : (file.content ? file.content.length : 0);
+				sizeText.textContent = formatSize(sizeValue);
+				
+				meta.appendChild(pill);
+				meta.appendChild(sizeText);
+				fileItem.appendChild(fileName);
+				fileItem.appendChild(meta);
+				output.appendChild(fileItem);
+			});
+			updateSummary(files);
+		}
+
+		let statusBarTimeout;
+		function showStatusBar(message, type, duration = 4000) {
+			clearTimeout(statusBarTimeout);
+			statusBar.textContent = message;
+			statusBar.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-blue-100', 'text-blue-800');
+			
+			if (type === 'success') statusBar.classList.add('bg-green-100', 'text-green-800');
+			else if (type === 'error') statusBar.classList.add('bg-red-100', 'text-red-800');
+			else if (type === 'info') statusBar.classList.add('bg-blue-100', 'text-blue-800');
+			
+			if (duration > 0) {
+				statusBarTimeout = setTimeout(() => {
+					statusBar.classList.add('hidden');
+				}, duration);
+			}
+		}
+
+		function showToast(message, type = 'info') {
+			const toast = document.createElement('div');
+			let borderClass = 'border-blue-500';
+			if (type === 'success') borderClass = 'border-green-500';
+			if (type === 'error') borderClass = 'border-red-500';
+			
+			toast.className = `bg-white px-5 py-3 rounded-lg shadow-lg border-l-4 ${borderClass} text-slate-800 font-medium transition-all duration-400 opacity-0 translate-x-full pointer-events-auto`;
+			toast.textContent = message;
+			
+			toastContainer.appendChild(toast);
+			
+			// trigger reflow
+			void toast.offsetWidth;
+			
+			toast.classList.remove('opacity-0', 'translate-x-full');
+			toast.classList.add('opacity-100', 'translate-x-0');
+			
+			setTimeout(() => {
+				toast.classList.remove('opacity-100', 'translate-x-0');
+				toast.classList.add('opacity-0', 'translate-x-full');
+				toast.addEventListener('transitionend', () => toast.remove());
+			}, 3000);
+		}
+    </script>
+  </body>
+</html>
