@@ -1,0 +1,7 @@
+{
+  "title": "无缝贴图预览",
+  "description": "检测并预览无缝贴图，支持拖拽上传、网格线、方向检测与边缘高亮",
+  "version": "1.0.0",
+  "updatedAt": "2026-05-19",
+  "tags": ["texture", "seamless", "tiling", "pixel-art", "preview"]
+}
