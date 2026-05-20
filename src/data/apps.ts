@@ -22,6 +22,7 @@ export function getHtmlApps(): HtmlAppMeta[] {
     if (!match) continue
     const slug = match[1]
     const raw = (mod && (mod.default ?? mod)) || {}
+    if (raw.hidden) continue
     const title = String(raw.title || slug)
     const app: HtmlAppMeta = {
       slug,

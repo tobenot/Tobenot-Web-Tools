@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { getHtmlApps } from '../data/apps'
 import { tools, ToolDef } from '../data/routes'
+import { getRecentTools } from '../utils/recent'
 
 export function Home() {
   const apps = getHtmlApps()
@@ -49,6 +50,31 @@ export function Home() {
       />
 
       <div className="relative space-y-8 pb-16">
+        {/* 最近使用 */}
+        {(() => {
+          const recentIds = getRecentTools()
+          const recentItems = recentIds
+            .map(id => allItems.find(item => item.id === id))
+            .filter(Boolean) as ToolDef[]
+          if (recentItems.length === 0) return null
+          return (
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">最近</span>
+              {recentItems.map(item => (
+                <a
+                  key={item.id}
+                  href={item.href}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 border-2 border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-blue-400 hover:text-blue-700 transition-all"
+                  style={{ borderRadius: '2px' }}
+                >
+                  <span>{item.emoji}</span>
+                  <span>{item.title}</span>
+                </a>
+              ))}
+            </div>
+          )
+        })()}
+
         {/* 搜索栏和分类筛选 */}
         <div
           className="relative bg-white border-2 border-gray-200 backdrop-blur-sm"

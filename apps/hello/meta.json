@@ -3,5 +3,6 @@
   "description": "演示在 apps/ 下添加独立 HTML 页面并复用站点样式。",
   "version": "0.1.0",
   "updatedAt": "2025-08-08",
-  "tags": ["example", "starter"]
+  "tags": ["example", "starter"],
+  "hidden": true
 }
