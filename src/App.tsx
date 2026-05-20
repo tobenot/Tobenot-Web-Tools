@@ -15,6 +15,8 @@ import { JsonViewerTool } from './tools/json-viewer/JsonViewerTool'
 import { Base64Tool } from './tools/base64/Base64Tool'
 import { UrlCodecTool } from './tools/url-codec/UrlCodecTool'
 import { RegexTesterTool } from './tools/regex-tester/RegexTesterTool'
+import { TextDiffTool } from './tools/text-diff/TextDiffTool'
+import { QrCodeTool } from './tools/qrcode/QrCodeTool'
 import { getHashLocation } from './utils/hash'
 import { setFavicon } from './utils/favicon'
 import { recordToolVisit } from './utils/recent'
@@ -60,6 +62,8 @@ export default function App() {
         {route.path === 'base64' && <ErrorBoundary><Base64Tool /></ErrorBoundary>}
         {route.path === 'url-codec' && <ErrorBoundary><UrlCodecTool /></ErrorBoundary>}
         {route.path === 'regex-tester' && <ErrorBoundary><RegexTesterTool /></ErrorBoundary>}
+        {route.path === 'text-diff' && <ErrorBoundary><TextDiffTool /></ErrorBoundary>}
+        {route.path === 'qrcode' && <ErrorBoundary><QrCodeTool /></ErrorBoundary>}
         {route.path === 'changelog' && <ChangelogPage />}
         {route.path === 'about' && <About />}
       </main>

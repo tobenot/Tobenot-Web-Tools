@@ -94,6 +94,24 @@ export const tools: ToolDef[] = [
     href: '#regex-tester'
   },
   {
+    id: 'text-diff',
+    title: '文本 Diff 对比',
+    description: '逐行对比两段文本，高亮新增和删除的差异',
+    emoji: '📝',
+    version: 'v1.0',
+    category: 'utility',
+    href: '#text-diff'
+  },
+  {
+    id: 'qrcode',
+    title: '二维码生成',
+    description: '输入文本或 URL 即时生成二维码，支持自定义颜色和下载',
+    emoji: '📱',
+    version: 'v1.0',
+    category: 'utility',
+    href: '#qrcode'
+  },
+  {
     id: 'changelog',
     title: '更新日志',
     description: '查看项目更新记录',
@@ -115,6 +133,8 @@ export const pageTitleMap: Record<string, string> = {
   'base64': 'Base64 编解码 | Mecha Tools',
   'url-codec': 'URL 编解码 | Mecha Tools',
   'regex-tester': '正则测试器 | Mecha Tools',
+  'text-diff': '文本 Diff 对比 | Mecha Tools',
+  'qrcode': '二维码生成 | Mecha Tools',
   changelog: '更新日志 | Mecha Tools',
   about: '关于与设计 | Mecha Tools'
 }
