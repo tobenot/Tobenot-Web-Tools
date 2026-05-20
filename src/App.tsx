@@ -12,6 +12,9 @@ import { PromptGalleryTool } from './tools/prompt-gallery/PromptGalleryTool'
 import { SpaceTabConverterTool } from './tools/space-tab-converter/SpaceTabConverterTool'
 import { BgRemoverTool } from './tools/bg-remover/BgRemoverTool'
 import { JsonViewerTool } from './tools/json-viewer/JsonViewerTool'
+import { Base64Tool } from './tools/base64/Base64Tool'
+import { UrlCodecTool } from './tools/url-codec/UrlCodecTool'
+import { RegexTesterTool } from './tools/regex-tester/RegexTesterTool'
 import { getHashLocation } from './utils/hash'
 import { setFavicon } from './utils/favicon'
 import { recordToolVisit } from './utils/recent'
@@ -54,6 +57,9 @@ export default function App() {
         {route.path === 'bg-remover' && <ErrorBoundary><BgRemoverTool /></ErrorBoundary>}
         {route.path === 'space-tab-converter' && <ErrorBoundary><SpaceTabConverterTool /></ErrorBoundary>}
         {route.path === 'json-viewer' && <ErrorBoundary><JsonViewerTool /></ErrorBoundary>}
+        {route.path === 'base64' && <ErrorBoundary><Base64Tool /></ErrorBoundary>}
+        {route.path === 'url-codec' && <ErrorBoundary><UrlCodecTool /></ErrorBoundary>}
+        {route.path === 'regex-tester' && <ErrorBoundary><RegexTesterTool /></ErrorBoundary>}
         {route.path === 'changelog' && <ChangelogPage />}
         {route.path === 'about' && <About />}
       </main>

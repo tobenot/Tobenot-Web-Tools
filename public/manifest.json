@@ -1,0 +1,17 @@
+{
+  "name": "Mecha Tools",
+  "short_name": "Mecha",
+  "description": "现代机械风 Web 工具站",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='64' fill='%230f172a'/%3E%3Ctext x='256' y='340' text-anchor='middle' font-family='Arial' font-size='280' font-weight='800' fill='white'%3EM%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

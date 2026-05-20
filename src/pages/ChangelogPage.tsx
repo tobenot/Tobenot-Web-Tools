@@ -3,7 +3,7 @@ import { globalChangelog } from '../data/routes'
 
 export function ChangelogPage() {
   return (
-    <div className="relative bg-white border-2 border-gray-200 p-6">
+    <div className="relative bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 p-6">
       <div
         className="absolute -top-0.5 -left-0.5 -right-0.5 h-1 opacity-70 pointer-events-none"
         style={{

@@ -262,7 +262,7 @@ export const JsonViewerTool = () => {
           ref={topScrollRef}
           onScroll={handleTopScroll}
           className="overflow-x-auto overflow-y-hidden border-b border-gray-200 bg-gray-50"
-          style={{ height: '16px', scrollbarWidth: 'thick' }}
+          style={{ height: '16px', scrollbarWidth: 'auto' }}
         >
           <div ref={contentWidthRef} style={{ height: '1px' }}></div>
         </div>
@@ -272,7 +272,7 @@ export const JsonViewerTool = () => {
           ref={bottomScrollRef}
           onScroll={handleBottomScroll}
           className="flex-1 overflow-auto p-4 custom-scrollbar"
-          style={{ maxHeight: '60vh', scrollbarWidth: 'thick', scrollbarGutter: 'stable' }}
+          style={{ maxHeight: '60vh', scrollbarWidth: 'auto', scrollbarGutter: 'stable' }}
         >
           {errorMsg ? (
             <div className="p-4 bg-red-50 text-red-700 border border-red-200 rounded">

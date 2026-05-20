@@ -67,6 +67,33 @@ export const tools: ToolDef[] = [
     href: '#json-viewer'
   },
   {
+    id: 'base64',
+    title: 'Base64 编解码',
+    description: '文本与文件的 Base64 编码/解码，支持 UTF-8',
+    emoji: '🔐',
+    version: 'v1.0',
+    category: 'utility',
+    href: '#base64'
+  },
+  {
+    id: 'url-codec',
+    title: 'URL 编解码',
+    description: 'encodeURI / decodeURI / encodeURIComponent 实时转换',
+    emoji: '🔗',
+    version: 'v1.0',
+    category: 'utility',
+    href: '#url-codec'
+  },
+  {
+    id: 'regex-tester',
+    title: '正则测试器',
+    description: '实时正则表达式测试，高亮匹配，显示捕获分组',
+    emoji: '🎯',
+    version: 'v1.0',
+    category: 'utility',
+    href: '#regex-tester'
+  },
+  {
     id: 'changelog',
     title: '更新日志',
     description: '查看项目更新记录',
@@ -85,6 +112,9 @@ export const pageTitleMap: Record<string, string> = {
   'json-viewer': 'JSON 表格查看器 | Mecha Tools',
   'bg-remover': '图片去底工具 | Mecha Tools',
   'space-tab-converter': '空格/Tab 转换器 | Mecha Tools',
+  'base64': 'Base64 编解码 | Mecha Tools',
+  'url-codec': 'URL 编解码 | Mecha Tools',
+  'regex-tester': '正则测试器 | Mecha Tools',
   changelog: '更新日志 | Mecha Tools',
   about: '关于与设计 | Mecha Tools'
 }

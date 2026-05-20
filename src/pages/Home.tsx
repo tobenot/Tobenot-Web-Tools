@@ -39,12 +39,12 @@ export function Home() {
   })
 
   return (
-    <div className="min-h-screen bg-white relative">
+    <div className="min-h-screen relative">
       {/* 背景网格 */}
       <div
-        className="fixed inset-0 opacity-[0.015] pointer-events-none"
+        className="fixed inset-0 opacity-[0.015] dark:opacity-[0.03] pointer-events-none"
         style={{
-          backgroundImage: 'linear-gradient(to right, #0f172a 1px, transparent 1px), linear-gradient(to bottom, #0f172a 1px, transparent 1px)',
+          backgroundImage: 'linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px)',
           backgroundSize: '32px 32px'
         }}
       />
@@ -59,12 +59,12 @@ export function Home() {
           if (recentItems.length === 0) return null
           return (
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">最近</span>
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">最近</span>
               {recentItems.map(item => (
                 <a
                   key={item.id}
                   href={item.href}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 border-2 border-gray-200 bg-white text-sm font-medium text-gray-700 hover:border-blue-400 hover:text-blue-700 transition-all"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-700 dark:hover:text-blue-400 transition-all"
                   style={{ borderRadius: '2px' }}
                 >
                   <span>{item.emoji}</span>
@@ -76,13 +76,7 @@ export function Home() {
         })()}
 
         {/* 搜索栏和分类筛选 */}
-        <div
-          className="relative bg-white border-2 border-gray-200 backdrop-blur-sm"
-          style={{
-            borderImage: 'linear-gradient(90deg, #ff6b6b, #f7d794, #1dd1a1, #54a0ff, #5f27cd, #ff6b6b) 1',
-            animation: 'none'
-          }}
-        >
+        <div className="relative bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 backdrop-blur-sm">
           <div
             className="absolute -top-0.5 -left-0.5 -right-0.5 h-1 opacity-70 pointer-events-none"
             style={{
@@ -96,18 +90,18 @@ export function Home() {
             <div className="flex items-center gap-3">
               <div className="text-2xl">🔍</div>
               <div>
-                <h2 className="text-xl font-bold tracking-wide text-gray-900">工具中心</h2>
-                <p className="text-sm text-gray-600 mt-1">搜索并发现实用工具与应用</p>
+                <h2 className="text-xl font-bold tracking-wide text-gray-900 dark:text-gray-100">工具中心</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">搜索并发现实用工具与应用</p>
               </div>
             </div>
 
             <div className="relative">
               <input
                 type="text"
-                placeholder="搜索工具、应用..."
+                placeholder="搜索工具、应用... (Ctrl+K)"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full h-12 px-4 pr-12 border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:outline-none transition-colors font-medium"
+                className="w-full h-12 px-4 pr-12 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:border-blue-500 focus:outline-none transition-colors font-medium"
                 style={{ borderRadius: '2px' }}
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">
@@ -122,8 +116,8 @@ export function Home() {
                   onClick={() => setSelectedCategory(category.id)}
                   className={`inline-flex items-center gap-2 px-4 py-2 border-2 font-medium transition-all duration-200 hover:scale-105 ${
                     selectedCategory === category.id
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                      : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-500'
                   }`}
                   style={{ borderRadius: '2px' }}
                 >
@@ -133,12 +127,12 @@ export function Home() {
               ))}
             </div>
 
-            <div className="flex items-center justify-between text-sm text-gray-600 pt-2 border-t border-gray-100">
+            <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 pt-2 border-t border-gray-100 dark:border-gray-700">
               <span>找到 {filteredItems.length} 个项目</span>
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm('')}
-                  className="text-blue-600 hover:text-blue-800 font-medium"
+                  className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium"
                 >
                   清除搜索
                 </button>
@@ -154,7 +148,7 @@ export function Home() {
               key={item.id}
               href={item.href}
               target={item.category === 'app' ? '_self' : undefined}
-              className="group relative bg-white border-2 border-gray-200 hover:border-gray-300 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg"
+              className="group relative bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg dark:hover:shadow-black/30"
               style={{
                 borderRadius: '2px',
                 animationDelay: `${index * 50}ms`,
@@ -176,17 +170,17 @@ export function Home() {
                     {item.emoji}
                   </div>
                   {item.version && (
-                    <span className="px-3 py-1 border border-gray-300 text-xs font-medium text-gray-600 bg-gray-50">
+                    <span className="px-3 py-1 border border-gray-300 dark:border-gray-600 text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700">
                       {item.version}
                     </span>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                     {item.title}
                   </h3>
-                  <p className="text-sm text-gray-600 leading-relaxed line-clamp-2">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-2">
                     {item.description}
                   </p>
                 </div>
@@ -196,7 +190,7 @@ export function Home() {
                     {item.tags.slice(0, 3).map(tag => (
                       <span
                         key={tag}
-                        className="px-2 py-1 text-xs bg-gray-100 text-gray-600 font-medium"
+                        className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-medium"
                         style={{ borderRadius: '2px' }}
                       >
                         #{tag}
@@ -205,8 +199,8 @@ export function Home() {
                   </div>
                 )}
 
-                <div className="pt-2 border-t border-gray-100">
-                  <div className="text-sm font-medium text-blue-600 group-hover:text-blue-800 flex items-center gap-2">
+                <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+                  <div className="text-sm font-medium text-blue-600 dark:text-blue-400 group-hover:text-blue-800 dark:group-hover:text-blue-300 flex items-center gap-2">
                     <span>打开工具</span>
                     <span className="text-lg group-hover:translate-x-1 transition-transform duration-300">→</span>
                   </div>
@@ -219,8 +213,8 @@ export function Home() {
         {filteredItems.length === 0 && (
           <div className="text-center py-16">
             <div className="text-6xl mb-4">🔍</div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">没有找到匹配的项目</h3>
-            <p className="text-gray-600">尝试调整搜索关键词或选择不同的分类</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">没有找到匹配的项目</h3>
+            <p className="text-gray-600 dark:text-gray-400">尝试调整搜索关键词或选择不同的分类</p>
           </div>
         )}
       </div>

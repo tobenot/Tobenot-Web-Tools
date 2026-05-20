@@ -100,11 +100,11 @@ export function CommandPalette() {
       {/* Panel */}
       <div className="fixed inset-0 z-[9991] flex items-start justify-center pt-[15vh] px-4 pointer-events-none">
         <div
-          className="w-full max-w-lg bg-white border-2 border-gray-200 shadow-2xl pointer-events-auto overflow-hidden"
+          className="w-full max-w-lg bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 shadow-2xl pointer-events-auto overflow-hidden"
           style={{ borderRadius: '2px', animation: 'cmdFadeIn 0.15s ease-out' }}
         >
           {/* Search input */}
-          <div className="flex items-center gap-3 px-4 border-b-2 border-gray-100">
+          <div className="flex items-center gap-3 px-4 border-b-2 border-gray-100 dark:border-gray-700">
             <span className="text-gray-400 text-lg">🔍</span>
             <input
               ref={inputRef}
@@ -113,9 +113,9 @@ export function CommandPalette() {
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="flex-1 h-12 bg-transparent border-none outline-none text-gray-900 placeholder-gray-400 font-medium"
+              className="flex-1 h-12 bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-medium"
             />
-            <kbd className="hidden sm:inline-block px-2 py-0.5 text-xs border border-gray-200 rounded text-gray-400 font-mono">
+            <kbd className="hidden sm:inline-block px-2 py-0.5 text-xs border border-gray-200 dark:border-gray-600 rounded text-gray-400 dark:text-gray-500 font-mono">
               Esc
             </kbd>
           </div>
@@ -123,7 +123,7 @@ export function CommandPalette() {
           {/* Results */}
           <div ref={listRef} className="max-h-72 overflow-y-auto py-2">
             {filtered.length === 0 && (
-              <div className="px-4 py-8 text-center text-gray-500 text-sm">
+              <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400 text-sm">
                 没有匹配的工具
               </div>
             )}
@@ -132,13 +132,13 @@ export function CommandPalette() {
                 key={item.id}
                 onClick={() => navigate(item.href)}
                 className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
-                  i === selectedIndex ? 'bg-blue-50 text-blue-900' : 'hover:bg-gray-50 text-gray-700'
+                  i === selectedIndex ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-200' : 'hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
                 }`}
               >
                 <span className="text-xl w-8 text-center flex-shrink-0">{item.emoji}</span>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm truncate">{item.title}</div>
-                  <div className="text-xs text-gray-500 truncate">{item.description}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{item.description}</div>
                 </div>
                 {i === selectedIndex && (
                   <span className="text-xs text-blue-400 flex-shrink-0">↵</span>
@@ -148,7 +148,7 @@ export function CommandPalette() {
           </div>
 
           {/* Footer hint */}
-          <div className="border-t border-gray-100 px-4 py-2 flex items-center gap-4 text-xs text-gray-400">
+          <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-2 flex items-center gap-4 text-xs text-gray-400 dark:text-gray-500">
             <span>↑↓ 导航</span>
             <span>↵ 打开</span>
             <span>Esc 关闭</span>
