@@ -22,6 +22,10 @@ interface RemoveConfig {
   targetColor: RGB
   tolerance: number
   feather: number
+  /** 仅去除与图像边缘连通的背景（防止前景内部被穿孔） */
+  edgeConnectedOnly: boolean
+  /** 调试：把"被算法救回来"的内部洞像素高亮成品红色 */
+  debugVisualize: boolean
 }
 
 /** 批量处理模式 */
@@ -136,26 +140,114 @@ function removeBackground(
   imageData: ImageData,
   config: RemoveConfig
 ): ImageData {
-  const { targetColor, tolerance, feather } = config
+  const { targetColor, tolerance, feather, edgeConnectedOnly, debugVisualize } = config
   const [tr, tg, tb] = targetColor
   const data = imageData.data
-  const maxDist = Math.sqrt(255 ** 2 * 3) // ~441.67
+  const w = imageData.width
+  const h = imageData.height
+  const total = w * h
 
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i]
-    const g = data[i + 1]
-    const b = data[i + 2]
-    const dist = colorDistance(r, g, b, tr, tg, tb)
+  if (!edgeConnectedOnly) {
+    // 旧逻辑：纯逐像素颜色判断
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i]
+      const g = data[i + 1]
+      const b = data[i + 2]
+      const dist = colorDistance(r, g, b, tr, tg, tb)
 
-    if (dist <= tolerance) {
-      // 完全透明
-      data[i + 3] = 0
-    } else if (feather > 0 && dist <= tolerance + feather) {
-      // 羽化区域：渐变透明
-      const alpha = ((dist - tolerance) / feather) * 255
-      data[i + 3] = Math.min(data[i + 3], Math.round(alpha))
+      if (dist <= tolerance) {
+        data[i + 3] = 0
+      } else if (feather > 0 && dist <= tolerance + feather) {
+        const alpha = ((dist - tolerance) / feather) * 255
+        data[i + 3] = Math.min(data[i + 3], Math.round(alpha))
+      }
     }
-    // else: 保持原样
+    return imageData
+  }
+
+  /* === 边缘连通模式：Flood Fill 识别真正的背景 === */
+
+  // 1) 候选掩码：颜色距离 ≤ tolerance 的像素
+  const candidate = new Uint8Array(total)
+  for (let i = 0; i < total; i++) {
+    const idx = i * 4
+    const dist = colorDistance(data[idx], data[idx + 1], data[idx + 2], tr, tg, tb)
+    if (dist <= tolerance) candidate[i] = 1
+  }
+
+  // 2) 从四条边的候选像素出发，做 4-邻接 BFS，标记真背景
+  const trueBg = new Uint8Array(total)
+  const queue = new Int32Array(total)
+  let qHead = 0
+  let qTail = 0
+  const enqueue = (p: number) => {
+    if (!trueBg[p] && candidate[p]) {
+      trueBg[p] = 1
+      queue[qTail++] = p
+    }
+  }
+
+  for (let x = 0; x < w; x++) {
+    enqueue(x)                  // 上边
+    enqueue((h - 1) * w + x)    // 下边
+  }
+  for (let y = 0; y < h; y++) {
+    enqueue(y * w)              // 左边
+    enqueue(y * w + w - 1)      // 右边
+  }
+
+  while (qHead < qTail) {
+    const p = queue[qHead++]
+    const x = p % w
+    const y = (p / w) | 0
+    if (x > 0) enqueue(p - 1)
+    if (x < w - 1) enqueue(p + 1)
+    if (y > 0) enqueue(p - w)
+    if (y < h - 1) enqueue(p + w)
+  }
+
+  // 3) 写回 alpha
+  //    - trueBg：完全透明
+  //    - candidate 但非 trueBg：内部洞，恢复（可选高亮）
+  //    - 其它（颜色处于 tolerance~tolerance+feather 之间）：仅当 4-邻接到 trueBg 时才羽化
+  for (let i = 0; i < total; i++) {
+    const idx = i * 4
+
+    if (trueBg[i]) {
+      data[idx + 3] = 0
+      continue
+    }
+
+    if (candidate[i]) {
+      // 内部洞：保留原样
+      if (debugVisualize) {
+        data[idx] = 236
+        data[idx + 1] = 72
+        data[idx + 2] = 153
+      }
+      continue
+    }
+
+    if (feather > 0) {
+      const r = data[idx]
+      const g = data[idx + 1]
+      const b = data[idx + 2]
+      const dist = colorDistance(r, g, b, tr, tg, tb)
+      if (dist <= tolerance + feather) {
+        // 仅在真背景的边缘一圈生效
+        const x = i % w
+        const y = (i / w) | 0
+        let nearBg = false
+        if (x > 0 && trueBg[i - 1]) nearBg = true
+        else if (x < w - 1 && trueBg[i + 1]) nearBg = true
+        else if (y > 0 && trueBg[i - w]) nearBg = true
+        else if (y < h - 1 && trueBg[i + w]) nearBg = true
+        if (nearBg) {
+          const alpha = ((dist - tolerance) / feather) * 255
+          data[idx + 3] = Math.min(data[idx + 3], Math.round(alpha))
+        }
+      }
+    }
   }
 
   return imageData
@@ -192,6 +284,8 @@ export function BgRemoverTool() {
     targetColor: [255, 255, 255],
     tolerance: 30,
     feather: 10,
+    edgeConnectedOnly: true,
+    debugVisualize: false,
   })
   const [pickingColor, setPickingColor] = useState(false)
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null)
@@ -698,6 +792,44 @@ export function BgRemoverTool() {
             </p>
           </div>
 
+          {/* 智能去底 / 调试 */}
+          <div className="border-2 border-gray-200 bg-white p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-gray-700">🧠 智能识别</h3>
+
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={config.edgeConnectedOnly}
+                onChange={(e) => setConfig(prev => ({ ...prev, edgeConnectedOnly: e.target.checked }))}
+                className="mt-0.5 accent-blue-500"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-800">仅去除与边缘连通的背景</span>
+                <p className="text-xs text-gray-500">
+                  从图像四边做洪水填充，只删除真正连通到边界的背景；前景内部颜色相近的"洞"会被保留。
+                  适用于骨刺/镂空轮廓但内部颜色和背景接近的情况。
+                </p>
+              </div>
+            </label>
+
+            <label className={`flex items-start gap-2 cursor-pointer ${!config.edgeConnectedOnly ? 'opacity-50' : ''}`}>
+              <input
+                type="checkbox"
+                checked={config.debugVisualize}
+                onChange={(e) => setConfig(prev => ({ ...prev, debugVisualize: e.target.checked }))}
+                disabled={!config.edgeConnectedOnly}
+                className="mt-0.5 accent-pink-500"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-800">显示连通性诊断</span>
+                <p className="text-xs text-gray-500">
+                  把"被算法救回来的内部洞像素"高亮成 <span className="inline-block w-3 h-3 rounded-sm align-middle" style={{ backgroundColor: '#ec4899' }} /> 品红色，
+                  方便看清哪里被保留。导出前请关闭。
+                </p>
+              </div>
+            </label>
+          </div>
+
           {/* 批量颜色模式 */}
           <div className="border-2 border-gray-200 bg-white p-4 space-y-3">
             <h3 className="text-sm font-semibold text-gray-700">🔄 批量处理颜色策略</h3>
@@ -830,6 +962,7 @@ export function BgRemoverTool() {
         <h3 className="text-sm font-semibold text-gray-700">💡 使用技巧</h3>
         <ul className="text-sm text-gray-600 space-y-2 list-disc pl-5">
           <li><strong>不同底色批量处理：</strong>选"自动检测"模式，工具会自动从每张图的角落采样推断底色，无需逐张手动设置</li>
+          <li><strong>骨刺/镂空轮廓内部被穿孔：</strong>开启"仅去除与边缘连通的背景"（默认开启），前景内部颜色再像背景也不会被误删；开启"显示连通性诊断"可用品红色看到救回来的部分</li>
           <li><strong>快速去白底：</strong>点击"去白底"预设 + "统一颜色"模式，一键批量处理</li>
           <li><strong>精确取色：</strong>点击"取色"按钮后，在预览图上点选要去除的颜色。取色会同时绑定到当前图片</li>
           <li><strong>逐张取色模式：</strong>对每张图分别取色，批量处理时各用各的颜色</li>
