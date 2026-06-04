@@ -280,6 +280,7 @@ async function processImage(
 /* ─── 组件 ─── */
 export function BgRemoverTool() {
   const [images, setImages] = useState<ImageItem[]>([])
+  const [keepOriginalName, setKeepOriginalName] = useState(false)
   const [config, setConfig] = useState<RemoveConfig>({
     targetColor: [255, 255, 255],
     tolerance: 30,
@@ -436,10 +437,12 @@ export function BgRemoverTool() {
   const downloadSingle = useCallback((image: ImageItem) => {
     if (!image.processedUrl) return
     const link = document.createElement('a')
-    link.download = `去底_${image.file.name.replace(/\.[^.]+$/, '')}.png`
+    link.download = keepOriginalName
+      ? image.file.name
+      : `去底_${image.file.name.replace(/\.[^.]+$/, '')}.png`
     link.href = image.processedUrl
     link.click()
-  }, [])
+  }, [keepOriginalName])
 
   /* 下载全部 — 打包为 zip */
   const [zipping, setZipping] = useState(false)
@@ -453,7 +456,9 @@ export function BgRemoverTool() {
         // data URL → Blob
         const res = await fetch(image.processedUrl!)
         const blob = await res.blob()
-        const fileName = `去底_${image.file.name.replace(/\.[^.]+$/, '')}.png`
+        const fileName = keepOriginalName
+          ? image.file.name
+          : `去底_${image.file.name.replace(/\.[^.]+$/, '')}.png`
         zip.file(fileName, blob)
       }
       const content = await zip.generateAsync({ type: 'blob' })
@@ -466,7 +471,7 @@ export function BgRemoverTool() {
     } finally {
       setZipping(false)
     }
-  }, [images])
+  }, [images, keepOriginalName])
 
   /* 删除图片 */
   const removeImage = useCallback((id: string) => {
@@ -915,7 +920,23 @@ export function BgRemoverTool() {
           {/* 操作按钮 */}
           <div className="border-2 border-gray-200 bg-white p-4 space-y-3">
             <h3 className="text-sm font-semibold text-gray-700">🚀 操作</h3>
-            <div className="space-y-2">
+            
+            <label className="flex items-start gap-2 cursor-pointer pb-2 border-b border-gray-100">
+              <input
+                type="checkbox"
+                checked={keepOriginalName}
+                onChange={(e) => setKeepOriginalName(e.target.checked)}
+                className="mt-0.5 accent-blue-500"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-800">完全保持原文件名</span>
+                <p className="text-xs text-gray-500">
+                  开启后，下载或打包时将完全保留原图片文件名与后缀，不添加“去底_”前缀。
+                </p>
+              </div>
+            </label>
+
+            <div className="space-y-2 pt-1">
               {selectedImageId && (
                 <button
                   onClick={() => processSingle(selectedImageId)}
