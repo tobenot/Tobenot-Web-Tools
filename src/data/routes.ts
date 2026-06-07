@@ -140,5 +140,14 @@ export const pageTitleMap: Record<string, string> = {
 }
 
 export const globalChangelog: ChangelogEntry[] = [
+  {
+    date: '2026-06-07',
+    title: '域名迁移',
+    notes: [
+      '由 tobenot.top/Tobenot-Web-Tools/ 迁至 tools.tobenot.top',
+      '路由方式不变，仍为 # 哈希直达',
+      '请更新书签与外链域名'
+    ]
+  },
   { date: '2025-08-08', title: '项目初始化', notes: ['添加首页导航与机械风主题', '实现日历工具 v0.1（支持哈希分享 `?d=YYYY-MM-DD`）', '加入通用工具模板（分享、设计、更新日志）', '配置 GitHub Pages 自动部署'] },
 ]

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Header } from './components/Header'
+import { DomainMigrationBanner } from './components/DomainMigrationBanner'
 import { Layout } from './components/Layout'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { CommandPalette } from './components/CommandPalette'
@@ -44,6 +45,7 @@ export default function App() {
   return (
     <Layout hideFooter={route.path === 'markdown-reader'}>
       <Header />
+      <DomainMigrationBanner />
       <CommandPalette />
       {route.path === 'markdown-reader' && (
         <main className="w-full overflow-hidden p-4" style={{ height: 'calc(100vh - 66px)' }}>
