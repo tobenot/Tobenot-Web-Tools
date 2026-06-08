@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f7f8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0%200%2064%2064'%3E%3Crect width='64' height='64' rx='14' fill='%23f59e0b'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-family='Arial' font-size='28' font-weight='800' fill='white'%3E%E2%98%B0%3C/text%3E%3C/svg%3E" />
+    <title>大纲排序器 | Mecha Tools</title>
+    <link rel="stylesheet" crossorigin href="../../assets/src-COXxPbce.css">
+  </head>
+  <body class="min-h-screen bg-mech-bg text-mech-text antialiased relative">
+    <div
+      class="fixed inset-0 opacity-[0.015] pointer-events-none"
+      style="background-image: linear-gradient(to right, #0f172a 1px, transparent 1px), linear-gradient(to bottom, #0f172a 1px, transparent 1px); background-size: 32px 32px;"
+    ></div>
+
+    <main class="max-w-[1600px] mx-auto px-4 py-8 space-y-6 relative">
+      <header class="sticky top-0 z-30 border-b border-mech-edge/70 backdrop-blur bg-mech-bg/70 -mx-4 px-4 py-3">
+        <div class="flex items-center justify-between">
+          <a class="font-semibold tracking-wider hover:text-blue-600 transition-colors" href="/">Mecha Tools</a>
+          <a class="inline-flex items-center gap-2 px-3 py-2 rounded-sm border-2 border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors text-sm font-medium" href="/">返回首页</a>
+        </div>
+      </header>
+
+      <div class="bg-mech-panel border-2 border-mech-edge p-6 relative">
+        <div
+          class="absolute -top-0.5 -left-0.5 -right-0.5 h-1 opacity-70 pointer-events-none"
+          style="background: linear-gradient(90deg, #f59e0b, #ef4444, #8b5cf6, #3b82f6, #10b981, #f59e0b); background-size: 300% 100%; animation: gradient-flow 16s linear infinite;"
+        ></div>
+
+        <div class="flex items-center gap-3 mb-6">
+          <span class="text-3xl">&#9776;</span>
+          <h1 class="text-2xl font-bold tracking-wide text-gray-900">大纲排序器</h1>
+          <span class="text-sm text-mech-muted ml-2">拖拽右侧大纲调整章节顺序，左侧实时编辑文本</span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- 左侧：Markdown 编辑区 -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="block font-semibold text-gray-800">Markdown 文本</label>
+              <div class="flex gap-2">
+                <button id="pasteBtn" class="px-3 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-sm font-medium transition-colors">粘贴</button>
+                <button id="copyBtn" class="px-3 py-1 text-xs bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-sm font-medium transition-colors">复制全文</button>
+                <button id="clearBtn" class="px-3 py-1 text-xs bg-white hover:bg-red-50 text-red-600 border border-gray-200 rounded-sm font-medium transition-colors">清空</button>
+              </div>
+            </div>
+            <textarea
+              id="editor"
+              placeholder="在此粘贴或编辑 Markdown 文本...&#10;&#10;支持 # ## ### 等各级标题&#10;拖拽右侧大纲可调换章节顺序"
+              class="w-full p-4 font-mono text-sm border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors resize-none"
+              style="border-radius: 2px; height: calc(100vh - 280px); min-height: 400px;"
+              spellcheck="false"
+            ></textarea>
+          </div>
+
+          <!-- 右侧：大纲树 -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="block font-semibold text-gray-800">大纲结构</label>
+              <div class="flex gap-2 items-center">
+                <button id="expandAllBtn" class="px-3 py-1 text-xs bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-sm font-medium transition-colors">全部展开</button>
+                <button id="collapseAllBtn" class="px-3 py-1 text-xs bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-sm font-medium transition-colors">全部折叠</button>
+              </div>
+            </div>
+            <div
+              id="outline"
+              class="border-2 border-gray-200 bg-gray-50 overflow-y-auto p-3"
+              style="border-radius: 2px; height: calc(100vh - 280px); min-height: 400px;"
+            >
+              <div class="text-mech-muted text-sm text-center py-10">在左侧输入含标题的 Markdown 文本</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <style>
+      @keyframes gradient-flow {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 100% 50%; }
+      }
+      .outline-item {
+        -webkit-user-select: none;
+           -moz-user-select: none;
+                user-select: none;
+        cursor: grab;
+        border-radius: 2px;
+        transition: background 0.1s, box-shadow 0.1s;
+      }
+      .outline-item:hover {
+        background: #e0e7ff;
+      }
+      .outline-item.dragging {
+        opacity: 0.5;
+        background: #dbeafe;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+      .outline-item.drag-over-top::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: #3b82f6;
+        border-radius: 2px;
+      }
+      .outline-item.drag-over-bottom::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: #3b82f6;
+        border-radius: 2px;
+      }
+      .outline-item .collapse-btn {
+        width: 18px;
+        height: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        color: #64748b;
+        cursor: pointer;
+        border-radius: 2px;
+        flex-shrink: 0;
+      }
+      .outline-item .collapse-btn:hover {
+        background: #cbd5e1;
+      }
+      .outline-children.collapsed {
+        display: none;
+      }
+      .level-1 { font-weight: 700; font-size: 0.95rem; }
+      .level-2 { font-weight: 600; font-size: 0.9rem; }
+      .level-3 { font-weight: 500; font-size: 0.85rem; }
+      .level-4, .level-5, .level-6 { font-weight: 400; font-size: 0.82rem; }
+    </style>
+
+    <script>
+      const editor = document.getElementById('editor');
+      const outline = document.getElementById('outline');
+      const pasteBtn = document.getElementById('pasteBtn');
+      const copyBtn = document.getElementById('copyBtn');
+      const clearBtn = document.getElementById('clearBtn');
+      const expandAllBtn = document.getElementById('expandAllBtn');
+      const collapseAllBtn = document.getElementById('collapseAllBtn');
+
+      // --- Parse markdown into tree ---
+      function parseOutline(text) {
+        const lines = text.split('\n');
+        const root = { level: 0, title: 'root', children: [], lines: [] };
+        const stack = [root];
+
+        let currentNode = root;
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const match = line.match(/^(#{1,6})\s+(.*)$/);
+          if (match) {
+            const level = match[1].length;
+            const title = match[2] || '(空标题)';
+            const node = { level, title, headingLine: line, children: [], lines: [], lineIndex: i };
+
+            // find parent
+            while (stack.length > 1 && stack[stack.length - 1].level >= level) {
+              stack.pop();
+            }
+            stack[stack.length - 1].children.push(node);
+            stack.push(node);
+            currentNode = node;
+          } else {
+            currentNode.lines.push(line);
+          }
+        }
+        return root;
+      }
+
+      // --- Serialize tree back to text ---
+      function serializeTree(node) {
+        let result = '';
+        if (node.headingLine !== undefined) {
+          result += node.headingLine + '\n';
+        }
+        if (node.lines.length > 0) {
+          result += node.lines.join('\n') + '\n';
+        }
+        for (const child of node.children) {
+          result += serializeTree(child);
+        }
+        return result;
+      }
+
+      function treeToText(root) {
+        let text = '';
+        // root lines (before first heading)
+        if (root.lines.length > 0) {
+          text += root.lines.join('\n') + '\n';
+        }
+        for (const child of root.children) {
+          text += serializeTree(child);
+        }
+        // remove trailing newline duplication
+        return text.replace(/\n$/, '');
+      }
+
+      // --- Render outline tree to DOM ---
+      let draggedEl = null;
+      let draggedNode = null;
+      let treeData = null;
+
+      function renderOutline() {
+        const text = editor.value;
+        treeData = parseOutline(text);
+
+        if (treeData.children.length === 0) {
+          outline.innerHTML = '<div class="text-mech-muted text-sm text-center py-10">未检测到标题（# ## ### ...）</div>';
+          return;
+        }
+
+        outline.innerHTML = '';
+        renderChildren(treeData.children, outline, treeData);
+      }
+
+      function renderChildren(children, container, parent) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'outline-children space-y-0.5';
+        wrapper.dataset.parentId = parent._id || 'root';
+
+        for (let i = 0; i < children.length; i++) {
+          const node = children[i];
+          node._id = node._id || Math.random().toString(36).slice(2, 9);
+          node._parent = parent;
+          node._index = i;
+
+          const item = document.createElement('div');
+          item.className = `outline-item relative flex items-center gap-1 px-2 py-1.5 level-${node.level}`;
+          item.style.paddingLeft = `${(node.level - 1) * 16 + 8}px`;
+          item.draggable = true;
+          item.dataset.nodeId = node._id;
+
+          // collapse button
+          const colBtn = document.createElement('span');
+          colBtn.className = 'collapse-btn';
+          if (node.children.length > 0) {
+            colBtn.textContent = '▼';
+            colBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const childrenEl = item.nextElementSibling;
+              if (childrenEl && childrenEl.classList.contains('outline-children')) {
+                childrenEl.classList.toggle('collapsed');
+                colBtn.textContent = childrenEl.classList.contains('collapsed') ? '▶' : '▼';
+              }
+            });
+          } else {
+            colBtn.textContent = '·';
+            colBtn.style.cursor = 'default';
+          }
+          item.appendChild(colBtn);
+
+          // level badge
+          const badge = document.createElement('span');
+          badge.className = 'text-xs text-mech-muted mr-1 font-mono opacity-60';
+          badge.textContent = '#'.repeat(node.level);
+          item.appendChild(badge);
+
+          // title
+          const titleSpan = document.createElement('span');
+          titleSpan.className = 'truncate';
+          titleSpan.textContent = node.title;
+          item.appendChild(titleSpan);
+
+          // line count hint
+          const contentCount = countContent(node);
+          if (contentCount > 0) {
+            const hint = document.createElement('span');
+            hint.className = 'ml-auto text-xs text-mech-muted opacity-50 flex-shrink-0';
+            hint.textContent = `${contentCount}行`;
+            item.appendChild(hint);
+          }
+
+          // drag events
+          item.addEventListener('dragstart', (e) => {
+            draggedEl = item;
+            draggedNode = node;
+            item.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', node._id);
+          });
+
+          item.addEventListener('dragend', () => {
+            item.classList.remove('dragging');
+            clearAllDragIndicators();
+            draggedEl = null;
+            draggedNode = null;
+          });
+
+          item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (draggedEl === item) return;
+
+            const rect = item.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            const half = rect.height / 2;
+
+            clearAllDragIndicators();
+            if (y < half) {
+              item.classList.add('drag-over-top');
+            } else {
+              item.classList.add('drag-over-bottom');
+            }
+          });
+
+          item.addEventListener('dragleave', () => {
+            item.classList.remove('drag-over-top', 'drag-over-bottom');
+          });
+
+          item.addEventListener('drop', (e) => {
+            e.preventDefault();
+            clearAllDragIndicators();
+            if (!draggedNode || draggedNode === node) return;
+
+            const rect = item.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            const half = rect.height / 2;
+            const insertBefore = y < half;
+
+            moveNode(draggedNode, node, insertBefore);
+          });
+
+          wrapper.appendChild(item);
+
+          // recursively render children
+          if (node.children.length > 0) {
+            renderChildren(node.children, wrapper, node);
+          }
+        }
+
+        container.appendChild(wrapper);
+      }
+
+      function countContent(node) {
+        let count = node.lines.filter(l => l.trim()).length;
+        for (const child of node.children) {
+          count += countContent(child) + 1; // +1 for heading
+        }
+        return count;
+      }
+
+      function clearAllDragIndicators() {
+        document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
+          el.classList.remove('drag-over-top', 'drag-over-bottom');
+        });
+      }
+
+      // --- Move node in tree ---
+      function moveNode(sourceNode, targetNode, insertBefore) {
+        // remove source from its parent
+        const sourceParent = sourceNode._parent;
+        const sourceIdx = sourceParent.children.indexOf(sourceNode);
+        if (sourceIdx === -1) return;
+        sourceParent.children.splice(sourceIdx, 1);
+
+        // find target's parent and insert
+        const targetParent = targetNode._parent;
+        let targetIdx = targetParent.children.indexOf(targetNode);
+        if (!insertBefore) targetIdx++;
+
+        // if source was before target in same parent, adjust index
+        if (sourceParent === targetParent && sourceIdx < targetIdx) {
+          targetIdx--;
+        }
+
+        targetParent.children.splice(targetIdx, 0, sourceNode);
+        sourceNode._parent = targetParent;
+
+        // rebuild text from tree
+        syncTreeToEditor();
+        renderOutline();
+      }
+
+      function syncTreeToEditor() {
+        const newText = treeToText(treeData);
+        const scrollTop = editor.scrollTop;
+        editor.value = newText;
+        editor.scrollTop = scrollTop;
+      }
+
+      // --- Event listeners ---
+      let debounceTimer = null;
+      editor.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(renderOutline, 300);
+      });
+
+      pasteBtn.addEventListener('click', async () => {
+        try {
+          const text = await navigator.clipboard.readText();
+          editor.value = text;
+          renderOutline();
+        } catch (e) {
+          editor.focus();
+        }
+      });
+
+      copyBtn.addEventListener('click', async () => {
+        const text = editor.value;
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          copyBtn.textContent = '已复制 ✓';
+          setTimeout(() => { copyBtn.textContent = '复制全文'; }, 1500);
+        } catch (_) {
+          editor.select();
+          document.execCommand('copy');
+        }
+      });
+
+      clearBtn.addEventListener('click', () => {
+        editor.value = '';
+        renderOutline();
+      });
+
+      expandAllBtn.addEventListener('click', () => {
+        document.querySelectorAll('.outline-children.collapsed').forEach(el => {
+          el.classList.remove('collapsed');
+        });
+        document.querySelectorAll('.collapse-btn').forEach(btn => {
+          if (btn.textContent === '▶') btn.textContent = '▼';
+        });
+      });
+
+      collapseAllBtn.addEventListener('click', () => {
+        document.querySelectorAll('.outline-children').forEach(el => {
+          // don't collapse the top-level wrapper
+          if (el.parentElement === outline) return;
+          el.classList.add('collapsed');
+        });
+        document.querySelectorAll('.collapse-btn').forEach(btn => {
+          if (btn.textContent === '▼') btn.textContent = '▶';
+        });
+      });
+
+      // Default example
+      const defaultExample = `# 观前提示
+
+这里是一些阅读前的说明文字。
+
+# 前言
+
+故事背景介绍，世界观设定。
+
+# 火花篇
+
+## 安妮主线
+
+### 初出茅庐
+
+安妮第一次踏入冒险者公会，紧张又兴奋。
+
+### 救火
+
+城镇边缘突发火灾，安妮挺身而出。
+
+### 执念宝藏
+
+一张破旧的藏宝图引发的连锁事件。
+
+## 艾琳娜副线
+
+### 火焰之舞
+
+艾琳娜在祭典上展示她的火焰魔法。
+
+### 狂乱逃离
+
+事情失控，艾琳娜必须带着众人撤离。
+
+# 寒冰篇
+
+## 安妮主线
+
+### 北境来信
+
+一封来自北方的神秘信件。
+
+### 冰原行军
+
+穿越冰原的艰难旅途。
+
+## 新角色登场
+
+### 银发少女
+
+在暴风雪中遇到的神秘少女。
+`;
+
+      // Initialize
+      editor.value = defaultExample;
+      renderOutline();
+    </script>
+  </body>
+</html>

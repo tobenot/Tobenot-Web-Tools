@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f7f7f8" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0%200%2064%2064'%3E%3Crect width='64' height='64' rx='14' fill='%23111827'/%3E%3Crect x='8' y='8' width='22' height='22' fill='%2322c55e'/%3E%3Crect x='34' y='8' width='22' height='22' fill='%2322c55e'/%3E%3Crect x='8' y='34' width='22' height='22' fill='%2322c55e'/%3E%3Crect x='34' y='34' width='22' height='22' fill='%2322c55e'/%3E%3C/svg%3E" />
+  <title>无缝贴图预览 | Mecha Tools</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; background: #1a1a2e; color: #e0e0e0; }
+
+    .app-header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(8px);
+      background: rgba(26,26,46,0.85);
+      padding: 8px 16px; height: 44px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .app-header a { font-weight: 600; letter-spacing: 0.05em; text-decoration: none; color: #e0e0e0; font-size: 0.875rem; }
+    .app-header a:hover { color: #fff; }
+    .back-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 10px; border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05);
+      color: #e0e0e0; text-decoration: none; font-size: 0.8rem;
+      transition: background 0.15s;
+    }
+    .back-btn:hover { background: rgba(255,255,255,0.1); }
+
+    .canvas-area {
+      position: fixed; top: 44px; left: 0; right: 0; bottom: 0;
+      cursor: grab; overflow: hidden;
+    }
+    .canvas-area.panning { cursor: grabbing; }
+    #tileCanvas { display: block; width: 100%; height: 100%; }
+
+    .drop-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(34, 197, 94, 0.15);
+      border: 3px dashed #22c55e;
+      display: none; align-items: center; justify-content: center;
+      font-size: 1.5rem; color: #22c55e; font-weight: 600;
+      pointer-events: none; z-index: 100;
+    }
+    .drop-overlay.active { display: flex; }
+
+    .controls-panel {
+      position: fixed; top: 56px; right: 12px; z-index: 40;
+      background: rgba(26,26,46,0.92); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+      padding: 14px; width: 260px;
+      display: flex; flex-direction: column; gap: 12px;
+      font-size: 0.8rem; max-height: calc(100vh - 68px); overflow-y: auto;
+    }
+
+    .ctrl-section { display: flex; flex-direction: column; gap: 6px; }
+    .ctrl-section h3 { margin: 0; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; }
+
+    .btn {
+      padding: 6px 12px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.05); color: #e0e0e0; font-size: 0.8rem; cursor: pointer;
+      transition: all 0.15s; font-weight: 500;
+    }
+    .btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.25); }
+    .btn.active { background: #22c55e; color: #000; border-color: #22c55e; }
+
+    .btn-group { display: flex; gap: 5px; }
+    .btn-group .btn { flex: 1; text-align: center; padding: 5px 6px; }
+
+    .upload-area {
+      border: 1.5px dashed rgba(255,255,255,0.2); border-radius: 6px;
+      padding: 10px; text-align: center; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .upload-area:hover { border-color: #22c55e; background: rgba(34,197,94,0.08); }
+    .upload-area p { margin: 2px 0; font-size: 0.75rem; color: #9ca3af; }
+
+    .texture-list {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      max-height: 160px; overflow-y: auto;
+      padding: 4px 0;
+    }
+    .texture-thumb {
+      position: relative; width: 48px; height: 48px;
+      border-radius: 4px; border: 2px solid rgba(255,255,255,0.15);
+      overflow: hidden; cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .texture-thumb:hover { border-color: #22c55e; }
+    .texture-thumb img { width: 100%; height: 100%; -o-object-fit: cover; object-fit: cover; image-rendering: pixelated; }
+    .texture-thumb .remove-btn {
+      position: absolute; top: -2px; right: -2px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #ef4444; color: #fff;
+      font-size: 10px; line-height: 16px; text-align: center;
+      cursor: pointer; display: none;
+      border: 1px solid rgba(0,0,0,0.3);
+    }
+    .texture-thumb:hover .remove-btn { display: block; }
+
+    .texture-info { font-size: 0.7rem; color: #9ca3af; padding: 6px; background: rgba(255,255,255,0.03); border-radius: 5px; }
+
+    .detection-results { display: flex; flex-direction: column; gap: 4px; }
+    .detect-badge {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 10px; border-radius: 5px;
+      font-size: 0.75rem; font-weight: 500;
+    }
+    .detect-badge.pass { background: rgba(34,197,94,0.15); color: #4ade80; }
+    .detect-badge.fail { background: rgba(239,68,68,0.15); color: #f87171; }
+    .detect-badge.warn { background: rgba(234,179,8,0.15); color: #facc15; }
+    .detect-badge .score { margin-left: auto; font-weight: 700; }
+
+    .zoom-info { font-size: 0.7rem; color: #6b7280; text-align: center; }
+
+    @media (max-width: 700px) {
+      .controls-panel { width: 200px; right: 8px; top: 52px; padding: 10px; }
+      .texture-thumb { width: 36px; height: 36px; }
+    }
+  </style>
+  <link rel="stylesheet" crossorigin href="../../assets/src-COXxPbce.css">
+</head>
+<body>
+  <header class="app-header">
+    <a href="/">Mecha Tools</a>
+    <span style="font-size:0.8rem;color:#9ca3af;">无缝贴图预览 · 多图随机四方连续</span>
+    <a class="back-btn" href="/">返回首页</a>
+  </header>
+
+  <div class="canvas-area" id="canvasArea">
+    <canvas id="tileCanvas"></canvas>
+  </div>
+  <div class="drop-overlay" id="dropOverlay">松开以添加贴图（支持多选）</div>
+
+  <aside class="controls-panel">
+    <div class="ctrl-section">
+      <h3>贴图列表</h3>
+      <div class="texture-list" id="textureList"></div>
+      <div class="upload-area" id="uploadArea">
+        <p><b>点击添加</b> 或拖拽图片到画面任意处</p>
+        <p>PNG / JPG / WebP · 支持多选</p>
+      </div>
+      <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" multiple hidden />
+    </div>
+
+    <div class="ctrl-section texture-info" id="textureInfo">
+      拖入地形贴图开始预览
+    </div>
+
+    <div class="ctrl-section">
+      <h3>显示</h3>
+      <div class="btn-group">
+        <button class="btn" id="btnGrid">网格线</button>
+        <button class="btn" id="btnSeamHL">边缘高亮</button>
+      </div>
+    </div>
+
+    <div class="ctrl-section">
+      <h3>随机</h3>
+      <button class="btn" id="btnReshuffle" style="width:100%">🎲 重新随机排列</button>
+    </div>
+
+    <div class="ctrl-section">
+      <h3>无缝检测</h3>
+      <div class="detection-results" id="detectionResults">
+        <div class="detect-badge pass">请添加贴图</div>
+      </div>
+    </div>
+
+    <div class="ctrl-section">
+      <button class="btn" id="btnClear" style="width:100%">清空全部贴图</button>
+    </div>
+
+    <div class="zoom-info" id="zoomInfo">滚轮缩放 · 拖拽平移</div>
+  </aside>
+
+  <script>
+    (() => {
+      'use strict';
+
+      // --- State ---
+      const textures = []; // Array of { canvas, name, width, height, dataURL }
+      let tileSize = 64; // Will be set by first uploaded texture
+      let zoom = 1;
+      let showGrid = false;
+      let showSeamHighlight = false;
+      let panX = 0, panY = 0;
+      let isPanning = false, panStartX = 0, panStartY = 0;
+      let seed = Math.floor(Math.random() * 2147483647);
+
+      const canvas = document.getElementById('tileCanvas');
+      const ctx = canvas.getContext('2d');
+      const canvasArea = document.getElementById('canvasArea');
+      const dropOverlay = document.getElementById('dropOverlay');
+      const uploadArea = document.getElementById('uploadArea');
+      const fileInput = document.getElementById('fileInput');
+      const btnGrid = document.getElementById('btnGrid');
+      const btnSeamHL = document.getElementById('btnSeamHL');
+      const btnReshuffle = document.getElementById('btnReshuffle');
+      const btnClear = document.getElementById('btnClear');
+      const detectionResults = document.getElementById('detectionResults');
+      const textureInfo = document.getElementById('textureInfo');
+      const textureList = document.getElementById('textureList');
+      const zoomInfo = document.getElementById('zoomInfo');
+
+      // --- Hash function for deterministic random ---
+      function hash(x, y, s) {
+        // Simple but effective hash for 2D grid
+        let h = s;
+        h = ((h ^ (x * 374761393)) + (y * 668265263)) | 0;
+        h = (h ^ (h >>> 13)) * 1274126177;
+        h = h ^ (h >>> 16);
+        h = (h ^ (h >>> 13)) * 1505036835;
+        h = h ^ (h >>> 16);
+        return h >>> 0;
+      }
+
+      function getTextureIndex(gridX, gridY) {
+        if (textures.length === 0) return -1;
+        return hash(gridX, gridY, seed) % textures.length;
+      }
+
+      // --- Image loading ---
+      function loadImageFromFile(file) {
+        return new Promise((resolve, reject) => {
+          if (!file || !file.type.startsWith('image/')) { reject(new Error('Not an image')); return; }
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+              const tc = document.createElement('canvas');
+              tc.width = img.naturalWidth;
+              tc.height = img.naturalHeight;
+              const tctx = tc.getContext('2d');
+              tctx.drawImage(img, 0, 0);
+              resolve({ canvas: tc, name: file.name, width: tc.width, height: tc.height, dataURL: e.target.result });
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      async function addFiles(files) {
+        const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+        if (imageFiles.length === 0) return;
+
+        for (const file of imageFiles) {
+          try {
+            const tex = await loadImageFromFile(file);
+            textures.push(tex);
+          } catch(err) {
+            console.warn('Failed to load:', file.name, err);
+          }
+        }
+
+        if (textures.length > 0) {
+          tileSize = textures[0].width; // Use first texture's size as reference
+        }
+
+        updateUI();
+        autoFitZoom();
+        runDetection();
+        render();
+      }
+
+      function removeTexture(index) {
+        textures.splice(index, 1);
+        if (textures.length > 0) {
+          tileSize = textures[0].width;
+        }
+        updateUI();
+        runDetection();
+        render();
+      }
+
+      // --- UI ---
+      function updateUI() {
+        // Texture list thumbnails
+        textureList.innerHTML = '';
+        textures.forEach((tex, i) => {
+          const thumb = document.createElement('div');
+          thumb.className = 'texture-thumb';
+          thumb.title = `${tex.name} (${tex.width}×${tex.height})`;
+
+          const img = document.createElement('img');
+          img.src = tex.dataURL;
+          thumb.appendChild(img);
+
+          const removeBtn = document.createElement('div');
+          removeBtn.className = 'remove-btn';
+          removeBtn.textContent = '×';
+          removeBtn.addEventListener('click', (e) => { e.stopPropagation(); removeTexture(i); });
+          thumb.appendChild(removeBtn);
+
+          textureList.appendChild(thumb);
+        });
+
+        // Info text
+        if (textures.length === 0) {
+          textureInfo.textContent = '拖入地形贴图开始预览';
+        } else {
+          textureInfo.textContent = `${textures.length} 张贴图 · ${tileSize}×${tileSize} · seed: ${seed}`;
+        }
+      }
+
+      function autoFitZoom() {
+        if (textures.length === 0) return;
+        const rect = canvasArea.getBoundingClientRect();
+        zoom = rect.width / (tileSize * 8);
+        zoom = Math.max(0.1, zoom);
+      }
+
+      // --- Seamless Detection (multi-texture) ---
+      function detectMultiSeamless() {
+        if (textures.length === 0) return null;
+        if (textures.length === 1) return detectSingle(textures[0].canvas);
+
+        // Check all pairs for edge compatibility
+        const results = [];
+        let allPass = true;
+
+        for (let i = 0; i < textures.length; i++) {
+          for (let j = i; j < textures.length; j++) {
+            const hResult = checkHorizontalSeam(textures[i].canvas, textures[j].canvas);
+            const vResult = checkVerticalSeam(textures[i].canvas, textures[j].canvas);
+
+            if (!hResult.seamless || !vResult.seamless) allPass = false;
+
+            if (i === j) {
+              results.push({ a: i, b: j, label: `#${i+1} 自身`, hScore: hResult.score, vScore: vResult.score, hOk: hResult.seamless, vOk: vResult.seamless });
+            } else {
+              results.push({ a: i, b: j, label: `#${i+1}↔#${j+1}`, hScore: hResult.score, vScore: vResult.score, hOk: hResult.seamless, vOk: vResult.seamless });
+            }
+          }
+        }
+
+        return { allPass, results };
+      }
+
+      function getPixelRow(tc, y) {
+        const w = tc.width;
+        const data = tc.getContext('2d').getImageData(0, y, w, 1).data;
+        const row = [];
+        for (let x = 0; x < w; x++) {
+          const i = x * 4;
+          row.push([data[i], data[i+1], data[i+2], data[i+3]]);
+        }
+        return row;
+      }
+
+      function getPixelCol(tc, x) {
+        const h = tc.height;
+        const data = tc.getContext('2d').getImageData(x, 0, 1, h).data;
+        const col = [];
+        for (let y = 0; y < h; y++) {
+          const i = y * 4;
+          col.push([data[i], data[i+1], data[i+2], data[i+3]]);
+        }
+        return col;
+      }
+
+      function colorDist(a, b) {
+        const dr = a[0]-b[0], dg = a[1]-b[1], db = a[2]-b[2], da = a[3]-b[3];
+        return Math.sqrt(dr*dr + dg*dg + db*db + da*da);
+      }
+
+      function checkHorizontalSeam(tcLeft, tcRight) {
+        // Right edge of tcLeft vs Left edge of tcRight
+        const h = Math.min(tcLeft.height, tcRight.height);
+        const rightEdge = getPixelCol(tcLeft, tcLeft.width - 1);
+        const leftEdge = getPixelCol(tcRight, 0);
+        let total = 0;
+        for (let y = 0; y < h; y++) {
+          total += colorDist(rightEdge[y], leftEdge[y]);
+        }
+        const avg = total / h;
+        const score = Math.max(0, Math.round((1 - avg / 510) * 100));
+        return { score, seamless: score >= 95 };
+      }
+
+      function checkVerticalSeam(tcTop, tcBottom) {
+        // Bottom edge of tcTop vs Top edge of tcBottom
+        const w = Math.min(tcTop.width, tcBottom.width);
+        const bottomEdge = getPixelRow(tcTop, tcTop.height - 1);
+        const topEdge = getPixelRow(tcBottom, 0);
+        let total = 0;
+        for (let x = 0; x < w; x++) {
+          total += colorDist(bottomEdge[x], topEdge[x]);
+        }
+        const avg = total / w;
+        const score = Math.max(0, Math.round((1 - avg / 510) * 100));
+        return { score, seamless: score >= 95 };
+      }
+
+      function detectSingle(tc) {
+        const hResult = checkHorizontalSeam(tc, tc);
+        const vResult = checkVerticalSeam(tc, tc);
+        return {
+          allPass: hResult.seamless && vResult.seamless,
+          results: [{ a: 0, b: 0, label: '自身', hScore: hResult.score, vScore: vResult.score, hOk: hResult.seamless, vOk: vResult.seamless }]
+        };
+      }
+
+      let detectionData = null;
+
+      function runDetection() {
+        detectionData = detectMultiSeamless();
+        renderDetectionUI();
+      }
+
+      function renderDetectionUI() {
+        if (!detectionData) {
+          detectionResults.innerHTML = '<div class="detect-badge pass">请添加贴图</div>';
+          return;
+        }
+
+        const { allPass, results } = detectionData;
+        let html = '';
+
+        if (allPass) {
+          html += '<div class="detect-badge pass">✅ 全部无缝兼容</div>';
+        } else {
+          html += '<div class="detect-badge warn">⚠️ 部分边缘不兼容</div>';
+        }
+
+        // Show summary for each pair (collapse if too many)
+        const showAll = results.length <= 6;
+        const displayResults = showAll ? results : results.filter(r => !r.hOk || !r.vOk);
+
+        for (const r of displayResults) {
+          const ok = r.hOk && r.vOk;
+          html += `<div class="detect-badge ${ok ? 'pass' : 'fail'}">${ok ? '✅' : '❌'} ${r.label} <span class="score">H${r.hScore} V${r.vScore}</span></div>`;
+        }
+
+        if (!showAll && displayResults.length < results.length) {
+          const hiddenOk = results.length - displayResults.length;
+          html += `<div style="font-size:0.65rem;color:#6b7280;margin-top:2px;">+ ${hiddenOk} 对通过 (≥95)</div>`;
+        }
+
+        detectionResults.innerHTML = html;
+      }
+
+      // --- Render ---
+      function render() {
+        const rect = canvasArea.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.fillStyle = '#111';
+        ctx.fillRect(0, 0, rect.width, rect.height);
+
+        if (textures.length === 0) {
+          // Draw placeholder text
+          ctx.fillStyle = '#4b5563';
+          ctx.font = '18px system-ui';
+          ctx.textAlign = 'center';
+          ctx.fillText('拖入贴图开始预览四方连续效果', rect.width / 2, rect.height / 2);
+          ctx.font = '13px system-ui';
+          ctx.fillText('支持同时拖入多张 · 将随机铺放', rect.width / 2, rect.height / 2 + 28);
+          return;
+        }
+
+        const tw = tileSize * zoom;
+        const th = tileSize * zoom; // Square tiles assumed
+
+        if (tw < 1 || th < 1) return;
+
+        // Calculate visible grid range
+        const startGridX = Math.floor(-panX / tw) - 1;
+        const startGridY = Math.floor(-panY / th) - 1;
+        const endGridX = Math.ceil((rect.width - panX) / tw) + 1;
+        const endGridY = Math.ceil((rect.height - panY) / th) + 1;
+
+        // Draw tiles - use Math.round + 1px overlap to eliminate sub-pixel gaps
+        ctx.imageSmoothingEnabled = zoom < 2;
+        const overlap = 0.5; // extra pixels to prevent seam
+        for (let gy = startGridY; gy <= endGridY; gy++) {
+          for (let gx = startGridX; gx <= endGridX; gx++) {
+            const idx = getTextureIndex(gx, gy);
+            if (idx < 0) continue;
+
+            const screenX = Math.round(panX + gx * tw);
+            const screenY = Math.round(panY + gy * th);
+            const drawW = Math.round(tw + overlap);
+            const drawH = Math.round(th + overlap);
+
+            ctx.drawImage(textures[idx].canvas, screenX, screenY, drawW, drawH);
+          }
+        }
+
+        // Grid lines
+        if (showGrid) {
+          ctx.strokeStyle = 'rgba(255, 80, 80, 0.6)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+
+          const offsetX = ((panX % tw) + tw) % tw;
+          const offsetY = ((panY % th) + th) % th;
+
+          for (let x = offsetX; x <= rect.width; x += tw) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, rect.height); ctx.stroke();
+          }
+          for (let y = offsetY; y <= rect.height; y += th) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(rect.width, y); ctx.stroke();
+          }
+          ctx.setLineDash([]);
+        }
+
+        // Seam highlight (show problem edges between adjacent tiles)
+        if (showSeamHighlight && textures.length > 0) {
+          ctx.globalAlpha = 0.7;
+          const threshold = 30;
+
+          for (let gy = startGridY; gy <= endGridY; gy++) {
+            for (let gx = startGridX; gx <= endGridX; gx++) {
+              const idx = getTextureIndex(gx, gy);
+              if (idx < 0) continue;
+
+              const screenX = panX + gx * tw;
+              const screenY = panY + gy * th;
+              const pxW = tw / tileSize;
+              const pxH = th / tileSize;
+
+              // Check right edge vs neighbor's left edge
+              const rightIdx = getTextureIndex(gx + 1, gy);
+              if (rightIdx >= 0) {
+                const rightCol = getPixelCol(textures[idx].canvas, tileSize - 1);
+                const leftCol = getPixelCol(textures[rightIdx].canvas, 0);
+                for (let py = 0; py < tileSize; py++) {
+                  if (colorDist(rightCol[py], leftCol[py]) > threshold) {
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillRect(screenX + tw - pxW/2, screenY + py * pxH, pxW, pxH);
+                  }
+                }
+              }
+
+              // Check bottom edge vs neighbor's top edge
+              const bottomIdx = getTextureIndex(gx, gy + 1);
+              if (bottomIdx >= 0) {
+                const bottomRow = getPixelRow(textures[idx].canvas, tileSize - 1);
+                const topRow = getPixelRow(textures[bottomIdx].canvas, 0);
+                for (let px = 0; px < tileSize; px++) {
+                  if (colorDist(bottomRow[px], topRow[px]) > threshold) {
+                    ctx.fillStyle = '#3b82f6';
+                    ctx.fillRect(screenX + px * pxW, screenY + th - pxH/2, pxW, pxH);
+                  }
+                }
+              }
+            }
+          }
+          ctx.globalAlpha = 1;
+        }
+
+        // Zoom indicator
+        const tilesAcross = Math.round(rect.width / tw);
+        zoomInfo.textContent = `${Math.round(zoom * 100)}% · ~${tilesAcross}列 · 滚轮缩放 · 拖拽平移`;
+      }
+
+      // --- Events ---
+      uploadArea.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) addFiles(e.target.files); fileInput.value = ''; });
+
+      // Drag and drop on entire page
+      let dragCounter = 0;
+      document.addEventListener('dragenter', (e) => { e.preventDefault(); dragCounter++; dropOverlay.classList.add('active'); });
+      document.addEventListener('dragleave', (e) => { e.preventDefault(); dragCounter--; if (dragCounter <= 0) { dragCounter = 0; dropOverlay.classList.remove('active'); } });
+      document.addEventListener('dragover', (e) => e.preventDefault());
+      document.addEventListener('drop', (e) => {
+        e.preventDefault(); dragCounter = 0; dropOverlay.classList.remove('active');
+        if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
+      });
+
+      // Zoom with scroll wheel (centered on cursor)
+      canvasArea.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const rect = canvasArea.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        const factor = e.deltaY > 0 ? 0.85 : 1.18;
+        const newZoom = Math.max(0.05, Math.min(50, zoom * factor));
+
+        panX = mx - (mx - panX) * (newZoom / zoom);
+        panY = my - (my - panY) * (newZoom / zoom);
+        zoom = newZoom;
+
+        render();
+      }, { passive: false });
+
+      // Pan
+      canvasArea.addEventListener('mousedown', (e) => {
+        if (e.button === 0) {
+          isPanning = true;
+          panStartX = e.clientX - panX;
+          panStartY = e.clientY - panY;
+          canvasArea.classList.add('panning');
+        }
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!isPanning) return;
+        panX = e.clientX - panStartX;
+        panY = e.clientY - panStartY;
+        render();
+      });
+      window.addEventListener('mouseup', () => { isPanning = false; canvasArea.classList.remove('panning'); });
+
+      btnGrid.addEventListener('click', () => { showGrid = !showGrid; btnGrid.classList.toggle('active', showGrid); render(); });
+      btnSeamHL.addEventListener('click', () => { showSeamHighlight = !showSeamHighlight; btnSeamHL.classList.toggle('active', showSeamHighlight); render(); });
+
+      btnReshuffle.addEventListener('click', () => {
+        seed = Math.floor(Math.random() * 2147483647);
+        updateUI();
+        render();
+      });
+
+      btnClear.addEventListener('click', () => {
+        textures.length = 0;
+        updateUI();
+        runDetection();
+        render();
+      });
+
+      window.addEventListener('resize', render);
+
+      // --- Init ---
+      updateUI();
+      requestAnimationFrame(render);
+    })();
+  </script>
+</body>
+</html>
