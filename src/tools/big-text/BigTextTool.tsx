@@ -50,6 +50,7 @@ const STATIC_CATEGORIES: PhraseCategory[] = [
 		phrases: [
 			'我听不懂',
 			'我听不清',
+			'我的语言功能出问题了',
 			'缄默症',
 			'失语症',
 			'我说话不方便',
