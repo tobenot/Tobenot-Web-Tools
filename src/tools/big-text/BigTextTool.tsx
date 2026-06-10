@@ -165,6 +165,19 @@ export function BigTextTool() {
 		}, 3000)
 	}
 
+	// 切换到 display 阶段时，默认显示控制栏并在 3 秒后淡出（解决手机端没有 mousemove 导致无法主动呼出控制台的问题）
+	useEffect(() => {
+		if (stage === 'display') {
+			setShowFloatingControls(true)
+			if (controlsTimeoutRef.current) {
+				clearTimeout(controlsTimeoutRef.current)
+			}
+			controlsTimeoutRef.current = setTimeout(() => {
+				setShowFloatingControls(false)
+			}, 3000)
+		}
+	}, [stage])
+
 	useEffect(() => {
 		return () => {
 			if (controlsTimeoutRef.current) {
@@ -406,60 +419,85 @@ export function BigTextTool() {
 			) : (
 				/* ======================= 大字展示阶段 ======================= */
 				<div 
-					className={`flex-1 flex flex-col relative justify-center items-center px-10 py-12 select-none cursor-pointer ${bg}`}
-					onClick={() => setStage('edit')}
-					title="点击任意位置返回编辑配置"
+					className={`flex-1 flex flex-col relative justify-center items-center px-6 py-12 overflow-y-auto select-none cursor-pointer ${bg}`}
+					onClick={() => {
+						// 切换悬浮面板的显示/隐藏，并在显示时重置自动隐藏的定时器
+						setShowFloatingControls(prev => {
+							const next = !prev
+							if (next) {
+								if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current)
+								controlsTimeoutRef.current = setTimeout(() => {
+									setShowFloatingControls(false)
+								}, 3000)
+							}
+							return next
+						})
+					}}
+					title="点击屏幕空白处显示/隐藏控制栏"
 				>
 					{/* 展示文本本身 */}
 					<div className="max-w-6xl w-full flex items-center justify-center">
 						<p
-							className={`leading-normal text-center break-all whitespace-pre-wrap font-bold select-text ${textBaseColor}`}
+							className={`leading-normal text-center break-all whitespace-pre-wrap font-bold select-text px-4 ${textBaseColor}`}
 							style={{ fontSize: `${fontSize}px`, letterSpacing: '-0.010em' }}
-							onClick={(e) => e.stopPropagation()} // 防止点击文本也退出了，但用户也可以点击背景退出
+							onClick={(e) => {
+								// 点击文本时同样切换控制台显隐（不应直接退出）
+								e.stopPropagation()
+								setShowFloatingControls(prev => {
+									const next = !prev
+									if (next) {
+										if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current)
+										controlsTimeoutRef.current = setTimeout(() => {
+											setShowFloatingControls(false)
+										}, 3000)
+									}
+									return next
+								})
+							}}
 						>
 							{text}
 						</p>
 					</div>
 
-					{/* 悬浮轻量级控制台 - 在鼠标移动时显示，并在3秒后淡出 */}
+					{/* 悬浮轻量级控制台 - 在鼠标移动或点击时显示，并在3秒后自动隐藏 */}
 					<div 
-						className={`fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 dark:border-gray-800 ${panelBg} backdrop-blur-md shadow-lg transition-all duration-300 ${
+						className={`fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2.5 rounded-full border border-gray-200 dark:border-gray-800 ${panelBg} backdrop-blur-md shadow-lg transition-all duration-300 ${
 							showFloatingControls ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95 pointer-events-none'
 						}`}
-						onClick={(e) => e.stopPropagation()} // 阻止冒泡，避免点击控制栏退出展示模式
+						onClick={(e) => e.stopPropagation()} // 阻止冒泡，避免点击控制栏本身触发显隐切换
 					>
 						<button
 							onClick={() => setStage('edit')}
-							className="px-3.5 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
+							className="px-4 py-2 text-xs md:text-sm font-semibold bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors shrink-0"
 						>
 							返回编辑
 						</button>
 						
-						<div className="w-[1px] h-4 bg-gray-300 dark:bg-gray-700 mx-1" />
+						<div className="w-[1px] h-5 bg-gray-300 dark:bg-gray-700 mx-1.5 shrink-0" />
 
 						<button
 							onClick={() => setFontSize(prev => Math.max(40, prev - 20))}
-							className={`w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center ${btnBase}`}
+							className={`w-9 h-9 rounded-full text-xs font-bold flex items-center justify-center shrink-0 ${btnBase}`}
 							title="缩小字号"
 						>
 							A-
 						</button>
 						
-						<span className={`text-xs font-bold px-1.5 ${textBaseColor}`}>{fontSize}px</span>
+						<span className={`text-xs md:text-sm font-bold px-1 md:px-2 shrink-0 ${textBaseColor}`}>{fontSize}px</span>
 
 						<button
 							onClick={() => setFontSize(prev => Math.min(400, prev + 20))}
-							className={`w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center ${btnBase}`}
+							className={`w-9 h-9 rounded-full text-xs font-bold flex items-center justify-center shrink-0 ${btnBase}`}
 							title="放大字号"
 						>
 							A+
 						</button>
 
-						<div className="w-[1px] h-4 bg-gray-300 dark:bg-gray-700 mx-1" />
+						<div className="w-[1px] h-5 bg-gray-300 dark:bg-gray-700 mx-1.5 shrink-0" />
 
 						<button
 							onClick={() => setDarkMode(d => !d)}
-							className={`w-7 h-7 rounded-full text-sm flex items-center justify-center ${btnBase}`}
+							className={`w-9 h-9 rounded-full text-sm flex items-center justify-center shrink-0 ${btnBase}`}
 							title={darkMode ? '切换到亮色' : '切换到深色'}
 						>
 							{darkMode ? '☀️' : '🌙'}
@@ -467,7 +505,7 @@ export function BigTextTool() {
 
 						<button
 							onClick={toggleFullscreen}
-							className={`w-7 h-7 rounded-full text-sm flex items-center justify-center ${btnBase}`}
+							className={`w-9 h-9 rounded-full text-sm flex items-center justify-center shrink-0 ${btnBase}`}
 							title="切换全屏"
 						>
 							⛶
@@ -476,7 +514,7 @@ export function BigTextTool() {
 
 					{/* 提示返回的小信息 */}
 					<div className={`fixed top-4 right-4 text-xs ${subTextColor} opacity-40 hover:opacity-100 transition-all pointer-events-none select-none`}>
-						按 ESC 键或点击空白处可返回
+						点击屏幕或按 ESC 键显示控制栏
 					</div>
 				</div>
 			)}
