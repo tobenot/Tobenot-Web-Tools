@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-const FONT_SIZES = [40, 60, 80, 100, 120, 140, 160, 180, 200, 240, 280, 320] as const
+const FONT_SIZES = [80, 120, 160, 200, 240, 300] as const
 const DEFAULT_FONT_SIZE = 160
 
 interface PhraseCategory {
@@ -49,7 +49,7 @@ export function BigTextTool() {
 	const [text, setText] = useState('')
 	const [fontSize, setFontSize] = useState<number>(DEFAULT_FONT_SIZE)
 	const [isFullscreen, setIsFullscreen] = useState(false)
-	
+
 	// 深色模式：初始化跟随系统/项目，并在初始化后观察
 	const [darkMode, setDarkMode] = useState(() => {
 		if (typeof document !== 'undefined') {
@@ -57,9 +57,6 @@ export function BigTextTool() {
 		}
 		return true
 	})
-
-	// 当前激活的分类
-	const [activeCategoryId, setActiveCategoryId] = useState('common')
 
 	// 自定义短语列表
 	const [customPhrases, setCustomPhrases] = useState<string[]>(() => {
@@ -76,7 +73,8 @@ export function BigTextTool() {
 	const controlsTimeoutRef = useRef<any>(null)
 
 	const inputRef = useRef<HTMLTextAreaElement>(null)
-	const containerRef = useRef<HTMLDivElement>(null)
+	const editRootRef = useRef<HTMLDivElement>(null)
+	const displayRootRef = useRef<HTMLDivElement>(null)
 
 	// 自动同步 localStorage 中的自定义短语
 	useEffect(() => {
@@ -106,7 +104,7 @@ export function BigTextTool() {
 		return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
 	}, [])
 
-	// 监听展示模式下的键盘快捷键：Esc 退出，或者输入时快捷交互
+	// 展示阶段快捷键：Esc/Enter 退出
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (stage === 'display') {
@@ -119,9 +117,21 @@ export function BigTextTool() {
 		return () => window.removeEventListener('keydown', handleKeyDown)
 	}, [stage])
 
+	// 展示阶段锁定 body 滚动，避免 fixed 覆盖时背后还能滚
+	useEffect(() => {
+		if (stage === 'display') {
+			const prev = document.body.style.overflow
+			document.body.style.overflow = 'hidden'
+			return () => {
+				document.body.style.overflow = prev
+			}
+		}
+	}, [stage])
+
 	function toggleFullscreen() {
+		const target = stage === 'display' ? displayRootRef.current : editRootRef.current
 		if (!document.fullscreenElement) {
-			containerRef.current?.requestFullscreen()
+			target?.requestFullscreen?.()
 		} else {
 			document.exitFullscreen()
 		}
@@ -139,7 +149,6 @@ export function BigTextTool() {
 		}
 	}
 
-	// 自定义短语管理
 	function handleAddCustomPhrase() {
 		const trimmed = newPhraseInput.trim()
 		if (trimmed && !customPhrases.includes(trimmed)) {
@@ -149,33 +158,37 @@ export function BigTextTool() {
 	}
 
 	function handleDeleteCustomPhrase(phraseToDelete: string, e: React.MouseEvent) {
-		e.stopPropagation() // 防止点击删除按钮触发了选择短语
+		e.stopPropagation()
 		setCustomPhrases(prev => prev.filter(p => p !== phraseToDelete))
 	}
 
-	// 在展示模式下，检测鼠标移动来显示悬浮控制栏
-	function handleMouseMove() {
-		if (stage !== 'display') return
-		setShowFloatingControls(true)
-		if (controlsTimeoutRef.current) {
-			clearTimeout(controlsTimeoutRef.current)
+	function startDisplay() {
+		if (text.trim()) {
+			setStage('display')
+		} else {
+			inputRef.current?.focus()
 		}
+	}
+
+	function pulseControls() {
+		setShowFloatingControls(true)
+		if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current)
 		controlsTimeoutRef.current = setTimeout(() => {
 			setShowFloatingControls(false)
 		}, 3000)
 	}
 
-	// 切换到 display 阶段时，默认显示控制栏并在 3 秒后淡出（解决手机端没有 mousemove 导致无法主动呼出控制台的问题）
+	function handleDisplayMouseMove() {
+		if (stage !== 'display') return
+		pulseControls()
+	}
+
+	// 切换到 display 阶段时，默认显示控制栏并在 3 秒后淡出
 	useEffect(() => {
 		if (stage === 'display') {
-			setShowFloatingControls(true)
-			if (controlsTimeoutRef.current) {
-				clearTimeout(controlsTimeoutRef.current)
-			}
-			controlsTimeoutRef.current = setTimeout(() => {
-				setShowFloatingControls(false)
-			}, 3000)
+			pulseControls()
 		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [stage])
 
 	useEffect(() => {
@@ -186,242 +199,220 @@ export function BigTextTool() {
 		}
 	}, [])
 
-	// 获取当前显示的分类名称与短语列表
-	const categories: PhraseCategory[] = [
-		...STATIC_CATEGORIES,
+	// 显示顺序：⭐ 常用 → 🏷️ 我的（自定义） → 其余分组
+	const orderedCategories: PhraseCategory[] = [
+		STATIC_CATEGORIES[0],
 		{
 			id: 'custom',
-			name: '🏷️ 自定义',
+			name: '🏷️ 我的短语',
 			phrases: customPhrases
-		}
+		},
+		...STATIC_CATEGORIES.slice(1)
 	]
-
-	const activeCategory = categories.find(c => c.id === activeCategoryId) || categories[0]
 
 	// 样式相关
 	const bg = darkMode ? 'bg-gray-950' : 'bg-gray-50'
 	const textBaseColor = darkMode ? 'text-gray-100' : 'text-gray-900'
 	const borderColor = darkMode ? 'border-gray-800' : 'border-gray-200'
 	const subTextColor = darkMode ? 'text-gray-400' : 'text-gray-500'
-	const inputBg = darkMode ? 'bg-gray-900 text-white placeholder-gray-600 border-gray-800' : 'bg-white text-gray-900 placeholder-gray-400 border-gray-200'
-	const panelBg = darkMode ? 'bg-gray-900/60' : 'bg-white/60'
-	
+	const inputBg = darkMode
+		? 'bg-gray-900 text-white placeholder-gray-600 border-gray-800'
+		: 'bg-white text-gray-900 placeholder-gray-400 border-gray-200'
+	const panelBg = darkMode ? 'bg-gray-900/70' : 'bg-white/80'
+	const stickyBg = darkMode ? 'bg-gray-950/95' : 'bg-gray-50/95'
+
 	const btnBase = darkMode
-		? 'border border-gray-800 bg-gray-900 text-gray-300 hover:bg-gray-800'
-		: 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
-		
+		? 'border border-gray-800 bg-gray-900 text-gray-300 hover:bg-gray-800 active:bg-gray-700'
+		: 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+
 	const activeBtnBase = darkMode
 		? 'border-blue-600 bg-blue-950/40 text-blue-400'
 		: 'border-blue-500 bg-blue-50 text-blue-600'
 
 	return (
-		<div
-			ref={containerRef}
-			className={`flex flex-col ${bg} ${isFullscreen ? 'h-screen' : 'min-h-[calc(100vh-120px)]'} transition-colors duration-300`}
-			onMouseMove={handleMouseMove}
-		>
-			{stage === 'edit' ? (
-				/* ======================= 编辑/选词阶段 ======================= */
-				<div className="flex-1 flex flex-col lg:flex-row gap-6 p-6 max-w-7xl mx-auto w-full">
-					{/* 左半部分/上方：词库分类与短语选择 */}
-					<div className="flex-1 flex flex-col min-w-0">
-						<div className="flex items-center justify-between mb-4">
-							<h2 className={`text-lg font-bold ${textBaseColor}`}>选择快捷短语</h2>
-							<span className={`text-xs ${subTextColor}`}>点击直接填入输入框</span>
-						</div>
-
-						{/* 分类切换器 */}
-						<div className="flex gap-1.5 overflow-x-auto pb-3 mb-4 scrollbar-none border-b border-gray-200 dark:border-gray-800">
-							{categories.map(cat => (
-								<button
-									key={cat.id}
-									onClick={() => setActiveCategoryId(cat.id)}
-									className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-all rounded-md border ${
-										activeCategoryId === cat.id ? activeBtnBase : btnBase
-									}`}
-								>
-									{cat.name}
-								</button>
-							))}
-						</div>
-
-						{/* 短语卡片网格 */}
-						<div className={`flex-1 overflow-y-auto max-h-[320px] lg:max-h-[500px] p-2 rounded-xl border ${borderColor} ${darkMode ? 'bg-gray-900/30' : 'bg-gray-100/30'}`}>
-							{activeCategoryId === 'custom' && (
-								<div className="flex gap-2 p-2 mb-3 border-b border-gray-200 dark:border-gray-800">
-									<input
-										type="text"
-										value={newPhraseInput}
-										onChange={e => setNewPhraseInput(e.target.value)}
-										onKeyDown={e => e.key === 'Enter' && handleAddCustomPhrase()}
-										placeholder="输入新短语..."
-										className={`flex-1 px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${inputBg}`}
-									/>
-									<button
-										onClick={handleAddCustomPhrase}
-										className="px-4 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-									>
-										添加
-									</button>
-								</div>
-							)}
-
-							{activeCategory.phrases.length === 0 ? (
-								<div className="flex flex-col items-center justify-center py-12 text-center">
-									<span className="text-3xl mb-2">🏷️</span>
-									<p className={`text-sm ${subTextColor}`}>暂无自定义短语</p>
-									<p className={`text-xs ${subTextColor} mt-1`}>在上方输入框中添加您专属的常用短语</p>
-								</div>
-							) : (
-								<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2">
-									{activeCategory.phrases.map((phrase, idx) => (
-										<div
-											key={idx}
-											onClick={() => handlePhraseClick(phrase)}
-											className={`group relative flex items-center justify-between p-3.5 text-sm font-medium text-left cursor-pointer transition-all hover:scale-[1.01] hover:shadow-sm rounded-lg border ${
-												text === phrase ? activeBtnBase : btnBase
-											}`}
-										>
-											{/* 文本换行自适应，防止长短句溢出 */}
-											<span className="break-all pr-4 line-clamp-2 leading-relaxed">{phrase}</span>
-											
-											{activeCategoryId === 'custom' && (
-												<button
-													onClick={(e) => handleDeleteCustomPhrase(phrase, e)}
-													className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-500/20 hover:text-red-500 text-gray-400 transition-all shrink-0"
-													title="删除"
-												>
-													<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-														<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-													</svg>
-												</button>
-											)}
-										</div>
-									))}
-								</div>
-							)}
-						</div>
-					</div>
-
-					{/* 右半部分/下方：实时编辑与预览控制 */}
-					<div className="w-full lg:w-[450px] shrink-0 flex flex-col gap-5">
-						<div>
-							<h2 className={`text-lg font-bold ${textBaseColor} mb-4`}>输入与配置</h2>
+		<>
+			{/* ======================= 编辑阶段：占满 main 容器 ======================= */}
+			<div
+				ref={editRootRef}
+				className={`h-full flex flex-col ${bg} ${textBaseColor} transition-colors duration-300`}
+			>
+				{/* 顶部 sticky：输入框 + 主 CTA */}
+				<div className={`shrink-0 border-b ${borderColor} ${stickyBg} backdrop-blur-md`}>
+					<div className="max-w-5xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3">
+						<div className="flex flex-col sm:flex-row gap-2 items-stretch">
 							<textarea
 								ref={inputRef}
 								value={text}
 								onChange={e => setText(e.target.value)}
-								placeholder="输入您想展示的任何大字文字..."
-								rows={3}
+								placeholder="点击下方短语自动填入，或直接在这里输入..."
+								rows={2}
 								autoFocus
-								className={`w-full px-4 py-3 text-lg border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 ${inputBg}`}
+								className={`flex-1 px-4 py-2.5 text-base sm:text-lg border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 ${inputBg}`}
 							/>
-						</div>
-
-						{/* 实时预览区 */}
-						<div className={`p-5 rounded-xl border ${borderColor} ${darkMode ? 'bg-gray-900/50' : 'bg-gray-100/50'} relative min-h-[120px] flex items-center justify-center overflow-hidden group`}>
-							<div className="absolute top-2.5 left-3 text-[10px] font-bold uppercase tracking-wider opacity-40">实时预览效果</div>
-							{text ? (
-								<p
-									className={`${textBaseColor} leading-snug text-center break-all whitespace-pre-wrap max-w-full`}
-									style={{ fontSize: `${Math.min(fontSize * 0.35, 42)}px`, fontWeight: 700 }}
+							<div className="flex sm:flex-col gap-2 sm:w-44 shrink-0">
+								<button
+									onClick={startDisplay}
+									disabled={!text.trim()}
+									className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-3 text-base font-bold rounded-xl transition-all text-white shadow-md whitespace-nowrap ${
+										text.trim()
+											? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-[0.98] cursor-pointer'
+											: 'bg-gray-400 dark:bg-gray-700 cursor-not-allowed opacity-60'
+									}`}
 								>
-									{text}
-								</p>
-							) : (
-								<p className={`${subTextColor} text-sm select-none`}>暂无输入，将在展示模式中大字显示</p>
-							)}
-						</div>
-
-						{/* 字号微调与设置工具栏 */}
-						<div className="space-y-4">
-							<div>
-								<div className="flex justify-between items-center mb-2">
-									<label className={`text-sm font-semibold ${textBaseColor}`}>展示字号 ({fontSize}px)</label>
-									<div className="flex gap-1">
-										<button
-											onClick={() => setFontSize(prev => Math.max(40, prev - 20))}
-											className={`px-2.5 py-1 text-xs rounded font-medium ${btnBase}`}
-											title="缩小字号"
-										>
-											A-
-										</button>
-										<button
-											onClick={() => setFontSize(prev => Math.min(400, prev + 20))}
-											className={`px-2.5 py-1 text-xs rounded font-medium ${btnBase}`}
-											title="放大字号"
-										>
-											A+
-										</button>
-									</div>
-								</div>
-								
-								{/* 字号推荐快捷选择 */}
-								<div className="flex flex-wrap gap-1">
-									{FONT_SIZES.map(size => (
-										<button
-											key={size}
-											onClick={() => setFontSize(size)}
-											className={`px-2 py-1 text-xs font-semibold rounded transition-colors ${
-												fontSize === size ? 'bg-blue-600 text-white border border-blue-600' : btnBase
-											}`}
-										>
-											{size}
-										</button>
-									))}
-								</div>
-							</div>
-
-							<div className="flex items-center gap-3">
+									📢 开始展示
+								</button>
 								<button
 									onClick={handleClear}
 									disabled={!text}
-									className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-all disabled:opacity-30 ${btnBase}`}
+									className={`px-3 py-2 text-sm rounded-xl transition-colors disabled:opacity-30 ${btnBase}`}
+									title="清空输入"
 								>
-									清空输入
-								</button>
-								<button
-									onClick={() => setDarkMode(d => !d)}
-									className={`px-4 py-2.5 text-sm rounded-xl transition-all ${btnBase}`}
-									title={darkMode ? '切换到亮色模式' : '切换到深色模式'}
-								>
-									{darkMode ? '☀️ 亮色' : '🌙 深色'}
-								</button>
-								<button
-									onClick={toggleFullscreen}
-									className={`px-4 py-2.5 text-sm rounded-xl transition-all ${btnBase}`}
-									title="全屏"
-								>
-									{isFullscreen ? '退出全屏' : '⛶ 全屏'}
+									清空
 								</button>
 							</div>
+						</div>
+					</div>
+				</div>
 
-							{/* 开始展示 按钮 */}
+				{/* 滚动主区：所有分组平铺，无横滑切换 */}
+				<div className="flex-1 overflow-y-auto">
+					<div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-5">
+						{orderedCategories.map(cat => (
+							<section key={cat.id}>
+								<div className="flex items-baseline justify-between mb-2">
+									<h3 className={`text-sm sm:text-base font-bold ${textBaseColor}`}>
+										{cat.name}
+									</h3>
+									{cat.id === 'custom' && customPhrases.length > 0 && (
+										<span className={`text-[10px] ${subTextColor}`}>
+											共 {customPhrases.length} 条 · 点 ✕ 删除
+										</span>
+									)}
+								</div>
+
+								{cat.id === 'custom' && (
+									<div className="flex gap-2 mb-2.5">
+										<input
+											type="text"
+											value={newPhraseInput}
+											onChange={e => setNewPhraseInput(e.target.value)}
+											onKeyDown={e => e.key === 'Enter' && handleAddCustomPhrase()}
+											placeholder="新增常用短语..."
+											className={`flex-1 px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${inputBg}`}
+										/>
+										<button
+											onClick={handleAddCustomPhrase}
+											disabled={!newPhraseInput.trim()}
+											className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+										>
+											添加
+										</button>
+									</div>
+								)}
+
+								{cat.phrases.length === 0 ? (
+									<p className={`text-xs ${subTextColor} py-2`}>
+										{cat.id === 'custom'
+											? '还没有自定义短语，添加几个您最常说的话吧'
+											: '暂无内容'}
+									</p>
+								) : (
+									<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+										{cat.phrases.map((phrase, idx) => (
+											<button
+												key={idx}
+												onClick={() => handlePhraseClick(phrase)}
+												className={`group relative flex items-center justify-between text-left p-3 sm:p-3.5 text-sm sm:text-base font-medium rounded-xl border transition-all active:scale-[0.97] ${
+													text === phrase ? activeBtnBase : btnBase
+												}`}
+											>
+												<span className="break-all line-clamp-2 leading-snug pr-1 flex-1">
+													{phrase}
+												</span>
+												{cat.id === 'custom' && (
+													<span
+														role="button"
+														onClick={(e) => handleDeleteCustomPhrase(phrase, e)}
+														className="ml-1 opacity-50 hover:opacity-100 hover:text-red-500 active:text-red-600 shrink-0 p-1 cursor-pointer"
+														title="删除"
+													>
+														<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+															<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+														</svg>
+													</span>
+												)}
+											</button>
+										))}
+									</div>
+								)}
+							</section>
+						))}
+					</div>
+				</div>
+
+				{/* 底部 sticky：字号 + 主题/全屏 */}
+				<div className={`shrink-0 border-t ${borderColor} ${stickyBg} backdrop-blur-md`}>
+					<div className="max-w-5xl mx-auto px-3 sm:px-4 py-2 flex items-center gap-1.5 sm:gap-2 flex-wrap">
+						<span className={`text-xs font-semibold ${subTextColor} hidden sm:inline`}>字号</span>
+						<button
+							onClick={() => setFontSize(prev => Math.max(40, prev - 20))}
+							className={`px-3 py-1.5 text-xs font-bold rounded-md ${btnBase}`}
+							title="缩小"
+						>
+							A-
+						</button>
+						<span className={`text-xs font-bold tabular-nums px-1 min-w-[42px] text-center ${textBaseColor}`}>
+							{fontSize}px
+						</span>
+						<button
+							onClick={() => setFontSize(prev => Math.min(400, prev + 20))}
+							className={`px-3 py-1.5 text-xs font-bold rounded-md ${btnBase}`}
+							title="放大"
+						>
+							A+
+						</button>
+
+						<div className="hidden md:flex gap-1 ml-2">
+							{FONT_SIZES.map(size => (
+								<button
+									key={size}
+									onClick={() => setFontSize(size)}
+									className={`px-2 py-1 text-xs font-semibold rounded transition-colors ${
+										fontSize === size ? 'bg-blue-600 text-white border border-blue-600' : btnBase
+									}`}
+								>
+									{size}
+								</button>
+							))}
+						</div>
+
+						<div className="ml-auto flex items-center gap-1.5 sm:gap-2">
 							<button
-								onClick={() => {
-									if (text.trim()) {
-										setStage('display')
-									} else {
-										inputRef.current?.focus()
-									}
-								}}
-								className={`w-full py-4 text-base font-bold tracking-wider rounded-xl transition-all text-white shadow-md ${
-									text.trim()
-										? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 hover:scale-[1.01] active:scale-[0.99] cursor-pointer'
-										: 'bg-gray-400 dark:bg-gray-700 cursor-not-allowed opacity-60'
-								}`}
+								onClick={() => setDarkMode(d => !d)}
+								className={`px-3 py-1.5 text-xs rounded-md transition-colors ${btnBase}`}
+								title={darkMode ? '切换到亮色' : '切换到深色'}
 							>
-								📢 开始大字展示
+								{darkMode ? '☀️' : '🌙'}
+							</button>
+							<button
+								onClick={toggleFullscreen}
+								className={`px-3 py-1.5 text-xs rounded-md transition-colors ${btnBase}`}
+								title={isFullscreen ? '退出全屏' : '全屏'}
+							>
+								⛶
 							</button>
 						</div>
 					</div>
 				</div>
-			) : (
-				/* ======================= 大字展示阶段 ======================= */
-				<div 
-					className={`flex-1 flex flex-col relative justify-center items-center px-6 py-12 overflow-y-auto select-none cursor-pointer ${bg}`}
+			</div>
+
+			{/* ======================= 展示阶段：fixed 全屏覆盖（盖住 Header） ======================= */}
+			{stage === 'display' && (
+				<div
+					ref={displayRootRef}
+					className={`fixed inset-0 z-[100] ${bg} flex items-center justify-center select-none cursor-pointer overflow-hidden`}
+					onMouseMove={handleDisplayMouseMove}
 					onClick={() => {
-						// 切换悬浮面板的显示/隐藏，并在显示时重置自动隐藏的定时器
 						setShowFloatingControls(prev => {
 							const next = !prev
 							if (next) {
@@ -433,47 +424,58 @@ export function BigTextTool() {
 							return next
 						})
 					}}
-					title="点击屏幕空白处显示/隐藏控制栏"
 				>
-					{/* 展示文本本身 */}
-					<div className="max-w-6xl w-full flex items-center justify-center">
-						<p
-							className={`leading-normal text-center break-all whitespace-pre-wrap font-bold select-text px-4 ${textBaseColor}`}
-							style={{ fontSize: `${fontSize}px`, letterSpacing: '-0.010em' }}
-							onClick={(e) => {
-								// 点击文本时同样切换控制台显隐（不应直接退出）
-								e.stopPropagation()
-								setShowFloatingControls(prev => {
-									const next = !prev
-									if (next) {
-										if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current)
-										controlsTimeoutRef.current = setTimeout(() => {
-											setShowFloatingControls(false)
-										}, 3000)
-									}
-									return next
-								})
-							}}
-						>
-							{text}
-						</p>
-					</div>
+					{/* 大字本身：双击直接退出展示 */}
+					<p
+						className={`leading-tight text-center break-all whitespace-pre-wrap font-bold select-text px-4 ${textBaseColor}`}
+						style={{ fontSize: `${fontSize}px`, letterSpacing: '-0.010em' }}
+						onClick={(e) => {
+							e.stopPropagation()
+							setShowFloatingControls(prev => {
+								const next = !prev
+								if (next) {
+									if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current)
+									controlsTimeoutRef.current = setTimeout(() => {
+										setShowFloatingControls(false)
+									}, 3000)
+								}
+								return next
+							})
+						}}
+						onDoubleClick={(e) => {
+							e.stopPropagation()
+							setStage('edit')
+						}}
+					>
+						{text}
+					</p>
 
-					{/* 悬浮轻量级控制台 - 在鼠标移动或点击时显示，并在3秒后自动隐藏 */}
-					<div 
-						className={`fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2.5 rounded-full border border-gray-200 dark:border-gray-800 ${panelBg} backdrop-blur-md shadow-lg transition-all duration-300 ${
+					{/* 左上角常驻返回按钮：默认半透明，hover/控制栏激活时全显 */}
+					<button
+						onClick={(e) => { e.stopPropagation(); setStage('edit') }}
+						className={`fixed top-3 left-3 z-[110] px-3 py-2 text-xs font-bold rounded-full backdrop-blur-md transition-opacity duration-300 ${
+							showFloatingControls ? 'opacity-100' : 'opacity-25 hover:opacity-100 focus:opacity-100'
+						} ${darkMode ? 'bg-gray-900/70 text-gray-100 border border-gray-700' : 'bg-white/80 text-gray-900 border border-gray-200'}`}
+						title="返回编辑 (Esc)"
+					>
+						← 返回
+					</button>
+
+					{/* 底部悬浮控制栏 */}
+					<div
+						className={`fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-2 px-3 py-2 rounded-full border ${borderColor} ${panelBg} backdrop-blur-md shadow-lg transition-all duration-300 ${
 							showFloatingControls ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95 pointer-events-none'
 						}`}
-						onClick={(e) => e.stopPropagation()} // 阻止冒泡，避免点击控制栏本身触发显隐切换
+						onClick={(e) => e.stopPropagation()}
 					>
 						<button
 							onClick={() => setStage('edit')}
-							className="px-4 py-2 text-xs md:text-sm font-semibold bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors shrink-0"
+							className="px-4 py-2 text-xs sm:text-sm font-semibold bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors shrink-0"
 						>
 							返回编辑
 						</button>
-						
-						<div className="w-[1px] h-5 bg-gray-300 dark:bg-gray-700 mx-1.5 shrink-0" />
+
+						<div className="w-[1px] h-5 bg-gray-300 dark:bg-gray-700 mx-1 shrink-0" />
 
 						<button
 							onClick={() => setFontSize(prev => Math.max(40, prev - 20))}
@@ -482,9 +484,9 @@ export function BigTextTool() {
 						>
 							A-
 						</button>
-						
-						<span className={`text-xs md:text-sm font-bold px-1 md:px-2 shrink-0 ${textBaseColor}`}>{fontSize}px</span>
-
+						<span className={`text-xs sm:text-sm font-bold px-1 shrink-0 tabular-nums ${textBaseColor}`}>
+							{fontSize}
+						</span>
 						<button
 							onClick={() => setFontSize(prev => Math.min(400, prev + 20))}
 							className={`w-9 h-9 rounded-full text-xs font-bold flex items-center justify-center shrink-0 ${btnBase}`}
@@ -493,7 +495,7 @@ export function BigTextTool() {
 							A+
 						</button>
 
-						<div className="w-[1px] h-5 bg-gray-300 dark:bg-gray-700 mx-1.5 shrink-0" />
+						<div className="w-[1px] h-5 bg-gray-300 dark:bg-gray-700 mx-1 shrink-0" />
 
 						<button
 							onClick={() => setDarkMode(d => !d)}
@@ -502,7 +504,6 @@ export function BigTextTool() {
 						>
 							{darkMode ? '☀️' : '🌙'}
 						</button>
-
 						<button
 							onClick={toggleFullscreen}
 							className={`w-9 h-9 rounded-full text-sm flex items-center justify-center shrink-0 ${btnBase}`}
@@ -512,12 +513,15 @@ export function BigTextTool() {
 						</button>
 					</div>
 
-					{/* 提示返回的小信息 */}
-					<div className={`fixed top-4 right-4 text-xs ${subTextColor} opacity-40 hover:opacity-100 transition-all pointer-events-none select-none`}>
-						点击屏幕或按 ESC 键显示控制栏
+					{/* 右上角小提示 */}
+					<div className={`fixed top-3 right-3 z-[105] text-[10px] sm:text-xs ${subTextColor} ${
+						showFloatingControls ? 'opacity-70' : 'opacity-30'
+					} transition-opacity duration-300 pointer-events-none select-none text-right leading-relaxed`}>
+						<div>双击文字 / Esc 直接返回</div>
+						<div>点击屏幕显示/隐藏控制栏</div>
 					</div>
 				</div>
 			)}
-		</div>
+		</>
 	)
 }
