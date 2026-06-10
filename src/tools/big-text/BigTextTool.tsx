@@ -45,6 +45,26 @@ const STATIC_CATEGORIES: PhraseCategory[] = [
 		]
 	},
 	{
+		id: 'language',
+		name: '🦻 语言与障碍',
+		phrases: [
+			'我听不懂',
+			'我听不清',
+			'缄默症',
+			'失语症',
+			'我说话不方便',
+			'我无法说话',
+			'请用文字和我交流',
+			'请打字给我看',
+			'请说慢一点',
+			'请说简单一点',
+			'请用普通话',
+			'我不会说本地方言',
+			'I don\'t speak English well',
+			'Please write it down',
+		]
+	},
+	{
 		id: 'physical',
 		name: '🚑 身体与急需',
 		phrases: [
