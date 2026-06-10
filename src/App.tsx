@@ -18,6 +18,7 @@ import { UrlCodecTool } from './tools/url-codec/UrlCodecTool'
 import { RegexTesterTool } from './tools/regex-tester/RegexTesterTool'
 import { TextDiffTool } from './tools/text-diff/TextDiffTool'
 import { QrCodeTool } from './tools/qrcode/QrCodeTool'
+import { BigTextTool } from './tools/big-text/BigTextTool'
 import { getHashLocation } from './utils/hash'
 import { setFavicon } from './utils/favicon'
 import { recordToolVisit } from './utils/recent'
@@ -42,8 +43,11 @@ export default function App() {
     }
   }, [route.path])
 
+  const fullPagePaths = ['markdown-reader', 'big-text']
+  const isFullPage = fullPagePaths.includes(route.path)
+
   return (
-    <Layout hideFooter={route.path === 'markdown-reader'}>
+    <Layout hideFooter={isFullPage}>
       <Header />
       <DomainMigrationBanner />
       <CommandPalette />
@@ -54,7 +58,14 @@ export default function App() {
           </ErrorBoundary>
         </main>
       )}
-      <main className={`w-full px-6 pb-16 pt-8${route.path === 'markdown-reader' ? ' hidden' : ''}`}>
+      {route.path === 'big-text' && (
+        <main className="w-full" style={{ height: 'calc(100vh - 66px)' }}>
+          <ErrorBoundary>
+            <BigTextTool />
+          </ErrorBoundary>
+        </main>
+      )}
+      <main className={`w-full px-6 pb-16 pt-8${isFullPage ? ' hidden' : ''}`}>
         {route.path === '' && <Home />}
         {route.path === 'calendar' && <ErrorBoundary><CalendarTool /></ErrorBoundary>}
         {route.path === 'prompt-gallery' && <ErrorBoundary><PromptGalleryTool /></ErrorBoundary>}

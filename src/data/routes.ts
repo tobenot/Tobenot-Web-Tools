@@ -112,6 +112,16 @@ export const tools: ToolDef[] = [
     href: '#qrcode'
   },
   {
+    id: 'big-text',
+    title: '大字展示板',
+    description: '输入文字即时大字展示，适合需要辅助沟通的场景',
+    emoji: '🔤',
+    version: 'v1.0',
+    category: 'app',
+    href: '#big-text',
+    tags: ['沟通', '无障碍', '展示']
+  },
+  {
     id: 'changelog',
     title: '更新日志',
     description: '查看项目更新记录',
@@ -135,6 +145,7 @@ export const pageTitleMap: Record<string, string> = {
   'regex-tester': '正则测试器 | Mecha Tools',
   'text-diff': '文本 Diff 对比 | Mecha Tools',
   'qrcode': '二维码生成 | Mecha Tools',
+  'big-text': '大字展示板 | Mecha Tools',
   changelog: '更新日志 | Mecha Tools',
   about: '关于与设计 | Mecha Tools'
 }
