@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 const FONT_SIZES = [80, 120, 160, 200, 240, 300] as const
 const DEFAULT_FONT_SIZE = 160
@@ -149,6 +149,9 @@ export function BigTextTool() {
 	const [stage, setStage] = useState<'edit' | 'display'>('edit')
 	const [text, setText] = useState('')
 	const [fontSize, setFontSize] = useState<number>(DEFAULT_FONT_SIZE)
+	// 自适应字号：默认开启，进入展示时按屏幕与文字量自动算出最合适的字号
+	const [autoFit, setAutoFit] = useState(true)
+	const [autoFontSize, setAutoFontSize] = useState<number>(DEFAULT_FONT_SIZE)
 	const [isFullscreen, setIsFullscreen] = useState(false)
 
 	// 深色模式：初始化跟随系统/项目，并在初始化后观察
@@ -176,6 +179,19 @@ export function BigTextTool() {
 	const inputRef = useRef<HTMLTextAreaElement>(null)
 	const editRootRef = useRef<HTMLDivElement>(null)
 	const displayRootRef = useRef<HTMLDivElement>(null)
+	const displayTextRef = useRef<HTMLParagraphElement>(null)
+
+	// 实际生效的字号：自适应时用自动算出的，否则用手动设置的
+	const effectiveFontSize = autoFit ? autoFontSize : fontSize
+
+	// 手动调字号时自动退出自适应，并以当前生效字号为基准微调
+	function adjustFontSize(delta: number) {
+		setAutoFit(false)
+		setFontSize(() => {
+			const base = autoFit ? autoFontSize : fontSize
+			return Math.min(400, Math.max(40, base + delta))
+		})
+	}
 
 	// 自动同步 localStorage 中的自定义短语
 	useEffect(() => {
@@ -228,6 +244,44 @@ export function BigTextTool() {
 			}
 		}
 	}, [stage])
+
+	// 自适应字号：进入展示 / 文字变化 / 窗口尺寸变化时，二分查找出刚好填满屏幕的最大字号
+	useLayoutEffect(() => {
+		if (stage !== 'display' || !autoFit) return
+		const el = displayTextRef.current
+		const container = displayRootRef.current
+		if (!el || !container) return
+
+		const compute = () => {
+			const availW = container.clientWidth * 0.96
+			const availH = container.clientHeight * 0.92
+			if (availW <= 0 || availH <= 0) return
+
+			const prevFontSize = el.style.fontSize
+			let lo = 24
+			let hi = 800
+			let best = lo
+			while (lo <= hi) {
+				const mid = Math.floor((lo + hi) / 2)
+				el.style.fontSize = `${mid}px`
+				const fits = el.scrollWidth <= availW && el.scrollHeight <= availH
+				if (fits) {
+					best = mid
+					lo = mid + 1
+				} else {
+					hi = mid - 1
+				}
+			}
+			el.style.fontSize = prevFontSize
+			setAutoFontSize(best)
+		}
+
+		compute()
+		window.addEventListener('resize', compute)
+		return () => window.removeEventListener('resize', compute)
+	}, [stage, autoFit, text])
+
+
 
 	function toggleFullscreen() {
 		const target = stage === 'display' ? displayRootRef.current : editRootRef.current
@@ -456,17 +510,26 @@ export function BigTextTool() {
 					<div className="max-w-5xl mx-auto px-3 sm:px-4 py-2 flex items-center gap-1.5 sm:gap-2 flex-wrap">
 						<span className={`text-xs font-semibold ${subTextColor} hidden sm:inline`}>字号</span>
 						<button
-							onClick={() => setFontSize(prev => Math.max(40, prev - 20))}
+							onClick={() => setAutoFit(true)}
+							className={`px-2.5 py-1.5 text-xs font-bold rounded-md transition-colors ${
+								autoFit ? 'bg-blue-600 text-white border border-blue-600' : btnBase
+							}`}
+							title="自适应：展示时自动填满屏幕"
+						>
+							⤢ 自适应
+						</button>
+						<button
+							onClick={() => adjustFontSize(-20)}
 							className={`px-3 py-1.5 text-xs font-bold rounded-md ${btnBase}`}
 							title="缩小"
 						>
 							A-
 						</button>
 						<span className={`text-xs font-bold tabular-nums px-1 min-w-[42px] text-center ${textBaseColor}`}>
-							{fontSize}px
+							{autoFit ? '自动' : `${fontSize}px`}
 						</span>
 						<button
-							onClick={() => setFontSize(prev => Math.min(400, prev + 20))}
+							onClick={() => adjustFontSize(20)}
 							className={`px-3 py-1.5 text-xs font-bold rounded-md ${btnBase}`}
 							title="放大"
 						>
@@ -477,9 +540,9 @@ export function BigTextTool() {
 							{FONT_SIZES.map(size => (
 								<button
 									key={size}
-									onClick={() => setFontSize(size)}
+									onClick={() => { setAutoFit(false); setFontSize(size) }}
 									className={`px-2 py-1 text-xs font-semibold rounded transition-colors ${
-										fontSize === size ? 'bg-blue-600 text-white border border-blue-600' : btnBase
+										!autoFit && fontSize === size ? 'bg-blue-600 text-white border border-blue-600' : btnBase
 									}`}
 								>
 									{size}
@@ -528,8 +591,9 @@ export function BigTextTool() {
 				>
 					{/* 大字本身：双击直接退出展示 */}
 					<p
-						className={`leading-tight text-center break-all whitespace-pre-wrap font-bold select-text px-4 ${textBaseColor}`}
-						style={{ fontSize: `${fontSize}px`, letterSpacing: '-0.010em' }}
+						ref={displayTextRef}
+						className={`w-full leading-tight text-center break-all whitespace-pre-wrap font-bold select-text px-4 ${textBaseColor}`}
+						style={{ fontSize: `${effectiveFontSize}px`, letterSpacing: '-0.010em' }}
 						onClick={(e) => {
 							e.stopPropagation()
 							setShowFloatingControls(prev => {
@@ -579,17 +643,26 @@ export function BigTextTool() {
 						<div className="w-[1px] h-5 bg-gray-300 dark:bg-gray-700 mx-1 shrink-0" />
 
 						<button
-							onClick={() => setFontSize(prev => Math.max(40, prev - 20))}
+							onClick={() => setAutoFit(true)}
+							className={`px-3 h-9 rounded-full text-xs font-bold flex items-center justify-center shrink-0 transition-colors ${
+								autoFit ? 'bg-blue-600 text-white border border-blue-600' : btnBase
+							}`}
+							title="自适应字号：自动填满屏幕"
+						>
+							⤢ 自适应
+						</button>
+						<button
+							onClick={() => adjustFontSize(-20)}
 							className={`w-9 h-9 rounded-full text-xs font-bold flex items-center justify-center shrink-0 ${btnBase}`}
 							title="缩小字号"
 						>
 							A-
 						</button>
 						<span className={`text-xs sm:text-sm font-bold px-1 shrink-0 tabular-nums ${textBaseColor}`}>
-							{fontSize}
+							{effectiveFontSize}
 						</span>
 						<button
-							onClick={() => setFontSize(prev => Math.min(400, prev + 20))}
+							onClick={() => adjustFontSize(20)}
 							className={`w-9 h-9 rounded-full text-xs font-bold flex items-center justify-center shrink-0 ${btnBase}`}
 							title="放大字号"
 						>
