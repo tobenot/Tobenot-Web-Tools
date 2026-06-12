@@ -49,6 +49,16 @@ export const tools: ToolDef[] = [
     href: '#bg-remover'
   },
   {
+    id: 'image-outline',
+    title: '图片描边工具',
+    description: '为透明底图片沿轮廓添加平滑描边，支持双层描边、投影与批量处理',
+    emoji: '🖊️',
+    version: 'v1.0',
+    category: 'utility',
+    href: '#image-outline',
+    tags: ['图片', '描边', '贴纸', '透明底']
+  },
+  {
     id: 'space-tab-converter',
     title: '空格/Tab 转换器',
     description: '代码缩进空格与 Tab 相互转换工具',
@@ -139,6 +149,7 @@ export const pageTitleMap: Record<string, string> = {
   'prompt-gallery': '提示词展柜 | Mecha Tools',
   'json-viewer': 'JSON 表格查看器 | Mecha Tools',
   'bg-remover': '图片去底工具 | Mecha Tools',
+  'image-outline': '图片描边工具 | Mecha Tools',
   'space-tab-converter': '空格/Tab 转换器 | Mecha Tools',
   'base64': 'Base64 编解码 | Mecha Tools',
   'url-codec': 'URL 编解码 | Mecha Tools',
