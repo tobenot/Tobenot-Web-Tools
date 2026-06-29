@@ -585,6 +585,9 @@ export function MarkdownReaderTool() {
   const [gistToken, setGistToken] = useState(loadGistToken)
   const [tokenInput, setTokenInput] = useState('')
   const [tokenUrlCopied, setTokenUrlCopied] = useState(false)
+  const [tokenExpanded, setTokenExpanded] = useState(() => !loadGistToken())
+  const [principlesExpanded, setPrinciplesExpanded] = useState(false)
+  const [limitsExpanded, setLimitsExpanded] = useState(false)
   const [gistHistory, setGistHistory] = useState<LocalGistRecord[]>(loadGistHistory)
   const [remoteGists, setRemoteGists] = useState<RemoteGistItem[]>([])
   const [gistListLoading, setGistListLoading] = useState(false)
@@ -1010,6 +1013,9 @@ export function MarkdownReaderTool() {
     const saved = loadGistToken()
     setGistToken(saved)
     setTokenInput(saved)
+    setTokenExpanded(!saved)
+    setPrinciplesExpanded(false)
+    setLimitsExpanded(false)
     setGistHistory(loadGistHistory())
     setGistPanelTab(tab)
     setShareError('')
@@ -1410,263 +1416,426 @@ export function MarkdownReaderTool() {
 
       {/* 分享 / Gist 管理弹窗 */}
       {shareModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShareModalOpen(false)}>
-          <div className="w-full max-w-xl bg-white rounded-lg shadow-xl p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-base font-semibold text-gray-800 mb-1">分享与 Gist 管理</h3>
-            <p className="text-xs text-gray-500 mb-3">
-              {gistPanelTab === 'share'
-                ? '分享页：逐步说明原理，上传成功后会自动复制分享链接。'
-                : '管理页：查看限额与删除方式，浏览本工具创建记录或从 GitHub 加载完整列表。'}
-            </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => setShareModalOpen(false)}>
+          <div className="w-full max-w-2xl bg-white rounded-xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto border border-gray-100 flex flex-col" onClick={(e) => e.stopPropagation()}>
+            
+            {/* 头部标题与关闭按钮 */}
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4 shrink-0">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">文档分享与 Gist 云管理</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  基于 GitHub Gist 平台实现无限容量、长效大文档的分发与管理
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShareModalOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+                title="关闭"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
-            <div className="flex gap-2 mb-4">
+            {/* 顶栏 Segmented Control 导航 */}
+            <div className="bg-gray-100 p-1 rounded-lg flex w-full mb-4 shrink-0">
               <button
                 type="button"
                 onClick={() => setGistPanelTab('share')}
-                className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${gistPanelTab === 'share' ? 'bg-sky-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`flex-1 py-2 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 ${
+                  gistPanelTab === 'share'
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
               >
-                分享文档
+                <span>🔗</span> 分享当前文档
               </button>
               <button
                 type="button"
                 onClick={() => setGistPanelTab('manage')}
-                className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${gistPanelTab === 'manage' ? 'bg-violet-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`flex-1 py-2 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 ${
+                  gistPanelTab === 'manage'
+                    ? 'bg-white text-violet-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
               >
-                Gist 管理
+                <span>📋</span> 我的历史与 Gist 管理
               </button>
             </div>
 
-            {/* Token（两个标签页共用） */}
-            <section className="rounded-md border border-gray-200 p-3 mb-4">
-              <h4 className="text-xs font-semibold text-gray-800 mb-2">GitHub Token</h4>
-              <p className="text-xs text-gray-600 leading-relaxed mb-2">
-                Token 是 GitHub 官方 API 的授权凭证，只保存在<strong>本机浏览器</strong>，本站服务器不接触。权限只需 <code className="px-0.5 bg-gray-100 rounded">gist</code>，不要勾选 repo 等其它权限。
-              </p>
-              {gistToken && (
-                <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded px-2 py-1.5 mb-2">
-                  本机已保存 Token（末尾 {maskGistToken(gistToken)}）。可在下方修改后重新保存，或清除。
+            {/* Token 模块 (通用，折叠设计节省空间) */}
+            <section className="border border-gray-200 rounded-lg overflow-hidden bg-white mb-4 shadow-sm shrink-0">
+              <button
+                type="button"
+                onClick={() => setTokenExpanded(!tokenExpanded)}
+                className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 transition-all text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">🔑</span>
+                  <span className="text-sm font-bold text-gray-800">GitHub Gist API Token 授权</span>
+                  {gistToken ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-800 border border-green-200">
+                      本机已就绪 (末尾 {maskGistToken(gistToken)})
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-200 animate-pulse">
+                      首次使用需配置
+                    </span>
+                  )}
                 </div>
-              )}
+                <span className="text-xs text-indigo-600 font-semibold flex items-center gap-1">
+                  {tokenExpanded ? '收起配置 ▲' : '管理/修改 ▼'}
+                </span>
+              </button>
 
-              <div className="rounded-md border border-gray-200 bg-gray-50 p-3 mb-3">
-                <div className="text-xs font-medium text-gray-500 mb-1">GitHub 官方 Token 创建页地址（请自行复制到浏览器地址栏打开）</div>
-                <div className="text-xs text-gray-800 font-mono break-all leading-relaxed select-all">{GIST_TOKEN_HELP_URL}</div>
-                <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                  也可手动进入：{GIST_TOKEN_HELP_PATH}，勾选 gist 后生成。
-                </p>
-                <div className="mt-3 pt-3 border-t border-gray-200">
-                  <div className="text-xs font-medium text-gray-600 mb-2">上述地址各参数含义</div>
-                  <ul className="space-y-2">
-                    {GIST_TOKEN_URL_PARTS.map(({ part, meaning }) => (
-                      <li key={part} className="text-xs leading-relaxed">
-                        <code className="block px-1.5 py-0.5 bg-white border border-gray-200 rounded font-mono text-gray-800 break-all mb-0.5">{part}</code>
-                        <span className="text-gray-600">{meaning}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void copyTokenHelpUrl()}
-                  className="mt-3 px-2.5 py-1 text-xs font-medium bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-100 transition-colors"
-                >
-                  {tokenUrlCopied ? '✅ 已复制地址' : '复制上述地址'}
-                </button>
-              </div>
-
-              <label className="block text-xs font-medium text-gray-600 mb-1">粘贴 Token</label>
-              <input
-                type="password"
-                value={tokenInput}
-                onChange={(e) => setTokenInput(e.target.value)}
-                placeholder="ghp_... 或 github_pat_..."
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded font-mono focus:border-sky-400 focus:outline-none mb-2"
-              />
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={saveGistTokenToLocal}
-                  disabled={!tokenInput.trim()}
-                  className="px-2.5 py-1 text-xs font-medium bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors disabled:opacity-50"
-                >
-                  保存到本机
-                </button>
-                {gistToken && (
-                  <button
-                    type="button"
-                    onClick={clearGistTokenFromLocal}
-                    className="px-2.5 py-1 text-xs font-medium bg-white border border-gray-300 text-gray-600 rounded hover:bg-gray-50 transition-colors"
-                  >
-                    清除已保存的 Token
-                  </button>
-                )}
-              </div>
-            </section>
-
-            {gistPanelTab === 'share' && (
-              <>
-                <section className="rounded-md border border-indigo-100 bg-indigo-50/50 p-3 mb-4">
-                  <h4 className="text-xs font-semibold text-indigo-800 mb-2">分享原理（发生了什么？）</h4>
-                  <ol className="space-y-2">
-                    {SHARE_PRINCIPLE_STEPS.map(({ step, title, detail }) => (
-                      <li key={step} className="text-xs leading-relaxed">
-                        <div className="font-medium text-gray-800">{step} {title}</div>
-                        <div className="text-gray-600 mt-0.5">{detail}</div>
-                      </li>
-                    ))}
-                  </ol>
-                </section>
-
-                <section className="rounded-md border border-gray-200 p-3 mb-4">
-                  <h4 className="text-xs font-semibold text-gray-800 mb-2">上传至 GitHub 并生成链接</h4>
-                  <p className="text-xs text-gray-600 leading-relaxed mb-3">
-                    点击后，浏览器会把<strong>当前编辑器里的 Markdown 正文</strong>上传到你 GitHub 账号下的一个新 Secret Gist。每次分享都会新建一个 Gist，不会覆盖之前的。记录会出现在「Gist 管理」页。
+              {tokenExpanded && (
+                <div className="p-4 bg-white border-t border-gray-100 space-y-3">
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    Token 是您自主授权向 GitHub 官方 API 存取数据的安全凭证。<strong>它只保存在您的本机浏览器缓存（localStorage）中，本站绝不接触、更不会上传该凭证。</strong>
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => void generateShareLink()}
-                    disabled={shareCreating || (!tokenInput.trim() && !gistToken)}
-                    className="w-full px-3 py-2 text-sm font-medium bg-sky-500 text-white rounded hover:bg-sky-600 transition-colors disabled:opacity-50"
-                  >
-                    {shareCreating ? '正在请求 GitHub API…' : '上传至 GitHub 并生成分享链接'}
-                  </button>
-                </section>
-
-                {generatedShareUrl && (
-                  <section className="rounded-md border border-green-200 bg-green-50/50 p-3 mb-4">
-                    <h4 className="text-xs font-semibold text-green-800 mb-2">分享链接（已自动复制，也可手动复制）</h4>
-                    <p className="text-xs text-gray-600 leading-relaxed mb-2">
-                      {shareLinkCopied ? '已自动复制到剪贴板。' : '自动复制失败，请手动复制下方链接。'}请核对域名是 <code className="px-0.5 bg-white rounded">tools.tobenot.top</code>（或你当前访问的本站域名）。
+                  
+                  <div className="rounded-md border border-gray-200 bg-gray-50/50 p-3 text-xs leading-relaxed space-y-2">
+                    <span className="font-semibold text-gray-700 block">如何获取带 gist 权限的 Token？</span>
+                    <p className="text-gray-600">
+                      您需要前往 GitHub 官网，生成一个 Classic 访问令牌，在权限（scopes）中<strong>仅勾选 <code className="px-1 bg-white border border-gray-200 rounded text-red-500 font-mono">gist</code> 权限</strong>，以确保安全。
                     </p>
-                    <div className="text-xs text-gray-800 font-mono break-all leading-relaxed select-all bg-white border border-green-200 rounded px-2 py-2 mb-3">
-                      {generatedShareUrl}
+                    <div className="pt-1.5">
+                      <span className="text-[10px] text-gray-400 font-medium block mb-1">GitHub 官方 Token 新建地址（请复制在安全浏览器环境打开）：</span>
+                      <div className="bg-white border border-gray-200 rounded px-2 py-1.5 font-mono text-[11px] text-gray-800 select-all break-all shadow-inner">
+                        {GIST_TOKEN_HELP_URL}
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => void copyGeneratedShareLink()}
-                      className="px-3 py-1.5 text-sm font-medium bg-green-600 text-white rounded hover:bg-green-700 transition-colors mb-3"
-                    >
-                      {shareLinkCopied ? '✅ 已复制分享链接' : '复制分享链接'}
-                    </button>
-                    <div className="pt-3 border-t border-green-200">
-                      <div className="text-xs font-medium text-gray-600 mb-2">分享链接各参数含义</div>
-                      <ul className="space-y-2">
-                        {SHARE_LINK_URL_PARTS.map(({ part, meaning }) => (
-                          <li key={part} className="text-xs leading-relaxed">
-                            <code className="block px-1.5 py-0.5 bg-white border border-gray-200 rounded font-mono text-gray-800 break-all mb-0.5">{part}</code>
-                            <span className="text-gray-600">{meaning}</span>
+
+                    <div className="pt-2 border-t border-gray-200">
+                      <span className="text-[11px] font-semibold text-gray-700 block mb-1.5">🔬 链接安全解析（拒绝网址带个人隐私的木马漏洞）：</span>
+                      <ul className="space-y-1 text-[10px] text-gray-500">
+                        {GIST_TOKEN_URL_PARTS.map(({ part, meaning }) => (
+                          <li key={part} className="flex flex-col sm:flex-row sm:items-start gap-1">
+                            <code className="px-1 bg-white border border-gray-100 rounded text-gray-700 font-mono text-[9px] font-bold shrink-0">{part}</code>
+                            <span>— {meaning}</span>
                           </li>
                         ))}
                       </ul>
                     </div>
-                  </section>
-                )}
-              </>
-            )}
 
-            {gistPanelTab === 'manage' && (
-              <>
-                <section className="rounded-md border border-amber-100 bg-amber-50/50 p-3 mb-4">
-                  <h4 className="text-xs font-semibold text-amber-900 mb-2">Gist 限额（GitHub 官方规则）</h4>
-                  <ul className="space-y-2 mb-3">
-                    {GIST_LIMIT_NOTES.map(({ title, detail }) => (
-                      <li key={title} className="text-xs leading-relaxed">
-                        <span className="font-medium text-gray-800">{title}：</span>
-                        <span className="text-gray-600">{detail}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <h4 className="text-xs font-semibold text-amber-900 mb-2">如何删除已分享的文档？</h4>
-                  <p className="text-xs text-gray-600 leading-relaxed mb-2">
-                    <strong>可以删除。</strong>文档存在你的 GitHub 账号下，删除权限在你手里，本站无法替你删除或撤回链接。删除源 Gist 后，之前发出去的本站分享链接会失效（加载时报错）。
-                  </p>
-                  <ol className="list-decimal list-inside space-y-1.5 text-xs text-gray-600 leading-relaxed mb-3">
-                    {GIST_DELETE_STEPS.map((step) => (
-                      <li key={step}>{step}</li>
-                    ))}
-                  </ol>
-                  <div className="text-xs font-medium text-gray-500 mb-1">GitHub Gist 总列表页（请自行复制到浏览器地址栏打开）</div>
-                  <div className="text-xs text-gray-800 font-mono break-all select-all bg-white border border-gray-200 rounded px-2 py-1.5">{GIST_LIST_PAGE_URL}</div>
-                </section>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => void copyTokenHelpUrl()}
+                        className="px-2.5 py-1 text-xs font-semibold bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-100 transition-colors shadow-sm"
+                      >
+                        {tokenUrlCopied ? '✅ 已复制官网地址' : '📋 复制 GitHub 官方地址'}
+                      </button>
+                    </div>
+                  </div>
 
-                <section className="rounded-md border border-gray-200 p-3 mb-4">
-                  <h4 className="text-xs font-semibold text-gray-800 mb-2">本工具创建的记录</h4>
-                  <p className="text-xs text-gray-600 leading-relaxed mb-3">在此浏览器中通过「分享链接」生成的 Gist 会保存在本机，方便复制链接或 GitHub 管理页地址。</p>
-                  {gistHistory.length === 0 ? (
-                    <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded px-3 py-2">暂无记录。使用「分享文档」页上传后会出现在这里。</div>
-                  ) : (
-                    <ul className="space-y-3">
-                      {gistHistory.map((item) => (
-                        <li key={item.id} className="rounded border border-gray-200 bg-gray-50 p-2.5">
-                          <div className="text-xs text-gray-800 font-medium mb-1">Gist {item.id}</div>
-                          <div className="text-xs text-gray-500 mb-2">{formatGistTime(item.createdAt)} · 风格 {item.style}</div>
-                          <div className="text-xs font-mono break-all select-all bg-white border border-gray-200 rounded px-2 py-1 mb-1">{item.shareUrl}</div>
-                          <div className="text-xs font-mono break-all select-all bg-white border border-gray-200 rounded px-2 py-1 mb-2">{item.htmlUrl}</div>
-                          <div className="flex flex-wrap gap-2">
-                            <button type="button" onClick={() => void copyGistField(`${item.id}:share`, item.shareUrl, '请手动复制分享链接：')} className="px-2 py-0.5 text-xs bg-white border border-gray-300 rounded hover:bg-gray-100">
-                              {copiedGistField === `${item.id}:share` ? '✅ 已复制分享链接' : '复制分享链接'}
-                            </button>
-                            <button type="button" onClick={() => void copyGistField(`${item.id}:html`, item.htmlUrl, '请手动复制 Gist 页面地址：')} className="px-2 py-0.5 text-xs bg-white border border-gray-300 rounded hover:bg-gray-100">
-                              {copiedGistField === `${item.id}:html` ? '✅ 已复制 Gist 地址' : '复制 Gist 管理页地址'}
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">粘贴 GitHub 令牌 (Token)</label>
+                    <input
+                      type="password"
+                      value={tokenInput}
+                      onChange={(e) => setTokenInput(e.target.value)}
+                      placeholder="输入以 ghp_ 或 github_pat_ 开头的访问令牌..."
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md font-mono focus:border-indigo-400 focus:outline-none transition-colors placeholder:text-gray-400"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={saveGistTokenToLocal}
+                      disabled={!tokenInput.trim()}
+                      className="px-3 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors disabled:opacity-40 disabled:pointer-events-none shadow-sm"
+                    >
+                      💾 保存 Token 到本机
+                    </button>
+                    {gistToken && (
+                      <button
+                        type="button"
+                        onClick={clearGistTokenFromLocal}
+                        className="px-3 py-1.5 text-xs font-semibold bg-white border border-gray-300 hover:bg-gray-50 text-red-600 rounded-md transition-all shadow-sm"
+                      >
+                        🗑️ 清除本机保存的 Token
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* 核心内容区 */}
+            <div className="flex-1 overflow-y-auto space-y-4">
+              
+              {/* === 分享标签页 === */}
+              {gistPanelTab === 'share' && (
+                <>
+                  {/* 分享原理 - 折叠组件 */}
+                  <div className="border border-indigo-100 rounded-lg overflow-hidden bg-indigo-50/20 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => setPrinciplesExpanded(!principlesExpanded)}
+                      className="w-full flex items-center justify-between p-3 bg-indigo-50/40 hover:bg-indigo-50/70 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">ℹ️</span>
+                        <span className="text-xs font-semibold text-indigo-900">了解大文档 Gist 分享工作原理与安全科普</span>
+                      </div>
+                      <span className="text-xs text-indigo-600 font-semibold">
+                        {principlesExpanded ? '收起 ▲' : '展开原理 ▼'}
+                      </span>
+                    </button>
+                    {principlesExpanded && (
+                      <div className="p-4 border-t border-indigo-100 bg-white space-y-2">
+                        <ol className="space-y-3">
+                          {SHARE_PRINCIPLE_STEPS.map(({ step, title, detail }) => (
+                            <li key={step} className="text-xs leading-relaxed">
+                              <div className="font-bold text-gray-800">{step} {title}</div>
+                              <div className="text-gray-500 mt-0.5">{detail}</div>
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 触发分享面板 */}
+                  <div className="rounded-lg border border-gray-200 bg-gray-50/40 p-4 shadow-sm text-center">
+                    <h4 className="text-xs font-bold text-gray-800 mb-1.5 text-left flex items-center gap-1.5">
+                      <span className="text-indigo-500">📤</span> 准备就绪：上传并公开分享
+                    </h4>
+                    <p className="text-xs text-gray-500 text-left mb-4 leading-relaxed">
+                      系统将会将当前编辑框中所有 Markdown 文档内容，直接写入至您自有的 Secret Gist。该文件拥有专属 ID，链接中没有任何个人数据。
+                    </p>
+                    
+                    <button
+                      type="button"
+                      onClick={() => void generateShareLink()}
+                      disabled={shareCreating || (!tokenInput.trim() && !gistToken)}
+                      className="w-full max-w-sm px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 hover:shadow active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none shadow-sm flex items-center justify-center gap-2 mx-auto"
+                    >
+                      {shareCreating ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          <span>正在发起安全通道上传...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>🚀 一键上传并生成极简分享链接</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* 分享成功结果面板 */}
+                  {generatedShareUrl && (
+                    <div className="border border-green-200 bg-green-50/30 rounded-lg p-4 shadow-sm animate-fade-in space-y-3">
+                      <div className="flex items-center gap-2 text-green-800 font-bold text-sm">
+                        <span>✨</span>
+                        <span>分享大链接创建成功，并已自动复制！</span>
+                      </div>
+                      
+                      <div className="flex items-stretch gap-2">
+                        <div className="flex-1 bg-white border border-green-200 rounded-md px-3 py-2 text-xs font-mono text-gray-800 break-all select-all flex items-center shadow-inner">
+                          {generatedShareUrl}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void copyGeneratedShareLink()}
+                          className="shrink-0 px-4 bg-green-600 hover:bg-green-700 active:scale-[0.97] text-white rounded-md text-xs font-semibold transition-all flex items-center justify-center shadow-sm"
+                        >
+                          {shareLinkCopied ? '✅ 已复制' : '📋 复制'}
+                        </button>
+                      </div>
+
+                      <div className="pt-2 border-t border-green-200/50">
+                        <span className="text-[10px] font-bold text-gray-500 block mb-1">🔗 安全核对 — 分享链接参数公开透明化解析：</span>
+                        <ul className="space-y-1">
+                          {SHARE_LINK_URL_PARTS.map(({ part, meaning }) => (
+                            <li key={part} className="text-[10px] leading-relaxed text-gray-500">
+                              <code className="px-1 bg-white border border-green-100 rounded text-gray-700 font-mono font-bold text-[9px] inline-block mb-0.5">{part}</code>
+                              <span> {meaning}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
                   )}
-                </section>
+                </>
+              )}
 
-                <section className="rounded-md border border-gray-200 p-3 mb-4">
-                  <h4 className="text-xs font-semibold text-gray-800 mb-2">从 GitHub 加载完整列表</h4>
-                  <p className="text-xs text-gray-600 leading-relaxed mb-3">
-                    加载你 GitHub 账号下最近的 Gist（最多 50 条），含非本工具创建的。删除仍需到 GitHub 页面操作。
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => void loadRemoteGists()}
-                    disabled={gistListLoading || (!tokenInput.trim() && !gistToken)}
-                    className="w-full px-3 py-2 text-sm font-medium bg-violet-500 text-white rounded hover:bg-violet-600 transition-colors disabled:opacity-50 mb-3"
-                  >
-                    {gistListLoading ? '正在请求 GitHub API…' : '从 GitHub 加载我的 Gist 列表'}
-                  </button>
-                  {remoteGists.length > 0 && (
-                    <ul className="space-y-3">
-                      {remoteGists.map((item) => {
-                        const shareUrl = buildGistShareUrl(item.id, style)
-                        return (
-                          <li key={item.id} className="rounded border border-gray-200 bg-gray-50 p-2.5">
-                            <div className="text-xs text-gray-800 font-medium mb-1">{item.description}</div>
-                            <div className="text-xs text-gray-500 mb-1">Gist {item.id} · {formatGistTime(item.createdAt)}</div>
-                            <div className="text-xs font-mono break-all select-all bg-white border border-gray-200 rounded px-2 py-1 mb-1">{shareUrl}</div>
-                            <div className="text-xs text-gray-500 mb-1">↑ 按当前排版风格 {style} 生成的本站分享链接</div>
-                            <div className="text-xs font-mono break-all select-all bg-white border border-gray-200 rounded px-2 py-1 mb-2">{item.htmlUrl}</div>
-                            <div className="flex flex-wrap gap-2">
-                              <button type="button" onClick={() => void copyGistField(`remote-${item.id}:share`, shareUrl, '请手动复制分享链接：')} className="px-2 py-0.5 text-xs bg-white border border-gray-300 rounded hover:bg-gray-100">
-                                {copiedGistField === `remote-${item.id}:share` ? '✅ 已复制分享链接' : '复制分享链接'}
-                              </button>
-                              <button type="button" onClick={() => void copyGistField(`remote-${item.id}:html`, item.htmlUrl, '请手动复制 Gist 页面地址：')} className="px-2 py-0.5 text-xs bg-white border border-gray-300 rounded hover:bg-gray-100">
-                                {copiedGistField === `remote-${item.id}:html` ? '✅ 已复制 Gist 地址' : '复制 Gist 管理页地址'}
-                              </button>
+              {/* === 管理标签页 === */}
+              {gistPanelTab === 'manage' && (
+                <>
+                  {/* 限额规则与说明 - 折叠组件 */}
+                  <div className="border border-amber-100 rounded-lg overflow-hidden bg-amber-50/20 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => setLimitsExpanded(!limitsExpanded)}
+                      className="w-full flex items-center justify-between p-3 bg-amber-50/40 hover:bg-amber-50/70 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">⚠️</span>
+                        <span className="text-xs font-semibold text-amber-900">GitHub Gist 官方法定额度、安全防范及如何手动销毁</span>
+                      </div>
+                      <span className="text-xs text-amber-600 font-semibold">
+                        {limitsExpanded ? '收起说明 ▲' : '查看说明 ▼'}
+                      </span>
+                    </button>
+                    {limitsExpanded && (
+                      <div className="p-4 border-t border-amber-100 bg-white space-y-3">
+                        <div>
+                          <span className="text-xs font-bold text-gray-800 block mb-1.5">📊 官方使用限额：</span>
+                          <ul className="space-y-1 text-xs text-gray-600">
+                            {GIST_LIMIT_NOTES.map(({ title, detail }) => (
+                              <li key={title} className="leading-relaxed">
+                                <strong className="text-gray-800">{title}：</strong> {detail}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="pt-2 border-t border-gray-100">
+                          <span className="text-xs font-bold text-gray-800 block mb-1.5">🗑️ 终极自主权：如何随时销毁我的分享文件？</span>
+                          <p className="text-xs text-gray-600 leading-relaxed mb-2">
+                            因为数据托管于您自己的 GitHub，若想删除该文档：
+                          </p>
+                          <ol className="list-decimal list-inside space-y-1 text-xs text-gray-600 leading-relaxed mb-3">
+                            {GIST_DELETE_STEPS.map((step) => (
+                              <li key={step}>{step}</li>
+                            ))}
+                          </ol>
+                          <span className="text-[10px] text-gray-400 block mb-1 font-medium">您的 Gist 统一管辖台主页：</span>
+                          <div className="bg-gray-50 border border-gray-200 rounded px-2 py-1.5 font-mono text-xs text-gray-800 break-all select-all shadow-inner">
+                            {GIST_LIST_PAGE_URL}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 本工具创建的历史 */}
+                  <div className="rounded-lg border border-gray-200 p-4 bg-white shadow-sm space-y-3">
+                    <h4 className="text-xs font-bold text-gray-800 flex items-center justify-between border-b border-gray-100 pb-2">
+                      <span>📁 本机浏览器创建记录 ({gistHistory.length})</span>
+                      <span className="text-[10px] text-gray-400 font-normal">记录只存在当前终端，清除 Token 不影响历史</span>
+                    </h4>
+
+                    {gistHistory.length === 0 ? (
+                      <div className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded px-3 py-4 text-center">
+                        ⏳ 暂无记录。上传分享文档后，生成的本地链接会自动列在这里。
+                      </div>
+                    ) : (
+                      <ul className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                        {gistHistory.map((item) => (
+                          <li key={item.id} className="rounded-md border border-gray-150 bg-gray-50/50 hover:bg-gray-50 p-3 transition-colors space-y-2 text-xs">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-gray-800 font-mono break-all mr-2">Gist: {item.id}</span>
+                              <span className="text-[10px] text-gray-400 shrink-0">{formatGistTime(item.createdAt)}</span>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-gray-400 shrink-0 w-14 font-medium">读者查看链：</span>
+                                <div className="flex-1 bg-white border border-gray-200 rounded px-1.5 py-0.5 text-[10px] font-mono truncate select-all">{item.shareUrl}</div>
+                                <button type="button" onClick={() => void copyGistField(`${item.id}:share`, item.shareUrl, '')} className="px-2 py-0.5 text-[10px] font-semibold bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm shrink-0">
+                                  {copiedGistField === `${item.id}:share` ? '✅ 已复制' : '📋 复制'}
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-gray-400 shrink-0 w-14 font-medium">GitHub 销毁页：</span>
+                                <div className="flex-1 bg-white border border-gray-200 rounded px-1.5 py-0.5 text-[10px] font-mono truncate select-all">{item.htmlUrl}</div>
+                                <button type="button" onClick={() => void copyGistField(`${item.id}:html`, item.htmlUrl, '')} className="px-2 py-0.5 text-[10px] font-semibold bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm shrink-0">
+                                  {copiedGistField === `${item.id}:html` ? '✅ 已复制' : '📋 复制'}
+                                </button>
+                              </div>
                             </div>
                           </li>
-                        )
-                      })}
-                    </ul>
-                  )}
-                </section>
-              </>
-            )}
+                        ))}
+                      </ul>
+                    )}
+                  </div>
 
+                  {/* 远程同步加载 */}
+                  <div className="rounded-lg border border-gray-200 p-4 bg-white shadow-sm space-y-3">
+                    <h4 className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                      <span>🌐 云端远程拉取列表</span>
+                      <span className="text-[10px] text-gray-400 font-normal">直接从 GitHub 读取您账号下最近 50 条记录</span>
+                    </h4>
+                    
+                    <button
+                      type="button"
+                      onClick={() => void loadRemoteGists()}
+                      disabled={gistListLoading || (!tokenInput.trim() && !gistToken)}
+                      className="w-full px-4 py-2 text-xs font-semibold bg-violet-600 hover:bg-violet-700 active:scale-[0.98] text-white rounded-md transition-all shadow-sm disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-2"
+                    >
+                      {gistListLoading ? (
+                        <>
+                          <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          <span>正在同步云端 Gist 列表...</span>
+                        </>
+                      ) : (
+                        '⚡ 远程拉取我的所有 Gist 数据列表'
+                      )}
+                    </button>
+
+                    {remoteGists.length > 0 && (
+                      <ul className="space-y-3 max-h-64 overflow-y-auto pr-1 pt-1 border-t border-gray-100">
+                        {remoteGists.map((item) => {
+                          const shareUrl = buildGistShareUrl(item.id, style)
+                          return (
+                            <li key={item.id} className="rounded-md border border-gray-200 bg-gray-50/50 hover:bg-gray-50 p-3 text-xs space-y-2">
+                              <div className="flex justify-between items-start">
+                                <span className="font-bold text-gray-800 truncate mr-2" title={item.description}>{item.description}</span>
+                                <span className="text-[10px] text-gray-400 shrink-0 font-mono">{formatGistTime(item.createdAt)}</span>
+                              </div>
+                              <div className="text-[10px] text-gray-400 font-mono">Gist ID: {item.id}</div>
+                              
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-gray-400 shrink-0 w-14 font-medium">读者查看链：</span>
+                                  <div className="flex-1 bg-white border border-gray-200 rounded px-1.5 py-0.5 text-[10px] font-mono truncate select-all">{shareUrl}</div>
+                                  <button type="button" onClick={() => void copyGistField(`remote-${item.id}:share`, shareUrl, '')} className="px-2 py-0.5 text-[10px] font-semibold bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm shrink-0">
+                                    {copiedGistField === `remote-${item.id}:share` ? '✅ 已复制' : '📋 复制'}
+                                  </button>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-gray-400 shrink-0 w-14 font-medium">GitHub 销毁页：</span>
+                                  <div className="flex-1 bg-white border border-gray-200 rounded px-1.5 py-0.5 text-[10px] font-mono truncate select-all">{item.htmlUrl}</div>
+                                  <button type="button" onClick={() => void copyGistField(`remote-${item.id}:html`, item.htmlUrl, '')} className="px-2 py-0.5 text-[10px] font-semibold bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm shrink-0">
+                                    {copiedGistField === `remote-${item.id}:html` ? '✅ 已复制' : '📋 复制'}
+                                  </button>
+                                </div>
+                              </div>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* 错误警报通知 */}
             {(shareError || gistListError) && (
-              <div className="text-rose-600 text-xs mb-3">{shareError || gistListError}</div>
+              <div className="mt-3 p-2.5 rounded bg-red-50 border border-red-100 text-rose-700 text-xs font-semibold shrink-0 animate-pulse">
+                ⚠️ 错误：{shareError || gistListError}
+              </div>
             )}
 
-            <div className="flex justify-end">
+            {/* 尾部关闭区 */}
+            <div className="flex justify-end gap-2 border-t border-gray-100 pt-3 mt-4 shrink-0">
               <button
                 onClick={() => setShareModalOpen(false)}
-                className="px-3 py-1.5 text-sm font-medium bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+                className="px-4 py-2 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-all shadow-sm active:scale-95"
               >
-                关闭
+                关闭窗口
               </button>
             </div>
           </div>
