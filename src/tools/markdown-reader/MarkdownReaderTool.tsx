@@ -361,6 +361,40 @@ const SHARE_PRINCIPLE_STEPS = [
   },
 ] as const
 
+/** GitHub Gist 限额说明（依据 GitHub 官方文档） */
+const GIST_LIMIT_NOTES = [
+  {
+    title: '单文件大小',
+    detail: 'GitHub 允许 Gist 单文件较大，但通过 API/网页读取时：超过约 1 MB 会走 raw 地址拉取；超过约 10 MB 则无法完整在线读取。建议单篇 Markdown 控制在 10 MB 以内。',
+  },
+  {
+    title: '数量与归属',
+    detail: '每次点分享都会在你 GitHub 账号下新建一个 Gist（不会覆盖旧的）。Gist 归你账号所有，GitHub 未公开明确的「最多多少个」硬上限，但会随分享次数累积。',
+  },
+  {
+    title: 'API 速率',
+    detail: '带 Token 调用 GitHub API 约 5000 次/小时。分享一次 ≈ 1 次创建请求，正常使用很难触顶。',
+  },
+  {
+    title: 'Secret 的含义',
+    detail: 'Secret Gist 只是「不公开列出、不可搜索」，并非加密。任何拿到链接或 Gist 编号的人都能查看，请勿存放密码、密钥等敏感信息。',
+  },
+] as const
+
+/** 删除已分享 Gist 的步骤 */
+const GIST_DELETE_STEPS = [
+  '用创建该 Gist 的 GitHub 账号登录（需与 Token 所属账号一致）。',
+  '在浏览器地址栏打开 gist.github.com，进入你的 Gist 列表；或打开下方生成结果里给出的 Gist 页面地址。',
+  '找到对应 Gist（描述通常为 Shared via Mecha Tools Markdown Reader，可按时间辨认）。',
+  '进入该 Gist 页面，点击右上角 Delete / Delete gist 确认删除。',
+  '删除后，之前发出去的本站分享链接将无法再加载文档（GitHub 返回 404）。链接本身无法「远程作废」，只能靠删除源 Gist。',
+] as const
+
+interface CreatedGist {
+  id: string
+  htmlUrl: string
+}
+
 function maskGistToken(token: string): string {
   if (token.length <= 4) return '****'
   return `…${token.slice(-4)}`
@@ -395,7 +429,7 @@ function readSharedGistRef(): SharedGistRef | null {
   }
 }
 
-async function createSharedGist(md: string, token: string): Promise<string> {
+async function createSharedGist(md: string, token: string): Promise<CreatedGist> {
   const res = await fetch('https://api.github.com/gists', {
     method: 'POST',
     headers: {
@@ -412,11 +446,15 @@ async function createSharedGist(md: string, token: string): Promise<string> {
   if (!res.ok) {
     if (res.status === 401) throw new Error('Token 无效或已过期，请重新填写')
     if (res.status === 403 || res.status === 404) throw new Error('Token 缺少 gist 权限，请重新生成并勾选 gist')
+    if (res.status === 422) throw new Error('文档可能超过 GitHub Gist 单文件大小限制，请缩短后重试')
     throw new Error(`创建失败（HTTP ${res.status}）`)
   }
-  const data = (await res.json()) as { id?: string }
+  const data = (await res.json()) as { id?: string; html_url?: string }
   if (!data.id) throw new Error('GitHub 未返回 gist id')
-  return data.id
+  return {
+    id: data.id,
+    htmlUrl: data.html_url ?? `https://gist.github.com/${data.id}`,
+  }
 }
 
 interface GistFile {
@@ -473,7 +511,10 @@ export function MarkdownReaderTool() {
   const [tokenInput, setTokenInput] = useState('')
   const [tokenUrlCopied, setTokenUrlCopied] = useState(false)
   const [generatedShareUrl, setGeneratedShareUrl] = useState('')
+  const [generatedGistHtmlUrl, setGeneratedGistHtmlUrl] = useState('')
+  const [generatedGistId, setGeneratedGistId] = useState('')
   const [shareLinkCopied, setShareLinkCopied] = useState(false)
+  const [gistPageUrlCopied, setGistPageUrlCopied] = useState(false)
   const [ready, setReady] = useState(false)
   const [mermaidReady, setMermaidReady] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -894,7 +935,10 @@ export function MarkdownReaderTool() {
     setTokenInput(saved)
     setShareError('')
     setGeneratedShareUrl('')
+    setGeneratedGistHtmlUrl('')
+    setGeneratedGistId('')
     setShareLinkCopied(false)
+    setGistPageUrlCopied(false)
     setShareModalOpen(true)
   }, [])
 
@@ -931,11 +975,15 @@ export function MarkdownReaderTool() {
     setShareCreating(true)
     setShareError('')
     setGeneratedShareUrl('')
+    setGeneratedGistHtmlUrl('')
+    setGeneratedGistId('')
     setShareLinkCopied(false)
+    setGistPageUrlCopied(false)
     try {
-      const id = await createSharedGist(md, token)
-      const url = buildGistShareUrl(id, style)
-      setGeneratedShareUrl(url)
+      const gist = await createSharedGist(md, token)
+      setGeneratedShareUrl(buildGistShareUrl(gist.id, style))
+      setGeneratedGistHtmlUrl(gist.htmlUrl)
+      setGeneratedGistId(gist.id)
       // 若用户填了新 Token 但未点保存，生成成功后一并写入
       if (token !== gistToken) {
         try {
@@ -960,6 +1008,17 @@ export function MarkdownReaderTool() {
       window.prompt('请手动复制以下分享链接：', generatedShareUrl)
     }
   }, [generatedShareUrl])
+
+  const copyGistPageUrl = useCallback(async () => {
+    if (!generatedGistHtmlUrl) return
+    try {
+      await navigator.clipboard.writeText(generatedGistHtmlUrl)
+      setGistPageUrlCopied(true)
+      window.setTimeout(() => setGistPageUrlCopied(false), 1800)
+    } catch {
+      window.prompt('请手动复制以下 GitHub Gist 页面地址（用于管理/删除）：', generatedGistHtmlUrl)
+    }
+  }, [generatedGistHtmlUrl])
 
   const copyTokenHelpUrl = useCallback(async () => {
     try {
@@ -1254,6 +1313,28 @@ export function MarkdownReaderTool() {
               </ol>
             </section>
 
+            {/* 限额与删除说明 */}
+            <section className="rounded-md border border-amber-100 bg-amber-50/50 p-3 mb-4">
+              <h4 className="text-xs font-semibold text-amber-900 mb-2">Gist 限额（GitHub 官方规则）</h4>
+              <ul className="space-y-2 mb-3">
+                {GIST_LIMIT_NOTES.map(({ title, detail }) => (
+                  <li key={title} className="text-xs leading-relaxed">
+                    <span className="font-medium text-gray-800">{title}：</span>
+                    <span className="text-gray-600">{detail}</span>
+                  </li>
+                ))}
+              </ul>
+              <h4 className="text-xs font-semibold text-amber-900 mb-2">分享后能否删除？怎么删？</h4>
+              <p className="text-xs text-gray-600 leading-relaxed mb-2">
+                <strong>可以删除。</strong>文档存在你的 GitHub 账号下，删除权限在你手里，本站无法替你删除或撤回链接。删除源 Gist 后，之前发出去的本站分享链接会失效（加载时报错），但链接字符串本身不会自动消失。
+              </p>
+              <ol className="list-decimal list-inside space-y-1.5 text-xs text-gray-600 leading-relaxed">
+                {GIST_DELETE_STEPS.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            </section>
+
             {/* Token 管理 */}
             <section className="rounded-md border border-gray-200 p-3 mb-4">
               <h4 className="text-xs font-semibold text-gray-800 mb-2">第一步：填写 GitHub Token</h4>
@@ -1344,12 +1425,37 @@ export function MarkdownReaderTool() {
                 <p className="text-xs text-gray-600 leading-relaxed mb-2">
                   链接已生成。请核对下方地址，确认域名是 <code className="px-0.5 bg-white rounded">tools.tobenot.top</code>（或你当前访问的本站域名），再复制发给访客。
                 </p>
-                <div className="text-xs text-gray-800 font-mono break-all leading-relaxed select-all bg-white border border-green-200 rounded px-2 py-2 mb-2">
+                <div className="text-xs text-gray-800 font-mono break-all leading-relaxed select-all bg-white border border-green-200 rounded px-2 py-2 mb-3">
                   {generatedShareUrl}
                 </div>
-                <div className="mt-2 pt-2 border-t border-green-200">
+                <button
+                  type="button"
+                  onClick={() => void copyGeneratedShareLink()}
+                  className="px-3 py-1.5 text-sm font-medium bg-green-600 text-white rounded hover:bg-green-700 transition-colors mb-4"
+                >
+                  {shareLinkCopied ? '✅ 已复制分享链接' : '复制分享链接'}
+                </button>
+
+                <div className="pt-3 border-t border-green-200">
+                  <h5 className="text-xs font-semibold text-gray-800 mb-2">GitHub 上的 Gist 管理地址（用于查看 / 删除）</h5>
+                  <p className="text-xs text-gray-600 leading-relaxed mb-2">
+                    Gist 编号：<code className="px-0.5 bg-white rounded font-mono">{generatedGistId}</code>。若要删除这篇分享，请复制下方 GitHub 地址到浏览器打开（需登录创建者账号），在页面右上角 Delete。
+                  </p>
+                  <div className="text-xs text-gray-800 font-mono break-all leading-relaxed select-all bg-white border border-gray-200 rounded px-2 py-2 mb-2">
+                    {generatedGistHtmlUrl}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void copyGistPageUrl()}
+                    className="px-2.5 py-1 text-xs font-medium bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-100 transition-colors"
+                  >
+                    {gistPageUrlCopied ? '✅ 已复制 Gist 地址' : '复制 Gist 管理页地址'}
+                  </button>
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-green-200">
                   <div className="text-xs font-medium text-gray-600 mb-2">分享链接各参数含义</div>
-                  <ul className="space-y-2 mb-3">
+                  <ul className="space-y-2">
                     {SHARE_LINK_URL_PARTS.map(({ part, meaning }) => (
                       <li key={part} className="text-xs leading-relaxed">
                         <code className="block px-1.5 py-0.5 bg-white border border-gray-200 rounded font-mono text-gray-800 break-all mb-0.5">{part}</code>
@@ -1358,13 +1464,6 @@ export function MarkdownReaderTool() {
                     ))}
                   </ul>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void copyGeneratedShareLink()}
-                  className="px-3 py-1.5 text-sm font-medium bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                >
-                  {shareLinkCopied ? '✅ 已复制分享链接' : '复制分享链接'}
-                </button>
               </section>
             )}
 
