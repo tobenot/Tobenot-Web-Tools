@@ -1268,17 +1268,10 @@ export function MarkdownReaderTool() {
 
         <button
           onClick={() => openGistPanel('share')}
-          className="px-3 py-1.5 text-sm font-medium rounded transition-colors bg-sky-500 text-white hover:bg-sky-600"
-          title="打开分享说明窗口，上传至 GitHub Gist 并生成短链接"
+          className="px-3 py-1.5 text-sm font-medium rounded transition-colors bg-sky-500 text-white hover:bg-sky-600 shadow-sm"
+          title="打开分享与 Gist 管理窗口，可上传文档生成短链接或管理历史分享"
         >
-          🔗 分享链接
-        </button>
-        <button
-          onClick={() => openGistPanel('manage')}
-          className="px-3 py-1.5 text-sm font-medium rounded transition-colors bg-violet-500 text-white hover:bg-violet-600"
-          title="查看本工具创建的 Gist 记录，或从 GitHub 加载列表以便管理/删除"
-        >
-          📋 Gist 管理
+          🔗 分享与管理
         </button>
         <button
           onClick={() => setReadMode((v) => !v)}
