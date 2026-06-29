@@ -981,9 +981,15 @@ export function MarkdownReaderTool() {
     setGistPageUrlCopied(false)
     try {
       const gist = await createSharedGist(md, token)
-      setGeneratedShareUrl(buildGistShareUrl(gist.id, style))
+      const shareUrl = buildGistShareUrl(gist.id, style)
+      setGeneratedShareUrl(shareUrl)
       setGeneratedGistHtmlUrl(gist.htmlUrl)
       setGeneratedGistId(gist.id)
+      try {
+        await navigator.clipboard.writeText(shareUrl)
+        setShareLinkCopied(true)
+        window.setTimeout(() => setShareLinkCopied(false), 1800)
+      } catch { /* 链接已在下方展示，复制失败可手动复制 */ }
       // 若用户填了新 Token 但未点保存，生成成功后一并写入
       if (token !== gistToken) {
         try {
@@ -1298,7 +1304,7 @@ export function MarkdownReaderTool() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShareModalOpen(false)}>
           <div className="w-full max-w-xl bg-white rounded-lg shadow-xl p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-semibold text-gray-800 mb-1">分享文档</h3>
-            <p className="text-xs text-gray-500 mb-4">下面逐步说明会发生什么。确认理解后再操作，不会自动上传或复制。</p>
+            <p className="text-xs text-gray-500 mb-4">下面逐步说明会发生什么。上传成功后会自动复制分享链接，也可在下方手动复制。</p>
 
             {/* 原理科普 */}
             <section className="rounded-md border border-indigo-100 bg-indigo-50/50 p-3 mb-4">
@@ -1423,7 +1429,7 @@ export function MarkdownReaderTool() {
               <section className="rounded-md border border-green-200 bg-green-50/50 p-3 mb-4">
                 <h4 className="text-xs font-semibold text-green-800 mb-2">第三步：复制分享链接发给他人</h4>
                 <p className="text-xs text-gray-600 leading-relaxed mb-2">
-                  链接已生成。请核对下方地址，确认域名是 <code className="px-0.5 bg-white rounded">tools.tobenot.top</code>（或你当前访问的本站域名），再复制发给访客。
+                  链接已生成{shareLinkCopied ? '，并已自动复制到剪贴板' : ''}。请核对下方地址，确认域名是 <code className="px-0.5 bg-white rounded">tools.tobenot.top</code>（或你当前访问的本站域名），再发给访客。
                 </p>
                 <div className="text-xs text-gray-800 font-mono break-all leading-relaxed select-all bg-white border border-green-200 rounded px-2 py-2 mb-3">
                   {generatedShareUrl}
