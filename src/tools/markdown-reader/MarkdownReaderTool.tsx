@@ -320,6 +320,52 @@ const GIST_TOKEN_URL_PARTS = [
   },
 ] as const
 
+/** 分享链接 URL 参数说明 */
+const SHARE_LINK_URL_PARTS = [
+  {
+    part: 'gist=xxxxxxxx',
+    meaning: 'GitHub 上该篇文档的编号（Gist ID）。访客打开链接后，浏览器会拿这个 ID 去 api.github.com 拉取正文。链接里只有编号，不含文档内容本身。',
+  },
+  {
+    part: 'style=business',
+    meaning: '阅读器排版风格（如 business、dark 等）。只是展示偏好，不含个人信息。',
+  },
+] as const
+
+/** 分享流程原理说明 */
+const SHARE_PRINCIPLE_STEPS = [
+  {
+    step: '①',
+    title: '你在本页点击「上传并生成链接」',
+    detail: '浏览器读取当前 Markdown 正文，以及你本机保存的 GitHub Token。',
+  },
+  {
+    step: '②',
+    title: '浏览器直接请求 GitHub 官方 API（api.github.com）',
+    detail: '请求从你的电脑发出，不经过本站服务器。Token 只用于向 GitHub 证明「你有权在该账号下创建 Gist」。',
+  },
+  {
+    step: '③',
+    title: '正文存入你 GitHub 账号下的 Secret Gist',
+    detail: '文档托管在 GitHub，不在本站。Secret Gist 不会公开列出，但拿到链接的人能查看。',
+  },
+  {
+    step: '④',
+    title: '生成带 Gist 编号的短链接',
+    detail: '链接形如 #markdown-reader?gist=编号&style=风格。正文不在 URL 里，所以大文档也不会撑爆地址栏。',
+  },
+  {
+    step: '⑤',
+    title: '访客打开链接时，浏览器再从 GitHub 拉取正文并渲染',
+    detail: '访客无需 Token、无需 GitHub 账号。本站同样不参与存储或中转文档内容。',
+  },
+] as const
+
+function maskGistToken(token: string): string {
+  if (token.length <= 4) return '****'
+  return `…${token.slice(-4)}`
+}
+
 function isStyleKey(value: string | null): value is StyleKey {
   return value !== null && STYLE_OPTIONS.some((opt) => opt.key === value)
 }
@@ -421,11 +467,13 @@ export function MarkdownReaderTool() {
   const [gistLoading, setGistLoading] = useState(() => INITIAL_SHARED_GIST !== null)
   const [gistError, setGistError] = useState('')
   const [shareCreating, setShareCreating] = useState(false)
-  const [shareCopied, setShareCopied] = useState(false)
   const [shareError, setShareError] = useState('')
-  const [tokenModalOpen, setTokenModalOpen] = useState(false)
+  const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [gistToken, setGistToken] = useState(loadGistToken)
   const [tokenInput, setTokenInput] = useState('')
   const [tokenUrlCopied, setTokenUrlCopied] = useState(false)
+  const [generatedShareUrl, setGeneratedShareUrl] = useState('')
+  const [shareLinkCopied, setShareLinkCopied] = useState(false)
   const [ready, setReady] = useState(false)
   const [mermaidReady, setMermaidReady] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -839,55 +887,79 @@ export function MarkdownReaderTool() {
     }, 0)
   }, [md])
 
-  /* 生成分享链接：把正文存到 Secret Gist，复制带 gist id 的短链接 */
-  const createAndCopyShareLink = useCallback(async (token: string) => {
+  /* 分享：打开弹窗，逐步说明原理，由用户确认后再上传 */
+  const openShareModal = useCallback(() => {
+    const saved = loadGistToken()
+    setGistToken(saved)
+    setTokenInput(saved)
+    setShareError('')
+    setGeneratedShareUrl('')
+    setShareLinkCopied(false)
+    setShareModalOpen(true)
+  }, [])
+
+  const saveGistTokenToLocal = useCallback(() => {
+    const token = tokenInput.trim()
+    if (!token) {
+      setShareError('请先填写 Token 再保存')
+      return
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY_GIST_TOKEN, token)
+      setGistToken(token)
+      setShareError('')
+    } catch {
+      setShareError('无法写入本机存储，请检查浏览器设置')
+    }
+  }, [tokenInput])
+
+  const clearGistTokenFromLocal = useCallback(() => {
+    try {
+      localStorage.removeItem(STORAGE_KEY_GIST_TOKEN)
+    } catch { /* ignore */ }
+    setGistToken('')
+    setTokenInput('')
+    setShareError('')
+  }, [])
+
+  const generateShareLink = useCallback(async () => {
+    const token = tokenInput.trim() || gistToken
+    if (!token) {
+      setShareError('请先填写并保存 GitHub Token')
+      return
+    }
     setShareCreating(true)
     setShareError('')
+    setGeneratedShareUrl('')
+    setShareLinkCopied(false)
     try {
       const id = await createSharedGist(md, token)
       const url = buildGistShareUrl(id, style)
-      try {
-        await navigator.clipboard.writeText(url)
-        setShareCopied(true)
-        window.setTimeout(() => setShareCopied(false), 1800)
-      } catch {
-        window.prompt('已生成分享链接，请手动复制：', url)
+      setGeneratedShareUrl(url)
+      // 若用户填了新 Token 但未点保存，生成成功后一并写入
+      if (token !== gistToken) {
+        try {
+          localStorage.setItem(STORAGE_KEY_GIST_TOKEN, token)
+          setGistToken(token)
+        } catch { /* ignore */ }
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '分享失败'
-      setShareError(message)
-      // token 相关错误时重新打开弹窗让用户修正
-      if (/token/i.test(message)) {
-        setTokenInput(loadGistToken())
-        setTokenModalOpen(true)
-      } else {
-        window.alert(message)
-      }
+      setShareError(error instanceof Error ? error.message : '分享失败')
     } finally {
       setShareCreating(false)
     }
-  }, [md, style])
+  }, [gistToken, md, style, tokenInput])
 
-  const handleShareClick = useCallback(() => {
-    const token = loadGistToken()
-    if (!token) {
-      setShareError('')
-      setTokenInput('')
-      setTokenModalOpen(true)
-      return
-    }
-    void createAndCopyShareLink(token)
-  }, [createAndCopyShareLink])
-
-  const handleTokenSubmit = useCallback(() => {
-    const token = tokenInput.trim()
-    if (!token) return
+  const copyGeneratedShareLink = useCallback(async () => {
+    if (!generatedShareUrl) return
     try {
-      localStorage.setItem(STORAGE_KEY_GIST_TOKEN, token)
-    } catch { /* ignore */ }
-    setTokenModalOpen(false)
-    void createAndCopyShareLink(token)
-  }, [tokenInput, createAndCopyShareLink])
+      await navigator.clipboard.writeText(generatedShareUrl)
+      setShareLinkCopied(true)
+      window.setTimeout(() => setShareLinkCopied(false), 1800)
+    } catch {
+      window.prompt('请手动复制以下分享链接：', generatedShareUrl)
+    }
+  }, [generatedShareUrl])
 
   const copyTokenHelpUrl = useCallback(async () => {
     try {
@@ -1022,12 +1094,11 @@ export function MarkdownReaderTool() {
         <div className="w-px h-6 bg-gray-300 mx-1" />
 
         <button
-          onClick={handleShareClick}
-          disabled={shareCreating}
-          className={`px-3 py-1.5 text-sm font-medium rounded transition-colors disabled:opacity-50 ${shareCopied ? 'bg-green-500 text-white' : 'bg-sky-500 text-white hover:bg-sky-600'}`}
-          title="将文档上传为私密 Gist 并复制分享链接，发给别人即可在任意设备查看"
+          onClick={openShareModal}
+          className="px-3 py-1.5 text-sm font-medium rounded transition-colors bg-sky-500 text-white hover:bg-sky-600"
+          title="打开分享说明窗口，上传至 GitHub Gist 并生成短链接"
         >
-          {shareCreating ? '生成中...' : shareCopied ? '✅ 已复制链接' : '🔗 分享链接'}
+          🔗 分享链接
         </button>
         <button
           onClick={() => setReadMode((v) => !v)}
@@ -1163,81 +1234,148 @@ export function MarkdownReaderTool() {
         </div>
       </div>
 
-      {/* Token 填写弹窗 */}
-      {tokenModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setTokenModalOpen(false)}>
-          <div className="w-full max-w-lg bg-white rounded-lg shadow-xl p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-base font-semibold text-gray-800 mb-2">填写 GitHub Token 以生成分享链接</h3>
+      {/* 分享弹窗：原理说明 + Token 管理 + 显式生成 + 链接展示 */}
+      {shareModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShareModalOpen(false)}>
+          <div className="w-full max-w-xl bg-white rounded-lg shadow-xl p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-gray-800 mb-1">分享文档</h3>
+            <p className="text-xs text-gray-500 mb-4">下面逐步说明会发生什么。确认理解后再操作，不会自动上传或复制。</p>
 
-            <div className="text-sm text-gray-600 leading-relaxed space-y-3 mb-4">
-              <p>
-                分享功能会把你的 Markdown 文档上传到你<strong>自己的 GitHub 账号</strong>下，存为一个<strong>私密 Gist</strong>（Secret Gist）。拿到分享链接的人才能查看，不会出现在公开搜索里。
-              </p>
-              <p>
-                创建 Gist 需要 GitHub 官方 API 的授权凭证，也就是 <strong>Personal Access Token（个人访问令牌）</strong>。本站<strong>不会收集或上传</strong>你的 Token，它只保存在你本机浏览器的 localStorage 里，用来向 <code className="px-1 bg-gray-100 rounded">api.github.com</code> 发起请求。访客查看分享文档时<strong>不需要</strong> Token，也<strong>不需要</strong> GitHub 账号。
-              </p>
-              <p>
-                请自行前往 GitHub 官网生成 Token，权限只需勾选 <code className="px-1 bg-gray-100 rounded">gist</code>，不要勾选 <code className="px-1 bg-gray-100 rounded">repo</code> 等其它权限。
-              </p>
-            </div>
+            {/* 原理科普 */}
+            <section className="rounded-md border border-indigo-100 bg-indigo-50/50 p-3 mb-4">
+              <h4 className="text-xs font-semibold text-indigo-800 mb-2">分享原理（发生了什么？）</h4>
+              <ol className="space-y-2">
+                {SHARE_PRINCIPLE_STEPS.map(({ step, title, detail }) => (
+                  <li key={step} className="text-xs leading-relaxed">
+                    <div className="font-medium text-gray-800">{step} {title}</div>
+                    <div className="text-gray-600 mt-0.5">{detail}</div>
+                  </li>
+                ))}
+              </ol>
+            </section>
 
-            <div className="rounded-md border border-gray-200 bg-gray-50 p-3 mb-4">
-              <div className="text-xs font-medium text-gray-500 mb-1">GitHub 官方 Token 创建页地址（请自行复制到浏览器地址栏打开，勿点击陌生链接）</div>
-              <div className="text-xs text-gray-800 font-mono break-all leading-relaxed select-all">
-                {GIST_TOKEN_HELP_URL}
-              </div>
-              <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                你也可以不用这个地址，手动进入：{GIST_TOKEN_HELP_PATH}，勾选 gist 后生成，效果相同。
+            {/* Token 管理 */}
+            <section className="rounded-md border border-gray-200 p-3 mb-4">
+              <h4 className="text-xs font-semibold text-gray-800 mb-2">第一步：填写 GitHub Token</h4>
+              <p className="text-xs text-gray-600 leading-relaxed mb-2">
+                Token 是 GitHub 官方 API 的授权凭证，只保存在<strong>本机浏览器</strong>，本站服务器不接触。权限只需 <code className="px-0.5 bg-gray-100 rounded">gist</code>，不要勾选 repo 等其它权限。
               </p>
+              {gistToken && (
+                <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded px-2 py-1.5 mb-2">
+                  本机已保存 Token（末尾 {maskGistToken(gistToken)}）。可在下方修改后重新保存，或清除。
+                </div>
+              )}
 
-              <div className="mt-3 pt-3 border-t border-gray-200">
-                <div className="text-xs font-medium text-gray-600 mb-2">地址各部分含义（核对是否夹带个人信息）</div>
-                <p className="text-xs text-gray-500 leading-relaxed mb-2">
-                  有些恶意链接会在网址里塞入用户 ID、邮箱、追踪码等参数。下面逐项说明上述地址<strong>仅包含</strong>的内容；其中<strong>没有任何</strong>你的用户名、邮箱、设备信息或本站生成的追踪参数。
+              <div className="rounded-md border border-gray-200 bg-gray-50 p-3 mb-3">
+                <div className="text-xs font-medium text-gray-500 mb-1">GitHub 官方 Token 创建页地址（请自行复制到浏览器地址栏打开）</div>
+                <div className="text-xs text-gray-800 font-mono break-all leading-relaxed select-all">{GIST_TOKEN_HELP_URL}</div>
+                <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                  也可手动进入：{GIST_TOKEN_HELP_PATH}，勾选 gist 后生成。
                 </p>
-                <ul className="space-y-2">
-                  {GIST_TOKEN_URL_PARTS.map(({ part, meaning }) => (
-                    <li key={part} className="text-xs leading-relaxed">
-                      <code className="block px-1.5 py-0.5 bg-white border border-gray-200 rounded font-mono text-gray-800 break-all mb-0.5">{part}</code>
-                      <span className="text-gray-600">{meaning}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <div className="text-xs font-medium text-gray-600 mb-2">上述地址各参数含义</div>
+                  <ul className="space-y-2">
+                    {GIST_TOKEN_URL_PARTS.map(({ part, meaning }) => (
+                      <li key={part} className="text-xs leading-relaxed">
+                        <code className="block px-1.5 py-0.5 bg-white border border-gray-200 rounded font-mono text-gray-800 break-all mb-0.5">{part}</code>
+                        <span className="text-gray-600">{meaning}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void copyTokenHelpUrl()}
+                  className="mt-3 px-2.5 py-1 text-xs font-medium bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-100 transition-colors"
+                >
+                  {tokenUrlCopied ? '✅ 已复制地址' : '复制上述地址'}
+                </button>
               </div>
 
+              <label className="block text-xs font-medium text-gray-600 mb-1">粘贴 Token</label>
+              <input
+                type="password"
+                value={tokenInput}
+                onChange={(e) => setTokenInput(e.target.value)}
+                placeholder="ghp_... 或 github_pat_..."
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded font-mono focus:border-sky-400 focus:outline-none mb-2"
+              />
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={saveGistTokenToLocal}
+                  disabled={!tokenInput.trim()}
+                  className="px-2.5 py-1 text-xs font-medium bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors disabled:opacity-50"
+                >
+                  保存到本机
+                </button>
+                {gistToken && (
+                  <button
+                    type="button"
+                    onClick={clearGistTokenFromLocal}
+                    className="px-2.5 py-1 text-xs font-medium bg-white border border-gray-300 text-gray-600 rounded hover:bg-gray-50 transition-colors"
+                  >
+                    清除已保存的 Token
+                  </button>
+                )}
+              </div>
+            </section>
+
+            {/* 生成 */}
+            <section className="rounded-md border border-gray-200 p-3 mb-4">
+              <h4 className="text-xs font-semibold text-gray-800 mb-2">第二步：上传至 GitHub 并生成链接</h4>
+              <p className="text-xs text-gray-600 leading-relaxed mb-3">
+                点击后，浏览器会把<strong>当前编辑器里的 Markdown 正文</strong>上传到你 GitHub 账号下的一个新 Secret Gist。每次分享都会新建一个 Gist，不会覆盖之前的。
+              </p>
               <button
                 type="button"
-                onClick={() => void copyTokenHelpUrl()}
-                className="mt-3 px-2.5 py-1 text-xs font-medium bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-100 transition-colors"
+                onClick={() => void generateShareLink()}
+                disabled={shareCreating || (!tokenInput.trim() && !gistToken)}
+                className="w-full px-3 py-2 text-sm font-medium bg-sky-500 text-white rounded hover:bg-sky-600 transition-colors disabled:opacity-50"
               >
-                {tokenUrlCopied ? '✅ 已复制地址' : '复制上述地址'}
+                {shareCreating ? '正在请求 GitHub API…' : '上传至 GitHub 并生成分享链接'}
               </button>
-            </div>
+            </section>
 
-            <label className="block text-xs font-medium text-gray-600 mb-1">将生成的 Token 粘贴到下方</label>
-            <input
-              type="password"
-              value={tokenInput}
-              onChange={(e) => setTokenInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleTokenSubmit() }}
-              placeholder="ghp_... 或 github_pat_..."
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded font-mono focus:border-sky-400 focus:outline-none mb-2"
-              autoFocus
-            />
-            {shareError && <div className="text-rose-600 text-xs mb-2">{shareError}</div>}
-            <div className="flex justify-end gap-2 mt-2">
+            {/* 生成结果 */}
+            {generatedShareUrl && (
+              <section className="rounded-md border border-green-200 bg-green-50/50 p-3 mb-4">
+                <h4 className="text-xs font-semibold text-green-800 mb-2">第三步：复制分享链接发给他人</h4>
+                <p className="text-xs text-gray-600 leading-relaxed mb-2">
+                  链接已生成。请核对下方地址，确认域名是 <code className="px-0.5 bg-white rounded">tools.tobenot.top</code>（或你当前访问的本站域名），再复制发给访客。
+                </p>
+                <div className="text-xs text-gray-800 font-mono break-all leading-relaxed select-all bg-white border border-green-200 rounded px-2 py-2 mb-2">
+                  {generatedShareUrl}
+                </div>
+                <div className="mt-2 pt-2 border-t border-green-200">
+                  <div className="text-xs font-medium text-gray-600 mb-2">分享链接各参数含义</div>
+                  <ul className="space-y-2 mb-3">
+                    {SHARE_LINK_URL_PARTS.map(({ part, meaning }) => (
+                      <li key={part} className="text-xs leading-relaxed">
+                        <code className="block px-1.5 py-0.5 bg-white border border-gray-200 rounded font-mono text-gray-800 break-all mb-0.5">{part}</code>
+                        <span className="text-gray-600">{meaning}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void copyGeneratedShareLink()}
+                  className="px-3 py-1.5 text-sm font-medium bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                >
+                  {shareLinkCopied ? '✅ 已复制分享链接' : '复制分享链接'}
+                </button>
+              </section>
+            )}
+
+            {shareError && <div className="text-rose-600 text-xs mb-3">{shareError}</div>}
+
+            <div className="flex justify-end">
               <button
-                onClick={() => setTokenModalOpen(false)}
+                onClick={() => setShareModalOpen(false)}
                 className="px-3 py-1.5 text-sm font-medium bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
               >
-                取消
-              </button>
-              <button
-                onClick={handleTokenSubmit}
-                disabled={!tokenInput.trim()}
-                className="px-3 py-1.5 text-sm font-medium bg-sky-500 text-white rounded hover:bg-sky-600 transition-colors disabled:opacity-50"
-              >
-                保存并生成链接
+                关闭
               </button>
             </div>
           </div>
