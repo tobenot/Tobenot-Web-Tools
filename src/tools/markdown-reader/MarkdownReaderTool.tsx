@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
+import { getHashLocation } from '../../utils/hash'
 
 
 /* ─── CDN 动态加载 ─── */
@@ -286,11 +287,123 @@ function getScrollTopFromProgress(element: HTMLElement, progress: ReadingProgres
   return Math.min(max, Math.max(0, scrollTop))
 }
 
+/* ─── Gist 分享 ─── */
+/*
+ * 大文档无法塞进 URL，改为把正文存到 GitHub Secret Gist，链接里只带 gist id。
+ * - 分享者需要一个带 `gist` 权限的 GitHub Token（存于浏览器本地）。
+ * - 访客只读，无需 token 或账号。
+ */
+const STORAGE_KEY_GIST_TOKEN = 'md-reader:gist-token'
+const SHARE_GIST_PARAM = 'gist'
+const SHARE_STYLE_PARAM = 'style'
+const GIST_FILENAME = 'document.md'
+const GIST_TOKEN_HELP_URL = 'https://github.com/settings/tokens/new?scopes=gist&description=Mecha%20Tools%20Markdown%20Reader'
+
+function isStyleKey(value: string | null): value is StyleKey {
+  return value !== null && STYLE_OPTIONS.some((opt) => opt.key === value)
+}
+
+function loadGistToken(): string {
+  try {
+    return localStorage.getItem(STORAGE_KEY_GIST_TOKEN) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+interface SharedGistRef {
+  id: string
+  style?: StyleKey
+}
+
+function readSharedGistRef(): SharedGistRef | null {
+  try {
+    const { params } = getHashLocation()
+    const id = params.get(SHARE_GIST_PARAM)
+    if (!id) return null
+    const styleParam = params.get(SHARE_STYLE_PARAM)
+    return { id, style: isStyleKey(styleParam) ? styleParam : undefined }
+  } catch {
+    return null
+  }
+}
+
+async function createSharedGist(md: string, token: string): Promise<string> {
+  const res = await fetch('https://api.github.com/gists', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/vnd.github+json',
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      description: 'Shared via Mecha Tools Markdown Reader',
+      public: false,
+      files: { [GIST_FILENAME]: { content: md } },
+    }),
+  })
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('Token 无效或已过期，请重新填写')
+    if (res.status === 403 || res.status === 404) throw new Error('Token 缺少 gist 权限，请重新生成并勾选 gist')
+    throw new Error(`创建失败（HTTP ${res.status}）`)
+  }
+  const data = (await res.json()) as { id?: string }
+  if (!data.id) throw new Error('GitHub 未返回 gist id')
+  return data.id
+}
+
+interface GistFile {
+  filename?: string
+  content?: string
+  truncated?: boolean
+  raw_url?: string
+}
+
+async function fetchSharedGistMarkdown(id: string): Promise<string> {
+  const res = await fetch(`https://api.github.com/gists/${id}`, {
+    headers: { Accept: 'application/vnd.github+json' },
+  })
+  if (!res.ok) {
+    if (res.status === 404) throw new Error('找不到该文档，链接可能已失效或被删除')
+    throw new Error(`加载失败（HTTP ${res.status}）`)
+  }
+  const data = (await res.json()) as { files?: Record<string, GistFile> }
+  const files = Object.values(data.files ?? {})
+  if (files.length === 0) throw new Error('该 gist 为空')
+  const file = files.find((f) => f.filename === GIST_FILENAME) ?? files.find((f) => f.filename?.endsWith('.md')) ?? files[0]
+  if (file.truncated && file.raw_url) {
+    const rawRes = await fetch(file.raw_url)
+    if (!rawRes.ok) throw new Error(`加载完整内容失败（HTTP ${rawRes.status}）`)
+    return await rawRes.text()
+  }
+  return file.content ?? ''
+}
+
+function buildGistShareUrl(id: string, style: StyleKey): string {
+  const params = new URLSearchParams()
+  params.set(SHARE_GIST_PARAM, id)
+  params.set(SHARE_STYLE_PARAM, style)
+  const { origin, pathname } = window.location
+  return `${origin}${pathname}#markdown-reader?${params.toString()}`
+}
+
+const INITIAL_SHARED_GIST = readSharedGistRef()
+
 
 export function MarkdownReaderTool() {
   const [md, setMd] = useState(() => loadFromStorage(STORAGE_KEY_MD, DEFAULT_MD))
-  const [style, setStyle] = useState<StyleKey>(() => loadFromStorage<StyleKey>(STORAGE_KEY_STYLE, 'business'))
+  const [style, setStyle] = useState<StyleKey>(() => INITIAL_SHARED_GIST?.style ?? loadFromStorage<StyleKey>(STORAGE_KEY_STYLE, 'business'))
   const [html, setHtml] = useState('')
+
+  /* 分享 / 阅读模式（Gist） */
+  const [readMode, setReadMode] = useState(() => INITIAL_SHARED_GIST !== null)
+  const [gistLoading, setGistLoading] = useState(() => INITIAL_SHARED_GIST !== null)
+  const [gistError, setGistError] = useState('')
+  const [shareCreating, setShareCreating] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
+  const [shareError, setShareError] = useState('')
+  const [tokenModalOpen, setTokenModalOpen] = useState(false)
+  const [tokenInput, setTokenInput] = useState('')
   const [ready, setReady] = useState(false)
   const [mermaidReady, setMermaidReady] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -310,9 +423,10 @@ export function MarkdownReaderTool() {
   const readingProgressRestoredRef = useRef(false)
 
 
-  /* 自动保存到 localStorage（防抖 500ms） */
+  /* 自动保存到 localStorage（防抖 500ms）；阅读模式（查看他人分享）下不保存，避免覆盖本机草稿 */
   const saveTimerRef = useRef<number | null>(null)
   useEffect(() => {
+    if (readMode) return
     if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
     saveTimerRef.current = window.setTimeout(() => {
       try {
@@ -322,7 +436,28 @@ export function MarkdownReaderTool() {
     return () => {
       if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
     }
-  }, [md])
+  }, [md, readMode])
+
+  /* 通过分享链接打开时，拉取 gist 内容 */
+  useEffect(() => {
+    if (!INITIAL_SHARED_GIST) return
+    let cancelled = false
+    setGistLoading(true)
+    setGistError('')
+    fetchSharedGistMarkdown(INITIAL_SHARED_GIST.id)
+      .then((content) => {
+        if (cancelled) return
+        setMd(content)
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return
+        setGistError(error instanceof Error ? error.message : '加载失败')
+      })
+      .finally(() => {
+        if (!cancelled) setGistLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     try {
@@ -682,6 +817,56 @@ export function MarkdownReaderTool() {
     }, 0)
   }, [md])
 
+  /* 生成分享链接：把正文存到 Secret Gist，复制带 gist id 的短链接 */
+  const createAndCopyShareLink = useCallback(async (token: string) => {
+    setShareCreating(true)
+    setShareError('')
+    try {
+      const id = await createSharedGist(md, token)
+      const url = buildGistShareUrl(id, style)
+      try {
+        await navigator.clipboard.writeText(url)
+        setShareCopied(true)
+        window.setTimeout(() => setShareCopied(false), 1800)
+      } catch {
+        window.prompt('已生成分享链接，请手动复制：', url)
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '分享失败'
+      setShareError(message)
+      // token 相关错误时重新打开弹窗让用户修正
+      if (/token/i.test(message)) {
+        setTokenInput(loadGistToken())
+        setTokenModalOpen(true)
+      } else {
+        window.alert(message)
+      }
+    } finally {
+      setShareCreating(false)
+    }
+  }, [md, style])
+
+  const handleShareClick = useCallback(() => {
+    const token = loadGistToken()
+    if (!token) {
+      setShareError('')
+      setTokenInput('')
+      setTokenModalOpen(true)
+      return
+    }
+    void createAndCopyShareLink(token)
+  }, [createAndCopyShareLink])
+
+  const handleTokenSubmit = useCallback(() => {
+    const token = tokenInput.trim()
+    if (!token) return
+    try {
+      localStorage.setItem(STORAGE_KEY_GIST_TOKEN, token)
+    } catch { /* ignore */ }
+    setTokenModalOpen(false)
+    void createAndCopyShareLink(token)
+  }, [tokenInput, createAndCopyShareLink])
+
   /* 导出当前预览为图片 */
   const exportAsImage = useCallback(async () => {
     if (!previewRef.current || !window.html2canvas) return
@@ -805,6 +990,24 @@ export function MarkdownReaderTool() {
         <div className="w-px h-6 bg-gray-300 mx-1" />
 
         <button
+          onClick={handleShareClick}
+          disabled={shareCreating}
+          className={`px-3 py-1.5 text-sm font-medium rounded transition-colors disabled:opacity-50 ${shareCopied ? 'bg-green-500 text-white' : 'bg-sky-500 text-white hover:bg-sky-600'}`}
+          title="将文档上传为私密 Gist 并复制分享链接，发给别人即可在任意设备查看"
+        >
+          {shareCreating ? '生成中...' : shareCopied ? '✅ 已复制链接' : '🔗 分享链接'}
+        </button>
+        <button
+          onClick={() => setReadMode((v) => !v)}
+          className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${readMode ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+          title="阅读模式下隐藏编辑器，预览铺满整个页面"
+        >
+          {readMode ? '✏️ 编辑文档' : '👁️ 阅读模式'}
+        </button>
+
+        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+        <button
           onClick={() => setTocOpen(!tocOpen)}
           className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${tocOpen ? 'bg-indigo-500 text-white hover:bg-indigo-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
         >
@@ -848,30 +1051,34 @@ export function MarkdownReaderTool() {
 
       {/* 编辑器 + 预览双栏（撑满剩余高度） */}
       <div ref={layoutRef} className="flex flex-col lg:flex-row flex-1 min-h-0">
-        {/* 编辑器 */}
-        <div className="min-w-0 min-h-0" style={{ flex: `0 0 ${editorWidth}%` }}>
-          <textarea
-            ref={textareaRef}
-            value={md}
-            onChange={(e) => setMd(e.target.value)}
-            onScroll={syncEditorToPreview}
-            className="w-full h-full resize-none overscroll-contain p-4 text-sm leading-relaxed border-r border-gray-200 bg-white focus:outline-none font-mono"
-            placeholder="在此输入 Markdown..."
-          />
-        </div>
+        {/* 编辑器（阅读模式下隐藏） */}
+        {!readMode && (
+          <div className="min-w-0 min-h-0" style={{ flex: `0 0 ${editorWidth}%` }}>
+            <textarea
+              ref={textareaRef}
+              value={md}
+              onChange={(e) => setMd(e.target.value)}
+              onScroll={syncEditorToPreview}
+              className="w-full h-full resize-none overscroll-contain p-4 text-sm leading-relaxed border-r border-gray-200 bg-white focus:outline-none font-mono"
+              placeholder="在此输入 Markdown..."
+            />
+          </div>
+        )}
 
-        <div
-          role="separator"
-          aria-label="调整编辑区和预览区宽度"
-          aria-orientation="vertical"
-          tabIndex={0}
-          onPointerDown={startColumnResize}
-          onKeyDown={handleResizeKeyDown}
-          className={`hidden lg:flex w-2 shrink-0 cursor-col-resize items-center justify-center border-x border-gray-200 bg-gray-100 transition-colors hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-300 ${isResizingColumns ? 'bg-indigo-100' : ''}`}
-          title="拖动调整左右栏宽度，或用左右方向键微调"
-        >
-          <div className="h-10 w-0.5 rounded-full bg-gray-300" />
-        </div>
+        {!readMode && (
+          <div
+            role="separator"
+            aria-label="调整编辑区和预览区宽度"
+            aria-orientation="vertical"
+            tabIndex={0}
+            onPointerDown={startColumnResize}
+            onKeyDown={handleResizeKeyDown}
+            className={`hidden lg:flex w-2 shrink-0 cursor-col-resize items-center justify-center border-x border-gray-200 bg-gray-100 transition-colors hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-300 ${isResizingColumns ? 'bg-indigo-100' : ''}`}
+            title="拖动调整左右栏宽度，或用左右方向键微调"
+          >
+            <div className="h-10 w-0.5 rounded-full bg-gray-300" />
+          </div>
+        )}
 
         {/* 预览 + TOC */}
         <div className="flex-1 min-w-0 min-h-0 flex">
@@ -898,6 +1105,18 @@ export function MarkdownReaderTool() {
           <div ref={previewWrapRef} className="flex-1 min-w-0 min-h-0 overflow-auto overscroll-contain">
             {!ready ? (
               <div className="flex items-center justify-center h-full text-gray-500 text-sm">加载渲染引擎中...</div>
+            ) : gistError ? (
+              <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
+                <div className="text-rose-600 text-sm">{gistError}</div>
+                <button
+                  onClick={() => { setGistError(''); setReadMode(false) }}
+                  className="px-3 py-1.5 text-sm font-medium bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+                >
+                  关闭，开始编辑新文档
+                </button>
+              </div>
+            ) : gistLoading ? (
+              <div className="flex items-center justify-center h-full text-gray-500 text-sm">正在加载分享的文档...</div>
             ) : (
               <div
                 key={style}
@@ -911,6 +1130,51 @@ export function MarkdownReaderTool() {
           </div>
         </div>
       </div>
+
+      {/* Token 填写弹窗 */}
+      {tokenModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setTokenModalOpen(false)}>
+          <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-gray-800 mb-2">填写 GitHub Token 以生成分享链接</h3>
+            <p className="text-sm text-gray-600 leading-relaxed mb-3">
+              分享会把文档上传为你账号下的<strong>私密 Gist</strong>，仅拿到链接的人能查看。需要一个带 <code className="px-1 bg-gray-100 rounded">gist</code> 权限的 Token（只存在本机浏览器，不会上传到本站）。访客查看无需 Token。
+            </p>
+            <a
+              href={GIST_TOKEN_HELP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block text-sm text-sky-600 hover:underline mb-3"
+            >
+              → 点此前往 GitHub 生成 Token（已预选 gist 权限）
+            </a>
+            <input
+              type="password"
+              value={tokenInput}
+              onChange={(e) => setTokenInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleTokenSubmit() }}
+              placeholder="ghp_... 或 github_pat_..."
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded font-mono focus:border-sky-400 focus:outline-none mb-2"
+              autoFocus
+            />
+            {shareError && <div className="text-rose-600 text-xs mb-2">{shareError}</div>}
+            <div className="flex justify-end gap-2 mt-2">
+              <button
+                onClick={() => setTokenModalOpen(false)}
+                className="px-3 py-1.5 text-sm font-medium bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleTokenSubmit}
+                disabled={!tokenInput.trim()}
+                className="px-3 py-1.5 text-sm font-medium bg-sky-500 text-white rounded hover:bg-sky-600 transition-colors disabled:opacity-50"
+              >
+                保存并生成链接
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

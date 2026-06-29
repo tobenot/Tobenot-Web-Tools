@@ -24,9 +24,9 @@ export const tools: ToolDef[] = [
   {
     id: 'markdown-reader',
     title: 'Markdown 阅读器',
-    description: '精美 Markdown 实时预览，多种风格切换与图片导出',
+    description: '精美 Markdown 实时预览，多种风格切换、图片导出与 Gist 链接分享',
     emoji: '📖',
-    version: 'v0.1',
+    version: 'v0.2',
     category: 'utility',
     href: '#markdown-reader'
   },
@@ -162,6 +162,15 @@ export const pageTitleMap: Record<string, string> = {
 }
 
 export const globalChangelog: ChangelogEntry[] = [
+  {
+    date: '2026-06-29',
+    title: 'Markdown 阅读器支持 Gist 链接分享',
+    notes: [
+      '新增「分享链接」：将文档上传为私密 Gist，生成带 gist id 的短链接，大文档也不怕 URL 过长',
+      '分享者需填一次带 gist 权限的 GitHub Token（仅存本机浏览器）；访客查看无需 Token 或账号',
+      '通过分享链接打开时自动进入阅读模式（隐藏编辑器、预览铺满），并还原所选风格，不覆盖本机草稿'
+    ]
+  },
   {
     date: '2026-06-07',
     title: '域名迁移',
