@@ -298,6 +298,27 @@ const SHARE_GIST_PARAM = 'gist'
 const SHARE_STYLE_PARAM = 'style'
 const GIST_FILENAME = 'document.md'
 const GIST_TOKEN_HELP_URL = 'https://github.com/settings/tokens/new?scopes=gist&description=Mecha%20Tools%20Markdown%20Reader'
+const GIST_TOKEN_HELP_PATH = 'GitHub → Settings → Developer settings → Personal access tokens → Generate new token（classic）'
+
+/** Token 创建页 URL 各参数说明，便于用户核对链接里是否夹带个人信息 */
+const GIST_TOKEN_URL_PARTS = [
+  {
+    part: 'https://github.com',
+    meaning: 'GitHub 官方域名。请确认地址栏里确实是 github.com，而不是形似域名。',
+  },
+  {
+    part: '/settings/tokens/new',
+    meaning: 'GitHub 账号设置里的「新建 Token」页面路径。需要你先登录 GitHub 才能访问，本站无法替你打开或读取该页。',
+  },
+  {
+    part: 'scopes=gist',
+    meaning: '页面表单参数：预勾选 gist 权限（仅允许创建/管理 Gist）。不含你的用户名、邮箱或任何身份信息。',
+  },
+  {
+    part: 'description=Mecha Tools Markdown Reader',
+    meaning: '页面表单参数：预填 Token 的备注名称，方便你区分用途。只是固定文案，不含你的个人信息；你也可以在 GitHub 页面上自行修改或留空。',
+  },
+] as const
 
 function isStyleKey(value: string | null): value is StyleKey {
   return value !== null && STYLE_OPTIONS.some((opt) => opt.key === value)
@@ -404,6 +425,7 @@ export function MarkdownReaderTool() {
   const [shareError, setShareError] = useState('')
   const [tokenModalOpen, setTokenModalOpen] = useState(false)
   const [tokenInput, setTokenInput] = useState('')
+  const [tokenUrlCopied, setTokenUrlCopied] = useState(false)
   const [ready, setReady] = useState(false)
   const [mermaidReady, setMermaidReady] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -867,6 +889,16 @@ export function MarkdownReaderTool() {
     void createAndCopyShareLink(token)
   }, [tokenInput, createAndCopyShareLink])
 
+  const copyTokenHelpUrl = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(GIST_TOKEN_HELP_URL)
+      setTokenUrlCopied(true)
+      window.setTimeout(() => setTokenUrlCopied(false), 1500)
+    } catch {
+      window.prompt('请手动复制以下 GitHub 官方地址到浏览器地址栏打开：', GIST_TOKEN_HELP_URL)
+    }
+  }, [])
+
   /* 导出当前预览为图片 */
   const exportAsImage = useCallback(async () => {
     if (!previewRef.current || !window.html2canvas) return
@@ -1134,19 +1166,55 @@ export function MarkdownReaderTool() {
       {/* Token 填写弹窗 */}
       {tokenModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setTokenModalOpen(false)}>
-          <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-5" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-lg bg-white rounded-lg shadow-xl p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-semibold text-gray-800 mb-2">填写 GitHub Token 以生成分享链接</h3>
-            <p className="text-sm text-gray-600 leading-relaxed mb-3">
-              分享会把文档上传为你账号下的<strong>私密 Gist</strong>，仅拿到链接的人能查看。需要一个带 <code className="px-1 bg-gray-100 rounded">gist</code> 权限的 Token（只存在本机浏览器，不会上传到本站）。访客查看无需 Token。
-            </p>
-            <a
-              href={GIST_TOKEN_HELP_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block text-sm text-sky-600 hover:underline mb-3"
-            >
-              → 点此前往 GitHub 生成 Token（已预选 gist 权限）
-            </a>
+
+            <div className="text-sm text-gray-600 leading-relaxed space-y-3 mb-4">
+              <p>
+                分享功能会把你的 Markdown 文档上传到你<strong>自己的 GitHub 账号</strong>下，存为一个<strong>私密 Gist</strong>（Secret Gist）。拿到分享链接的人才能查看，不会出现在公开搜索里。
+              </p>
+              <p>
+                创建 Gist 需要 GitHub 官方 API 的授权凭证，也就是 <strong>Personal Access Token（个人访问令牌）</strong>。本站<strong>不会收集或上传</strong>你的 Token，它只保存在你本机浏览器的 localStorage 里，用来向 <code className="px-1 bg-gray-100 rounded">api.github.com</code> 发起请求。访客查看分享文档时<strong>不需要</strong> Token，也<strong>不需要</strong> GitHub 账号。
+              </p>
+              <p>
+                请自行前往 GitHub 官网生成 Token，权限只需勾选 <code className="px-1 bg-gray-100 rounded">gist</code>，不要勾选 <code className="px-1 bg-gray-100 rounded">repo</code> 等其它权限。
+              </p>
+            </div>
+
+            <div className="rounded-md border border-gray-200 bg-gray-50 p-3 mb-4">
+              <div className="text-xs font-medium text-gray-500 mb-1">GitHub 官方 Token 创建页地址（请自行复制到浏览器地址栏打开，勿点击陌生链接）</div>
+              <div className="text-xs text-gray-800 font-mono break-all leading-relaxed select-all">
+                {GIST_TOKEN_HELP_URL}
+              </div>
+              <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                你也可以不用这个地址，手动进入：{GIST_TOKEN_HELP_PATH}，勾选 gist 后生成，效果相同。
+              </p>
+
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <div className="text-xs font-medium text-gray-600 mb-2">地址各部分含义（核对是否夹带个人信息）</div>
+                <p className="text-xs text-gray-500 leading-relaxed mb-2">
+                  有些恶意链接会在网址里塞入用户 ID、邮箱、追踪码等参数。下面逐项说明上述地址<strong>仅包含</strong>的内容；其中<strong>没有任何</strong>你的用户名、邮箱、设备信息或本站生成的追踪参数。
+                </p>
+                <ul className="space-y-2">
+                  {GIST_TOKEN_URL_PARTS.map(({ part, meaning }) => (
+                    <li key={part} className="text-xs leading-relaxed">
+                      <code className="block px-1.5 py-0.5 bg-white border border-gray-200 rounded font-mono text-gray-800 break-all mb-0.5">{part}</code>
+                      <span className="text-gray-600">{meaning}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void copyTokenHelpUrl()}
+                className="mt-3 px-2.5 py-1 text-xs font-medium bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-100 transition-colors"
+              >
+                {tokenUrlCopied ? '✅ 已复制地址' : '复制上述地址'}
+              </button>
+            </div>
+
+            <label className="block text-xs font-medium text-gray-600 mb-1">将生成的 Token 粘贴到下方</label>
             <input
               type="password"
               value={tokenInput}
