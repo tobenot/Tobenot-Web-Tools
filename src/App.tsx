@@ -12,6 +12,7 @@ import { MarkdownReaderTool } from './tools/markdown-reader/MarkdownReaderTool'
 import { PromptGalleryTool } from './tools/prompt-gallery/PromptGalleryTool'
 import { SpaceTabConverterTool } from './tools/space-tab-converter/SpaceTabConverterTool'
 import { BgRemoverTool } from './tools/bg-remover/BgRemoverTool'
+import { ImageToWebpTool } from './tools/image-to-webp/ImageToWebpTool'
 import { ImageOutlineTool } from './tools/image-outline/ImageOutlineTool'
 import { JsonViewerTool } from './tools/json-viewer/JsonViewerTool'
 import { Base64Tool } from './tools/base64/Base64Tool'
@@ -71,6 +72,7 @@ export default function App() {
         {route.path === 'calendar' && <ErrorBoundary><CalendarTool /></ErrorBoundary>}
         {route.path === 'prompt-gallery' && <ErrorBoundary><PromptGalleryTool /></ErrorBoundary>}
         {route.path === 'bg-remover' && <ErrorBoundary><BgRemoverTool /></ErrorBoundary>}
+        {route.path === 'image-to-webp' && <ErrorBoundary><ImageToWebpTool /></ErrorBoundary>}
         {route.path === 'image-outline' && <ErrorBoundary><ImageOutlineTool /></ErrorBoundary>}
         {route.path === 'space-tab-converter' && <ErrorBoundary><SpaceTabConverterTool /></ErrorBoundary>}
         {route.path === 'json-viewer' && <ErrorBoundary><JsonViewerTool /></ErrorBoundary>}

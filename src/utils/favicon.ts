@@ -33,6 +33,11 @@ export const faviconMap: Record<string, string> = {
     fg: '#ffffff',
     innerSvg: '<circle cx="32" cy="34" r="13" fill="none" stroke="#fff" stroke-width="6"/><circle cx="32" cy="34" r="5" fill="#fff"/>'
   }),
+  'image-to-webp': createFavicon({
+    bg: '#0284c7',
+    fg: '#ffffff',
+    innerSvg: '<rect x="16" y="20" width="32" height="24" rx="3" fill="none" stroke="#fff" stroke-width="4"/><path d="M22 38l8-10 6 7 4-5 8 8" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
+  }),
   'prompt-gallery': createFavicon({ bg: '#0f766e', fg: '#ffffff', text: 'Pr' }),
   changelog: createFavicon({
     bg: '#ea580c',

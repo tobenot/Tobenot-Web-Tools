@@ -49,6 +49,16 @@ export const tools: ToolDef[] = [
     href: '#bg-remover'
   },
   {
+    id: 'image-to-webp',
+    title: '图片转 WebP',
+    description: '批量将 PNG / JPG 等图片转换为 WebP，支持质量调节与 ZIP 打包下载',
+    emoji: '🗜️',
+    version: 'v1.0',
+    category: 'utility',
+    href: '#image-to-webp',
+    tags: ['图片', 'WebP', '压缩', '批量']
+  },
+  {
     id: 'image-outline',
     title: '图片描边工具',
     description: '为透明底图片沿轮廓添加平滑描边，支持双层描边、投影与批量处理',
@@ -149,6 +159,7 @@ export const pageTitleMap: Record<string, string> = {
   'prompt-gallery': '提示词展柜 | Mecha Tools',
   'json-viewer': 'JSON 表格查看器 | Mecha Tools',
   'bg-remover': '图片去底工具 | Mecha Tools',
+  'image-to-webp': '图片转 WebP | Mecha Tools',
   'image-outline': '图片描边工具 | Mecha Tools',
   'space-tab-converter': '空格/Tab 转换器 | Mecha Tools',
   'base64': 'Base64 编解码 | Mecha Tools',
@@ -162,6 +173,14 @@ export const pageTitleMap: Record<string, string> = {
 }
 
 export const globalChangelog: ChangelogEntry[] = [
+  {
+    date: '2026-07-03',
+    title: '新增图片转 WebP 工具',
+    notes: [
+      '批量将 PNG / JPG 等图片转换为 WebP',
+      '支持质量滑块调节、单张下载与 ZIP 打包下载'
+    ]
+  },
   {
     date: '2026-06-29',
     title: 'Markdown 阅读器支持 Gist 链接分享',
