@@ -51,6 +51,11 @@ npm run new:app my-tool -- --title "我的工具"
 - 站点根为 React 单页，使用 `#hash` 路由（见 `src/utils/hash.ts`）。
 - 纯 HTML 页面则存放于 `apps/`，不使用 React 路由，便于批量添加与部署。
 
+## 架构说明
+
+- 总体结构、hash 分享模型、Markdown 即时链接（`?c=` + lz-string）与 Gist 通道：见 [docs/architecture.md](docs/architecture.md)。
+- 演进规划：见 [docs/roadmap.md](docs/roadmap.md)。
+
 ## 网页图标
 
 - React 工具页会根据当前 `#hash` 路由自动切换 SVG favicon（见 `src/utils/favicon.ts`）。
