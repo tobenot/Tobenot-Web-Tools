@@ -12,6 +12,10 @@ declare global {
       initialize: (config: Record<string, unknown>) => void
       run: (options?: { nodes?: HTMLElement[] }) => Promise<void>
     }
+    LZString: {
+      compressToEncodedURIComponent: (input: string) => string
+      decompressFromEncodedURIComponent: (input: string) => string | null
+    }
   }
 }
 
@@ -287,6 +291,36 @@ function getScrollTopFromProgress(element: HTMLElement, progress: ReadingProgres
   return Math.min(max, Math.max(0, scrollTop))
 }
 
+/* ─── 即时链接（正文压进 URL 的 # 片段）─── */
+/*
+ * 小文档：lz-string 压缩后放进 ?c=，链接自包含，无需上传。
+ * 大文档：仍走下方 Gist。二者可并存；打开时 c 优先于 gist。
+ * CDN 钉死 1.5.0，生成端/解析端必须同版本同函数对。
+ */
+const SHARE_CONTENT_PARAM = 'c'
+const LZ_STRING_CDN = 'https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js'
+const INSTANT_LINK_WARN_LEN = 80_000
+const PUBLIC_READER_BASE = 'https://tools.tobenot.top/#markdown-reader'
+
+const EMBED_GUIDE_HTML = `<!-- 任意 HTML：点链接即在 Mecha Markdown 阅读器打开文档（无需上传） -->
+<script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+
+<script type="text/markdown" id="doc-a">
+# 标题
+
+把 Markdown 正文直接写在这里。
+不要在正文里写 \`</script>\` 字面量。
+</script>
+
+<a id="link-a" href="#">用 Mecha 阅读器打开</a>
+
+<script>
+  const md = document.getElementById('doc-a').textContent.trim();
+  const c = LZString.compressToEncodedURIComponent(md);
+  document.getElementById('link-a').href =
+    'https://tools.tobenot.top/#markdown-reader?c=' + c + '&style=business';
+</script>`
+
 /* ─── Gist 分享 ─── */
 /*
  * 大文档无法塞进 URL，改为把正文存到 GitHub Secret Gist，链接里只带 gist id。
@@ -332,6 +366,17 @@ const SHARE_LINK_URL_PARTS = [
   {
     part: 'style=business',
     meaning: '阅读器排版风格（如 business、dark 等）。只是展示偏好，不含个人信息。',
+  },
+] as const
+
+const INSTANT_LINK_URL_PARTS = [
+  {
+    part: 'c=……',
+    meaning: 'lz-string 压缩后的 Markdown 正文（URL 安全字符）。内容在 # 片段里，不会发给本站服务器；访客打开即解压渲染。',
+  },
+  {
+    part: 'style=business',
+    meaning: '阅读器排版风格。可选：business / xiaohongshu / clean / dark / pink。',
   },
 ] as const
 
@@ -491,6 +536,24 @@ interface SharedGistRef {
   style?: StyleKey
 }
 
+interface SharedContentRef {
+  encoded: string
+  style?: StyleKey
+}
+
+function readSharedContentRef(): SharedContentRef | null {
+  try {
+    const { params } = getHashLocation()
+    // URLSearchParams 会把未编码的 + 当成空格；lz-string 的 decompress 会把空格还原成 +
+    const encoded = params.get(SHARE_CONTENT_PARAM)
+    if (!encoded) return null
+    const styleParam = params.get(SHARE_STYLE_PARAM)
+    return { encoded, style: isStyleKey(styleParam) ? styleParam : undefined }
+  } catch {
+    return null
+  }
+}
+
 function readSharedGistRef(): SharedGistRef | null {
   try {
     const { params } = getHashLocation()
@@ -501,6 +564,19 @@ function readSharedGistRef(): SharedGistRef | null {
   } catch {
     return null
   }
+}
+
+async function ensureLzString(): Promise<void> {
+  await loadScript(LZ_STRING_CDN)
+  if (!window.LZString?.compressToEncodedURIComponent || !window.LZString?.decompressFromEncodedURIComponent) {
+    throw new Error('lz-string 加载失败，请检查网络后重试')
+  }
+}
+
+function buildContentShareUrl(encoded: string, style: StyleKey): string {
+  // 手动拼接，避免 URLSearchParams 改写 lz-string 的 + / $
+  const { origin, pathname } = window.location
+  return `${origin}${pathname}#markdown-reader?${SHARE_CONTENT_PARAM}=${encoded}&${SHARE_STYLE_PARAM}=${style}`
 }
 
 async function createSharedGist(md: string, token: string): Promise<CreatedGist> {
@@ -566,28 +642,37 @@ function buildGistShareUrl(id: string, style: StyleKey): string {
   return `${origin}${pathname}#markdown-reader?${params.toString()}`
 }
 
-const INITIAL_SHARED_GIST = readSharedGistRef()
+const INITIAL_SHARED_CONTENT = readSharedContentRef()
+const INITIAL_SHARED_GIST = INITIAL_SHARED_CONTENT ? null : readSharedGistRef()
+const INITIAL_SHARED_STYLE = INITIAL_SHARED_CONTENT?.style ?? INITIAL_SHARED_GIST?.style
+const INITIAL_IS_SHARED = INITIAL_SHARED_CONTENT !== null || INITIAL_SHARED_GIST !== null
 
 
 export function MarkdownReaderTool() {
   const [md, setMd] = useState(() => loadFromStorage(STORAGE_KEY_MD, DEFAULT_MD))
-  const [style, setStyle] = useState<StyleKey>(() => INITIAL_SHARED_GIST?.style ?? loadFromStorage<StyleKey>(STORAGE_KEY_STYLE, 'business'))
+  const [style, setStyle] = useState<StyleKey>(() => INITIAL_SHARED_STYLE ?? loadFromStorage<StyleKey>(STORAGE_KEY_STYLE, 'business'))
   const [html, setHtml] = useState('')
 
-  /* 分享 / 阅读模式（Gist） */
-  const [readMode, setReadMode] = useState(() => INITIAL_SHARED_GIST !== null)
-  const [gistLoading, setGistLoading] = useState(() => INITIAL_SHARED_GIST !== null)
+  /* 分享 / 阅读模式（即时链接 c= 或 Gist） */
+  const [readMode, setReadMode] = useState(() => INITIAL_IS_SHARED)
+  const [gistLoading, setGistLoading] = useState(() => INITIAL_IS_SHARED)
   const [gistError, setGistError] = useState('')
   const [shareCreating, setShareCreating] = useState(false)
   const [shareError, setShareError] = useState('')
   const [shareModalOpen, setShareModalOpen] = useState(false)
-  const [gistPanelTab, setGistPanelTab] = useState<'share' | 'manage'>('share')
+  const [gistPanelTab, setGistPanelTab] = useState<'instant' | 'share' | 'manage'>('instant')
   const [gistToken, setGistToken] = useState(loadGistToken)
   const [tokenInput, setTokenInput] = useState('')
   const [tokenUrlCopied, setTokenUrlCopied] = useState(false)
   const [tokenExpanded, setTokenExpanded] = useState(() => !loadGistToken())
   const [principlesExpanded, setPrinciplesExpanded] = useState(false)
   const [limitsExpanded, setLimitsExpanded] = useState(false)
+  const [embedGuideExpanded, setEmbedGuideExpanded] = useState(true)
+  const [embedGuideCopied, setEmbedGuideCopied] = useState(false)
+  const [instantCreating, setInstantCreating] = useState(false)
+  const [instantShareUrl, setInstantShareUrl] = useState('')
+  const [instantLinkCopied, setInstantLinkCopied] = useState(false)
+  const [instantLinkWarn, setInstantLinkWarn] = useState('')
   const [gistHistory, setGistHistory] = useState<LocalGistRecord[]>(loadGistHistory)
   const [remoteGists, setRemoteGists] = useState<RemoteGistItem[]>([])
   const [gistListLoading, setGistListLoading] = useState(false)
@@ -629,7 +714,32 @@ export function MarkdownReaderTool() {
     }
   }, [md, readMode])
 
-  /* 通过分享链接打开时，拉取 gist 内容 */
+  /* 通过即时链接（c=）打开时，解压正文 */
+  useEffect(() => {
+    if (!INITIAL_SHARED_CONTENT) return
+    let cancelled = false
+    setGistLoading(true)
+    setGistError('')
+    ensureLzString()
+      .then(() => {
+        if (cancelled) return
+        const content = window.LZString.decompressFromEncodedURIComponent(INITIAL_SHARED_CONTENT.encoded)
+        if (content == null || content === '') {
+          throw new Error('链接内容无法解码，可能已损坏或被分享渠道截断')
+        }
+        setMd(content)
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return
+        setGistError(error instanceof Error ? error.message : '加载失败')
+      })
+      .finally(() => {
+        if (!cancelled) setGistLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  /* 通过 Gist 分享链接打开时，拉取正文 */
   useEffect(() => {
     if (!INITIAL_SHARED_GIST) return
     let cancelled = false
@@ -1009,21 +1119,75 @@ export function MarkdownReaderTool() {
   }, [md])
 
   /* 分享 / Gist 管理弹窗 */
-  const openGistPanel = useCallback((tab: 'share' | 'manage') => {
+  const openGistPanel = useCallback((tab: 'instant' | 'share' | 'manage') => {
     const saved = loadGistToken()
     setGistToken(saved)
     setTokenInput(saved)
     setTokenExpanded(!saved)
     setPrinciplesExpanded(false)
     setLimitsExpanded(false)
+    setEmbedGuideExpanded(tab === 'instant')
     setGistHistory(loadGistHistory())
     setGistPanelTab(tab)
     setShareError('')
     setGistListError('')
     setGeneratedShareUrl('')
     setShareLinkCopied(false)
+    setInstantShareUrl('')
+    setInstantLinkCopied(false)
+    setInstantLinkWarn('')
     setCopiedGistField('')
     setShareModalOpen(true)
+  }, [])
+
+  const generateInstantLink = useCallback(async () => {
+    setInstantCreating(true)
+    setShareError('')
+    setInstantShareUrl('')
+    setInstantLinkCopied(false)
+    setInstantLinkWarn('')
+    try {
+      await ensureLzString()
+      const encoded = window.LZString.compressToEncodedURIComponent(md)
+      if (!encoded) throw new Error('压缩失败，请检查文档内容')
+      const shareUrl = buildContentShareUrl(encoded, style)
+      if (encoded.length > INSTANT_LINK_WARN_LEN) {
+        setInstantLinkWarn(
+          `压缩后仍约 ${Math.round(encoded.length / 1000)}KB，部分 IM/浏览器可能截断长链接。大文档请改用「Gist 分享」。`,
+        )
+      }
+      setInstantShareUrl(shareUrl)
+      try {
+        await navigator.clipboard.writeText(shareUrl)
+        setInstantLinkCopied(true)
+        window.setTimeout(() => setInstantLinkCopied(false), 1800)
+      } catch { /* 下方可手动复制 */ }
+    } catch (error: unknown) {
+      setShareError(error instanceof Error ? error.message : '生成即时链接失败')
+    } finally {
+      setInstantCreating(false)
+    }
+  }, [md, style])
+
+  const copyInstantShareLink = useCallback(async () => {
+    if (!instantShareUrl) return
+    try {
+      await navigator.clipboard.writeText(instantShareUrl)
+      setInstantLinkCopied(true)
+      window.setTimeout(() => setInstantLinkCopied(false), 1800)
+    } catch {
+      setShareError('复制失败，请手动全选链接复制')
+    }
+  }, [instantShareUrl])
+
+  const copyEmbedGuide = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(EMBED_GUIDE_HTML)
+      setEmbedGuideCopied(true)
+      window.setTimeout(() => setEmbedGuideCopied(false), 1800)
+    } catch {
+      setShareError('复制失败，请手动全选下方代码复制')
+    }
   }, [])
 
   const saveGistTokenToLocal = useCallback(() => {
@@ -1267,11 +1431,11 @@ export function MarkdownReaderTool() {
         <div className="w-px h-6 bg-gray-300 mx-1" />
 
         <button
-          onClick={() => openGistPanel('share')}
+          onClick={() => openGistPanel('instant')}
           className="px-3 py-1.5 text-sm font-medium rounded transition-colors bg-sky-500 text-white hover:bg-sky-600 shadow-sm"
-          title="打开分享与 Gist 管理窗口，可上传文档生成短链接或管理历史分享"
+          title="生成即时链接（正文进 URL）或查看任意 HTML 嵌入指南；也可改用 Gist 分享大文档"
         >
-          🔗 分享与管理
+          🔗 分享与嵌入
         </button>
         <button
           onClick={() => setReadMode((v) => !v)}
@@ -1407,7 +1571,7 @@ export function MarkdownReaderTool() {
         </div>
       </div>
 
-      {/* 分享 / Gist 管理弹窗 */}
+      {/* 分享 / 即时链接 / Gist 管理弹窗 */}
       {shareModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => setShareModalOpen(false)}>
           <div className="w-full max-w-2xl bg-white rounded-xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto border border-gray-100 flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -1415,9 +1579,9 @@ export function MarkdownReaderTool() {
             {/* 头部标题与关闭按钮 */}
             <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4 shrink-0">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">文档分享与 Gist 云管理</h3>
+                <h3 className="text-lg font-bold text-gray-900">文档分享与嵌入</h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  基于 GitHub Gist 平台实现无限容量、长效大文档的分发与管理
+                  小文档用即时链接（正文进 URL）；大文档用 Gist；任意 HTML 可按指南嵌入
                 </p>
               </div>
               <button
@@ -1436,6 +1600,17 @@ export function MarkdownReaderTool() {
             <div className="bg-gray-100 p-1 rounded-lg flex w-full mb-4 shrink-0">
               <button
                 type="button"
+                onClick={() => setGistPanelTab('instant')}
+                className={`flex-1 py-2 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 ${
+                  gistPanelTab === 'instant'
+                    ? 'bg-white text-sky-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <span>⚡</span> 即时链接 / 嵌入
+              </button>
+              <button
+                type="button"
                 onClick={() => setGistPanelTab('share')}
                 className={`flex-1 py-2 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 ${
                   gistPanelTab === 'share'
@@ -1443,7 +1618,7 @@ export function MarkdownReaderTool() {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                <span>🔗</span> 分享当前文档
+                <span>🔗</span> Gist 分享
               </button>
               <button
                 type="button"
@@ -1454,11 +1629,12 @@ export function MarkdownReaderTool() {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                <span>📋</span> 我的历史与 Gist 管理
+                <span>📋</span> Gist 管理
               </button>
             </div>
 
-            {/* Token 模块 (通用，折叠设计节省空间) */}
+            {/* Token 模块：仅 Gist 相关页需要 */}
+            {(gistPanelTab === 'share' || gistPanelTab === 'manage') && (
             <section className="border border-gray-200 rounded-lg overflow-hidden bg-white mb-4 shadow-sm shrink-0">
               <button
                 type="button"
@@ -1557,9 +1733,107 @@ export function MarkdownReaderTool() {
                 </div>
               )}
             </section>
+            )}
 
             {/* 核心内容区 */}
             <div className="flex-1 overflow-y-auto space-y-4">
+
+              {/* === 即时链接 / 嵌入指南 === */}
+              {gistPanelTab === 'instant' && (
+                <>
+                  <div className="rounded-lg border border-sky-200 bg-sky-50/40 p-4 shadow-sm space-y-3">
+                    <h4 className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                      <span className="text-sky-500">⚡</span> 即时链接（无需 Token、无需上传）
+                    </h4>
+                    <p className="text-xs text-gray-600 leading-relaxed">
+                      用 lz-string 把当前编辑器正文压缩进 URL 的 <code className="px-1 bg-white border rounded font-mono text-[10px]">#</code> 片段。
+                      链接自包含，任何人点开即可在阅读器看到渲染结果。适合几千字到几十 KB 的文档；更大请改用 Gist。
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void generateInstantLink()}
+                      disabled={instantCreating || !md.trim()}
+                      className="w-full max-w-sm px-5 py-2.5 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 hover:shadow active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none shadow-sm flex items-center justify-center gap-2 mx-auto"
+                    >
+                      {instantCreating ? '正在压缩生成…' : '🚀 生成即时分享链接'}
+                    </button>
+                    {instantLinkWarn && (
+                      <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 leading-relaxed">
+                        ⚠️ {instantLinkWarn}
+                      </p>
+                    )}
+                    {instantShareUrl && (
+                      <div className="border border-green-200 bg-green-50/30 rounded-lg p-3 space-y-2">
+                        <div className="flex items-center gap-2 text-green-800 font-bold text-sm">
+                          <span>✨</span>
+                          <span>即时链接已生成{instantLinkCopied ? '，并已复制' : ''}</span>
+                        </div>
+                        <div className="flex items-stretch gap-2">
+                          <div className="flex-1 bg-white border border-green-200 rounded-md px-3 py-2 text-xs font-mono text-gray-800 break-all select-all max-h-28 overflow-y-auto shadow-inner">
+                            {instantShareUrl}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void copyInstantShareLink()}
+                            className="shrink-0 px-4 bg-green-600 hover:bg-green-700 text-white rounded-md text-xs font-semibold transition-all shadow-sm"
+                          >
+                            {instantLinkCopied ? '✅ 已复制' : '📋 复制'}
+                          </button>
+                        </div>
+                        <ul className="space-y-1 pt-1 border-t border-green-200/50">
+                          {INSTANT_LINK_URL_PARTS.map(({ part, meaning }) => (
+                            <li key={part} className="text-[10px] leading-relaxed text-gray-500">
+                              <code className="px-1 bg-white border border-green-100 rounded text-gray-700 font-mono font-bold text-[9px]">{part}</code>
+                              <span> {meaning}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border border-indigo-100 rounded-lg overflow-hidden bg-indigo-50/20 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => setEmbedGuideExpanded(!embedGuideExpanded)}
+                      className="w-full flex items-center justify-between p-3 bg-indigo-50/40 hover:bg-indigo-50/70 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">📖</span>
+                        <span className="text-xs font-semibold text-indigo-900">任意 HTML 嵌入指南（复制即可用）</span>
+                      </div>
+                      <span className="text-xs text-indigo-600 font-semibold">
+                        {embedGuideExpanded ? '收起 ▲' : '展开 ▼'}
+                      </span>
+                    </button>
+                    {embedGuideExpanded && (
+                      <div className="p-4 border-t border-indigo-100 bg-white space-y-3">
+                        <ol className="list-decimal list-inside space-y-1.5 text-xs text-gray-600 leading-relaxed">
+                          <li>在页面引入钉死版本的 lz-string：<code className="px-1 bg-gray-50 border rounded font-mono text-[10px]">lz-string@1.5.0</code></li>
+                          <li>把 Markdown 写进 <code className="px-1 bg-gray-50 border rounded font-mono text-[10px]">&lt;script type=&quot;text/markdown&quot;&gt;</code>（勿用 file:// fetch 读本地 .md）</li>
+                          <li>调用 <code className="px-1 bg-gray-50 border rounded font-mono text-[10px]">compressToEncodedURIComponent</code>，拼到阅读器地址</li>
+                          <li>阅读器用配对的 <code className="px-1 bg-gray-50 border rounded font-mono text-[10px]">decompressFromEncodedURIComponent</code> 解压；两端必须同版本</li>
+                        </ol>
+                        <p className="text-[11px] text-gray-500 leading-relaxed">
+                          目标地址：<code className="px-1 bg-gray-50 border rounded font-mono text-[10px] break-all">{PUBLIC_READER_BASE}?c=…&amp;style=business</code>
+                        </p>
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => void copyEmbedGuide()}
+                            className="px-2.5 py-1 text-xs font-semibold bg-indigo-600 text-white rounded hover:bg-indigo-700 shadow-sm"
+                          >
+                            {embedGuideCopied ? '✅ 已复制示例代码' : '📋 复制完整示例 HTML'}
+                          </button>
+                        </div>
+                        <pre className="bg-gray-900 text-green-200 text-[10px] leading-relaxed p-3 rounded-md overflow-x-auto max-h-56 whitespace-pre-wrap break-all select-all">
+                          {EMBED_GUIDE_HTML}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
               
               {/* === 分享标签页 === */}
               {gistPanelTab === 'share' && (

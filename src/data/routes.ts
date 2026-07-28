@@ -174,6 +174,15 @@ export const pageTitleMap: Record<string, string> = {
 
 export const globalChangelog: ChangelogEntry[] = [
   {
+    date: '2026-07-28',
+    title: 'Markdown 阅读器支持即时链接分享',
+    notes: [
+      '新增 `?c=` 参数：用 lz-string 把正文压缩进 URL 片段，无需上传、无需 Token，点开即渲染',
+      '分享面板新增「即时链接 / 嵌入」页：可一键生成链接，并提供任意 HTML 可复制的嵌入示例',
+      '大文档仍走 Gist；打开时若同时带 c 与 gist，优先使用 c'
+    ]
+  },
+  {
     date: '2026-07-03',
     title: '新增图片转 WebP 工具',
     notes: [
