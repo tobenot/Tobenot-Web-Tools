@@ -379,6 +379,9 @@ export function BgRemoverTool() {
       ctx.drawImage(img, 0, 0)
     }
     img.src = selectedImage.originalUrl
+    // 仅在图片 URL 变化时重绘；依赖整个 selectedImage 对象会因其他字段
+    // （如 customColor）变化而无谓重绘整张画布
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedImage?.originalUrl])
 
   /** 获取某张图片实际使用的目标色 */

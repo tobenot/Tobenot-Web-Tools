@@ -4,6 +4,7 @@ import { DomainMigrationBanner } from './components/DomainMigrationBanner'
 import { Layout } from './components/Layout'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { CommandPalette } from './components/CommandPalette'
+import { UpdatePrompt } from './components/UpdatePrompt'
 import { Home } from './pages/Home'
 import { About } from './pages/About'
 import { ChangelogPage } from './pages/ChangelogPage'
@@ -34,6 +35,11 @@ export default function App() {
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
 
+  /*
+   * hashKey 仅用于在 hashchange 时触发重新计算，
+   * 故意作为依赖项存在（getHashLocation 读的是 window.location，非响应式）。
+   */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const route = useMemo(() => getHashLocation(), [hashKey])
 
   useEffect(() => {
@@ -71,6 +77,7 @@ export default function App() {
       <Header />
       <DomainMigrationBanner />
       <CommandPalette />
+      <UpdatePrompt />
       {isFullPage ? (
         <main
           className={route.path === 'markdown-reader' ? 'w-full overflow-hidden p-4' : 'w-full'}

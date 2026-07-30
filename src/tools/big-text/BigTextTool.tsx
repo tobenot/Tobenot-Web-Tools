@@ -343,7 +343,6 @@ export function BigTextTool() {
 		if (stage === 'display') {
 			pulseControls()
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [stage])
 
 	useEffect(() => {

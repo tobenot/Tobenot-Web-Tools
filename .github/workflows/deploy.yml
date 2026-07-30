@@ -36,9 +36,17 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit --skipLibCheck
 
-      # 安全门禁：CSP 哈希与内联脚本必须匹配，且策略不得被放宽
-      - name: Security checks
-        run: npm run check:csp
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      # 安全门禁：
+      # - check:csp 校验内联脚本哈希，并阻止 unsafe-inline/unsafe-eval 等放宽
+      # - check:lz  校验即时链接编码往返，保护历史分享链接不被破坏
+      - name: Security & contract checks
+        run: npm run check
 
       - name: Build
         run: npm run build

@@ -53,7 +53,7 @@ for (const stale of declaredHashes) {
 }
 
 // 顺手做几条策略健壮性检查，防止后续被随手放宽
-const scriptSrc = (csp.match(/script-src([^;]*)/) || [, ''])[1]
+const scriptSrc = (csp.match(/script-src([^;]*)/) ?? ['', ''])[1]
 if (scriptSrc.includes("'unsafe-inline'")) {
   console.error("FAIL script-src 含 'unsafe-inline'，内联事件处理器将可执行，XSS 防线失效")
   failed = true

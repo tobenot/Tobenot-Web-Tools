@@ -67,7 +67,7 @@ const JsonNode: React.FC<{ data: any }> = ({ data }) => {
                 <td className="border border-gray-200 p-2 text-gray-400 text-xs">{index + 1}</td>
                 {headers.map(key => (
                   <td key={key} className="border border-gray-200 p-2 align-top">
-                    {item.hasOwnProperty(key) ? <JsonNode data={item[key]} /> : <span className="text-gray-300">-</span>}
+                    {Object.prototype.hasOwnProperty.call(item, key) ? <JsonNode data={item[key]} /> : <span className="text-gray-300">-</span>}
                   </td>
                 ))}
               </tr>

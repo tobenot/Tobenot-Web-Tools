@@ -1,0 +1,7 @@
+{
+  "title": "大纲排序器",
+  "description": "拖拽调整 Markdown 标题章节顺序，左侧实时编辑文本",
+  "version": "1.0.0",
+  "updatedAt": "2026-07-30",
+  "tags": ["markdown", "大纲", "排序", "写作"]
+}

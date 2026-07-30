@@ -71,6 +71,8 @@ export function PromptGalleryTool() {
   useEffect(() => {
     setDraft(selectedPrompt?.content ?? '')
     setCopyStatus('idle')
+    // 仅在切换预设（id 变化）时重置草稿；依赖 content 会在用户编辑后被覆盖
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPrompt?.id])
 
   useEffect(() => {

@@ -27,7 +27,6 @@ function computeDiff(a: string, b: string): DiffLine[] {
   }
 
   // Backtrack
-  const result: DiffLine[] = []
   let i = n, j = m
   const stack: DiffLine[] = []
   while (i > 0 || j > 0) {

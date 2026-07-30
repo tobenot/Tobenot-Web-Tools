@@ -12,7 +12,7 @@ export function SpaceTabConverterTool() {
     let oldLength
     do {
       oldLength = convertedText.length
-      convertedText = convertedText.replace(/    /g, '\t')
+      convertedText = convertedText.replace(/ {4}/g, '\t')
       const newLength = convertedText.length
       replacementCount += (oldLength - newLength) / 3
     } while (convertedText.indexOf('    ') !== -1)

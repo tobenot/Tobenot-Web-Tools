@@ -10,3 +10,9 @@ node_modules
 .vscode
 .claude
 /.codebuddy/memory
+
+# 本地临时日志/输出
+lint.txt
+test.txt
+b.txt
+audit.json

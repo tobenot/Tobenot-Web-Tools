@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { getHashLocation } from '../../utils/hash'
 import { CDN, loadScript } from '../../utils/loadScript'
-import { installLinkHardeningHook, sanitizeMarkdownHtml } from '../../utils/sanitize'
+import { sanitizeMarkdownHtml } from '../../utils/sanitize'
 
 
 /* ─── CDN 动态加载 ─── */
@@ -20,8 +20,6 @@ declare global {
     }
   }
 }
-
-installLinkHardeningHook()
 
 
 type KrokiDiagramType = 'plantuml' | 'graphviz'
@@ -327,7 +325,6 @@ const SHARE_GIST_PARAM = 'gist'
 const SHARE_STYLE_PARAM = 'style'
 const GIST_FILENAME = 'document.md'
 const GIST_TOKEN_HELP_URL = 'https://github.com/settings/tokens/new?scopes=gist&description=Mecha%20Tools%20Markdown%20Reader'
-const GIST_TOKEN_HELP_PATH = 'GitHub → Settings → Developer settings → Personal access tokens → Generate new token（classic）'
 
 /** Token 创建页 URL 各参数说明，便于用户核对链接里是否夹带个人信息 */
 const GIST_TOKEN_URL_PARTS = [

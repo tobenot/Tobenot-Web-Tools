@@ -12,6 +12,20 @@ import DOMPurify from 'dompurify'
  * 因此这里不接受任何“黑名单式”自研过滤，统一走 DOMPurify。
  */
 
+/*
+ * 统一给净化后的外链补 target/rel，避免 reverse tabnabbing。
+ *
+ * 在模块加载时立即注册，而非导出一个需要调用方记得调用的 install 函数：
+ * 后者一旦有人漏调，防护会静默失效，而净化函数本身看起来仍"正常工作"。
+ * 安全相关的默认值不应依赖调用方的自觉。
+ */
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.nodeName === 'A' && node instanceof Element && node.hasAttribute('href')) {
+    node.setAttribute('target', '_blank')
+    node.setAttribute('rel', 'noopener noreferrer nofollow')
+  }
+})
+
 /** mermaid 渲染产物是内联 SVG，需要放行这些标签/属性，否则图表会被清空 */
 const SVG_TAGS = [
   'svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon',
@@ -62,22 +76,5 @@ export function sanitizeRichText(html: string): string {
   return DOMPurify.sanitize(html, {
     FORBID_TAGS: ['form', 'input', 'button', 'textarea', 'select', 'option', 'iframe', 'object', 'embed'],
     FORBID_ATTR: ['formaction', 'action', 'srcdoc', 'ping', 'style'],
-  })
-}
-
-/*
- * 统一给净化后的外链补 target/rel。
- * DOMPurify 的 hook 是全局注册的，这里只注册一次。
- */
-let hookInstalled = false
-
-export function installLinkHardeningHook() {
-  if (hookInstalled) return
-  hookInstalled = true
-  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-    if (node instanceof Element && node.tagName === 'A' && node.hasAttribute('href')) {
-      node.setAttribute('target', '_blank')
-      node.setAttribute('rel', 'noopener noreferrer nofollow')
-    }
   })
 }
