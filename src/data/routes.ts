@@ -174,6 +174,17 @@ export const pageTitleMap: Record<string, string> = {
 
 export const globalChangelog: ChangelogEntry[] = [
   {
+    date: '2026-07-30',
+    title: '安全加固：Markdown 渲染净化与凭证隔离',
+    notes: [
+      '修复高危 XSS：通过 `?c=` / `?gist=` 打开的正文此前未经净化直接渲染，现统一走 DOMPurify 过滤',
+      'GitHub Token 由 localStorage 改为 sessionStorage（关闭标签页即清除），并清理旧版本残留',
+      '阅读他人分享链接时不再读取本机 Token —— 看别人的文档不需要凭证',
+      '所有 CDN 依赖钉死版本并附 SRI 校验；新增 CSP 白名单阻断脚本执行与数据外发',
+      '新增 `npm run check:csp` 自检并接入 CI，防止策略被无声放宽'
+    ]
+  },
+  {
     date: '2026-07-28',
     title: 'Markdown 阅读器支持即时链接分享',
     notes: [
@@ -195,7 +206,7 @@ export const globalChangelog: ChangelogEntry[] = [
     title: 'Markdown 阅读器支持 Gist 链接分享',
     notes: [
       '新增「分享链接」：将文档上传为私密 Gist，生成带 gist id 的短链接，大文档也不怕 URL 过长',
-      '分享者需填一次带 gist 权限的 GitHub Token（仅存本机浏览器）；访客查看无需 Token 或账号',
+      '分享者需填一次带 gist 权限的 GitHub Token（仅存本机浏览器会话，关闭标签页即清除）；访客查看无需 Token 或账号',
       '通过分享链接打开时自动进入阅读模式（隐藏编辑器、预览铺满），并还原所选风格，不覆盖本机草稿'
     ]
   },

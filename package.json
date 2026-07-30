@@ -7,9 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --port 4173",
-    "new:app": "node scripts/new-app.mjs"
+    "new:app": "node scripts/new-app.mjs",
+    "check:csp": "node scripts/check-csp.mjs",
+    "check:lz": "node scripts/check-lz-url.mjs",
+    "check": "npm run check:csp && npm run check:lz"
   },
   "dependencies": {
+    "dompurify": "^3.4.12",
     "jszip": "^3.10.1",
     "lunar-typescript": "^1.8.6",
     "react": "^18.3.1",

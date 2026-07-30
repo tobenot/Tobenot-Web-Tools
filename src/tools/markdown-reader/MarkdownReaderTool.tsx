@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { getHashLocation } from '../../utils/hash'
+import { CDN, loadScript } from '../../utils/loadScript'
+import { installLinkHardeningHook, sanitizeMarkdownHtml } from '../../utils/sanitize'
 
 
 /* ─── CDN 动态加载 ─── */
@@ -19,17 +21,8 @@ declare global {
   }
 }
 
+installLinkHardeningHook()
 
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return }
-    const s = document.createElement('script')
-    s.src = src
-    s.onload = () => resolve()
-    s.onerror = reject
-    document.head.appendChild(s)
-  })
-}
 
 type KrokiDiagramType = 'plantuml' | 'graphviz'
 
@@ -298,7 +291,6 @@ function getScrollTopFromProgress(element: HTMLElement, progress: ReadingProgres
  * CDN 钉死 1.5.0，生成端/解析端必须同版本同函数对。
  */
 const SHARE_CONTENT_PARAM = 'c'
-const LZ_STRING_CDN = 'https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js'
 const INSTANT_LINK_WARN_LEN = 80_000
 const PUBLIC_READER_BASE = 'https://tools.tobenot.top/#markdown-reader'
 
@@ -523,12 +515,64 @@ function isStyleKey(value: string | null): value is StyleKey {
   return value !== null && STYLE_OPTIONS.some((opt) => opt.key === value)
 }
 
-function loadGistToken(): string {
+/*
+ * ─── Gist Token 存储策略 ───
+ *
+ * Token 带 gist 权限，可读写账号下全部（含私密）Gist，属于高价值凭证。
+ * 因此这里刻意选择 sessionStorage 而非 localStorage：
+ *   - 关闭标签页即失效，缩短凭证暴露窗口
+ *   - 分享是低频操作，每会话粘贴一次的成本远低于凭证泄露的代价
+ *
+ * 另外无论存在哪里，同源脚本都能读取（不存在 HttpOnly 这类保护），
+ * 所以真正的第一道防线始终是渲染层的 DOMPurify。
+ */
+function tokenStore(): Storage | null {
   try {
-    return localStorage.getItem(STORAGE_KEY_GIST_TOKEN) ?? ''
+    return window.sessionStorage
+  } catch {
+    return null
+  }
+}
+
+function loadGistToken(): string {
+  /*
+   * 阅读他人分享（?c= / ?gist=）时一律不读取 Token。
+   * 看别人的文档根本不需要凭证，不读即不可能被注入脚本从内存中捞走。
+   */
+  if (INITIAL_IS_SHARED) return ''
+  try {
+    return tokenStore()?.getItem(STORAGE_KEY_GIST_TOKEN) ?? ''
   } catch {
     return ''
   }
+}
+
+function saveGistToken(token: string): boolean {
+  try {
+    tokenStore()?.setItem(STORAGE_KEY_GIST_TOKEN, token)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function removeGistToken() {
+  try {
+    tokenStore()?.removeItem(STORAGE_KEY_GIST_TOKEN)
+  } catch { /* ignore */ }
+}
+
+/*
+ * 历史遗留清理：旧版本把 Token 明文存在 localStorage，
+ * 会长期驻留。这里在模块加载时无条件抹掉，不做迁移——
+ * 让用户重新粘贴一次，好过把高权限凭证继续留在持久化存储里。
+ */
+function purgeLegacyPersistedToken() {
+  try {
+    if (localStorage.getItem(STORAGE_KEY_GIST_TOKEN) !== null) {
+      localStorage.removeItem(STORAGE_KEY_GIST_TOKEN)
+    }
+  } catch { /* ignore */ }
 }
 
 interface SharedGistRef {
@@ -567,7 +611,7 @@ function readSharedGistRef(): SharedGistRef | null {
 }
 
 async function ensureLzString(): Promise<void> {
-  await loadScript(LZ_STRING_CDN)
+  await loadScript(CDN.lzString)
   if (!window.LZString?.compressToEncodedURIComponent || !window.LZString?.decompressFromEncodedURIComponent) {
     throw new Error('lz-string 加载失败，请检查网络后重试')
   }
@@ -646,6 +690,9 @@ const INITIAL_SHARED_CONTENT = readSharedContentRef()
 const INITIAL_SHARED_GIST = INITIAL_SHARED_CONTENT ? null : readSharedGistRef()
 const INITIAL_SHARED_STYLE = INITIAL_SHARED_CONTENT?.style ?? INITIAL_SHARED_GIST?.style
 const INITIAL_IS_SHARED = INITIAL_SHARED_CONTENT !== null || INITIAL_SHARED_GIST !== null
+
+// 抹掉旧版本残留在 localStorage 的高权限 Token
+purgeLegacyPersistedToken()
 
 
 export function MarkdownReaderTool() {
@@ -776,11 +823,11 @@ export function MarkdownReaderTool() {
 
   useEffect(() => {
     Promise.all([
-      loadScript('https://cdn.jsdelivr.net/npm/marked/marked.min.js'),
-      loadScript('https://html2canvas.hertzen.com/dist/html2canvas.min.js'),
+      loadScript(CDN.marked),
+      loadScript(CDN.html2canvas),
     ]).then(() => setReady(true))
 
-    loadScript('https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js')
+    loadScript(CDN.mermaid)
       .then(() => setMermaidReady(true))
       .catch((error) => console.error('Mermaid 加载失败', error))
   }, [])
@@ -798,7 +845,18 @@ export function MarkdownReaderTool() {
         const id = `toc-heading-${headingIndex++}`
         return `<h${level}${attrs} id="${id}">${content}</h${level}>`
       })
-      setHtml(parsed)
+
+      /*
+       * 净化必须放在最后一步。
+       *
+       * 正文可能来自 ?c= / ?gist=（任意人可构造），而 marked v5+ 不再内建 sanitize，
+       * 裸 HTML 会原样穿透；若不过滤，一条 <img src=x onerror=...> 即可在本站源下
+       * 读取 localStorage 里的 GitHub Token。
+       *
+       * 之所以放在 heading replace 之后：上面那个 replace 会把捕获到的 attrs 原样
+       * 搬回输出，先净化再 replace 会让已被移除的危险属性重新混入。
+       */
+      setHtml(sanitizeMarkdownHtml(parsed))
 
     } catch {
       setHtml('<p style="color:red">Markdown 解析错误</p>')
@@ -1196,19 +1254,16 @@ export function MarkdownReaderTool() {
       setShareError('请先填写 Token 再保存')
       return
     }
-    try {
-      localStorage.setItem(STORAGE_KEY_GIST_TOKEN, token)
+    if (saveGistToken(token)) {
       setGistToken(token)
       setShareError('')
-    } catch {
+    } else {
       setShareError('无法写入本机存储，请检查浏览器设置')
     }
   }, [tokenInput])
 
   const clearGistTokenFromLocal = useCallback(() => {
-    try {
-      localStorage.removeItem(STORAGE_KEY_GIST_TOKEN)
-    } catch { /* ignore */ }
+    removeGistToken()
     setGistToken('')
     setTokenInput('')
     setShareError('')
@@ -1242,10 +1297,8 @@ export function MarkdownReaderTool() {
       }))
       // 若用户填了新 Token 但未点保存，生成成功后一并写入
       if (token !== gistToken) {
-        try {
-          localStorage.setItem(STORAGE_KEY_GIST_TOKEN, token)
-          setGistToken(token)
-        } catch { /* ignore */ }
+        saveGistToken(token)
+        setGistToken(token)
       }
     } catch (error: unknown) {
       setShareError(error instanceof Error ? error.message : '分享失败')
@@ -1276,10 +1329,8 @@ export function MarkdownReaderTool() {
     try {
       setRemoteGists(await fetchUserGists(token))
       if (token !== gistToken) {
-        try {
-          localStorage.setItem(STORAGE_KEY_GIST_TOKEN, token)
-          setGistToken(token)
-        } catch { /* ignore */ }
+        saveGistToken(token)
+        setGistToken(token)
       }
     } catch (error: unknown) {
       setGistListError(error instanceof Error ? error.message : '加载失败')
@@ -1662,7 +1713,11 @@ export function MarkdownReaderTool() {
               {tokenExpanded && (
                 <div className="p-4 bg-white border-t border-gray-100 space-y-3">
                   <p className="text-xs text-gray-600 leading-relaxed">
-                    Token 是您自主授权向 GitHub 官方 API 存取数据的安全凭证。<strong>它只保存在您的本机浏览器缓存（localStorage）中，本站绝不接触、更不会上传该凭证。</strong>
+                    Token 是您自主授权向 GitHub 官方 API 存取数据的安全凭证。<strong>它只保存在当前浏览器标签的会话存储（sessionStorage）中，关闭标签页即清除；本站服务器绝不接触、更不会上传该凭证。</strong>
+                  </p>
+
+                  <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 leading-relaxed">
+                    ⚠️ 安全提示：该 Token 可读写您账号下全部（含私密）Gist。建议使用 <strong>Fine-grained token 并设置较短有效期</strong>，用完可点下方「清除」。通过他人分享链接（<code className="font-mono">?c=</code> / <code className="font-mono">?gist=</code>）打开本阅读器时，本工具不会读取您的 Token。
                   </p>
                   
                   <div className="rounded-md border border-gray-200 bg-gray-50/50 p-3 text-xs leading-relaxed space-y-2">

@@ -1,38 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ToolLayout } from '../../components/ToolLayout'
 import { promptPresets } from './prompts'
-
-const MARKED_CDN = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js'
+import { CDN, loadScript } from '../../utils/loadScript'
+import { sanitizeRichText } from '../../utils/sanitize'
 
 type MarkedWindow = Window & {
   marked?: {
     parse: (markdown: string) => string | Promise<string>
   }
-}
-
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`)
-    if (existing) {
-      if (existing.dataset.loaded === 'true') resolve()
-      else {
-        existing.addEventListener('load', () => resolve(), { once: true })
-        existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true })
-      }
-      return
-    }
-
-    const script = document.createElement('script')
-    script.src = src
-    script.async = true
-    script.dataset.loaded = 'false'
-    script.onload = () => {
-      script.dataset.loaded = 'true'
-      resolve()
-    }
-    script.onerror = () => reject(new Error(`Failed to load ${src}`))
-    document.head.appendChild(script)
-  })
 }
 
 function escapeHtml(value: string) {
@@ -42,24 +17,6 @@ function escapeHtml(value: string) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
-}
-
-function sanitizeHtml(html: string) {
-  const template = document.createElement('template')
-  template.innerHTML = html
-
-  template.content.querySelectorAll('script, style, iframe, object, embed').forEach((node) => node.remove())
-  template.content.querySelectorAll('*').forEach((node) => {
-    Array.from(node.attributes).forEach((attribute) => {
-      const name = attribute.name.toLowerCase()
-      const value = attribute.value.trim().toLowerCase()
-      const isUnsafeUrl = (name === 'href' || name === 'src') && value.startsWith('javascript:')
-
-      if (name.startsWith('on') || isUnsafeUrl) node.removeAttribute(attribute.name)
-    })
-  })
-
-  return template.innerHTML
 }
 
 function copyText(text: string) {
@@ -121,10 +78,10 @@ export function PromptGalleryTool() {
 
     async function renderMarkdown() {
       try {
-        await loadScript(MARKED_CDN)
+        await loadScript(CDN.marked)
         const marked = (window as MarkedWindow).marked
         const html = marked ? await marked.parse(draft) : `<pre>${escapeHtml(draft)}</pre>`
-        if (!cancelled) setPreviewHtml(sanitizeHtml(String(html)))
+        if (!cancelled) setPreviewHtml(sanitizeRichText(String(html)))
       } catch {
         if (!cancelled) setPreviewHtml(`<pre>${escapeHtml(draft)}</pre>`)
       }
