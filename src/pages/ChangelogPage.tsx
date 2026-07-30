@@ -5,11 +5,10 @@ export function ChangelogPage() {
   return (
     <div className="relative bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 p-6">
       <div
-        className="absolute -top-0.5 -left-0.5 -right-0.5 h-1 opacity-70 pointer-events-none"
+        className="absolute -top-0.5 -left-0.5 -right-0.5 h-1 opacity-70 pointer-events-none animate-gradient-flow"
         style={{
           background: 'linear-gradient(90deg, #ff6b6b, #f7d794, #1dd1a1, #54a0ff, #5f27cd, #ff6b6b)',
-          backgroundSize: '300% 100%',
-          animation: 'gradient-flow 16s linear infinite'
+          backgroundSize: '300% 100%'
         }}
       />
       <Changelog entries={globalChangelog} />

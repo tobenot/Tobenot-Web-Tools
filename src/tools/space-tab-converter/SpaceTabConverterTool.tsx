@@ -76,15 +76,13 @@ export function SpaceTabConverterTool() {
           <div className="flex flex-wrap gap-4">
             <button 
               onClick={convertSpacesToTabs}
-              className="px-6 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium transition-colors border-2 border-blue-200 hover:border-blue-300"
-              style={{ borderRadius: '2px' }}
+              className="px-6 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium transition-colors border-2 border-blue-200 hover:border-blue-300 rounded-mech"
             >
               Convert 4 Spaces to Tab
             </button>
             <button 
               onClick={convertTabsToSpaces}
-              className="px-6 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium transition-colors border-2 border-indigo-200 hover:border-indigo-300"
-              style={{ borderRadius: '2px' }}
+              className="px-6 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium transition-colors border-2 border-indigo-200 hover:border-indigo-300 rounded-mech"
             >
               Convert Tab to 4 Spaces
             </button>
@@ -118,8 +116,7 @@ export function SpaceTabConverterTool() {
                   : copied
                     ? 'bg-green-50 text-green-700 border-green-200'
                     : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-              }`}
-              style={{ borderRadius: '2px' }}
+              } rounded-mech`}
             >
               {copied ? 'Copied to Clipboard!' : 'Copy Result'}
             </button>

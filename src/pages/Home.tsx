@@ -1,14 +1,23 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getHtmlApps } from '../data/apps'
 import { tools, ToolDef } from '../data/routes'
 import { getRecentTools } from '../utils/recent'
 
 export function Home() {
-  const apps = getHtmlApps()
+  const apps = useMemo(() => getHtmlApps(), [])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
+  /*
+   * 「最近使用」需在挂载后读取：hash 变化不会重新挂载 Home，
+   * 从工具页返回首页时若在渲染期同步读取 localStorage，列表不会刷新。
+   */
+  const [recentIds, setRecentIds] = useState<string[]>([])
 
-  const allItems: ToolDef[] = [
+  useEffect(() => {
+    setRecentIds(getRecentTools())
+  }, [])
+
+  const allItems: ToolDef[] = useMemo(() => [
     ...tools,
     ...apps.map(app => ({
       id: app.slug,
@@ -20,7 +29,7 @@ export function Home() {
       href: app.url || `apps/${app.slug}/`,
       tags: app.tags || []
     }))
-  ]
+  ], [apps])
 
   const categories = [
     { id: 'all', label: '全部', icon: '🔥' },
@@ -52,7 +61,6 @@ export function Home() {
       <div className="relative space-y-8 pb-16">
         {/* 最近使用 */}
         {(() => {
-          const recentIds = getRecentTools()
           const recentItems = recentIds
             .map(id => allItems.find(item => item.id === id))
             .filter(Boolean) as ToolDef[]
@@ -64,8 +72,7 @@ export function Home() {
                 <a
                   key={item.id}
                   href={item.href}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-700 dark:hover:text-blue-400 transition-all"
-                  style={{ borderRadius: '2px' }}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-700 dark:hover:text-blue-400 transition-all rounded-mech"
                 >
                   <span>{item.emoji}</span>
                   <span>{item.title}</span>
@@ -78,11 +85,10 @@ export function Home() {
         {/* 搜索栏和分类筛选 */}
         <div className="relative bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 backdrop-blur-sm">
           <div
-            className="absolute -top-0.5 -left-0.5 -right-0.5 h-1 opacity-70 pointer-events-none"
+            className="absolute -top-0.5 -left-0.5 -right-0.5 h-1 opacity-70 pointer-events-none animate-gradient-flow"
             style={{
               background: 'linear-gradient(90deg, #ff6b6b, #f7d794, #1dd1a1, #54a0ff, #5f27cd, #ff6b6b)',
-              backgroundSize: '300% 100%',
-              animation: 'gradient-flow 12s linear infinite'
+              backgroundSize: '300% 100%'
             }}
           />
 
@@ -101,8 +107,7 @@ export function Home() {
                 placeholder="搜索工具、应用... (Ctrl+K)"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full h-12 px-4 pr-12 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:border-blue-500 focus:outline-none transition-colors font-medium"
-                style={{ borderRadius: '2px' }}
+                className="w-full h-12 px-4 pr-12 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:border-blue-500 focus:outline-none transition-colors font-medium rounded-mech"
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">
                 🔍
@@ -114,12 +119,11 @@ export function Home() {
                 <button
                   key={category.id}
                   onClick={() => setSelectedCategory(category.id)}
-                  className={`inline-flex items-center gap-2 px-4 py-2 border-2 font-medium transition-all duration-200 hover:scale-105 ${
+                  className={`inline-flex items-center gap-2 px-4 py-2 border-2 font-medium transition-all duration-200 hover:scale-105 rounded-mech ${
                     selectedCategory === category.id
                       ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                       : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-500'
                   }`}
-                  style={{ borderRadius: '2px' }}
                 >
                   <span>{category.icon}</span>
                   <span>{category.label}</span>
@@ -148,19 +152,14 @@ export function Home() {
               key={item.id}
               href={item.href}
               target={item.category === 'app' ? '_self' : undefined}
-              className="group relative bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg dark:hover:shadow-black/30"
-              style={{
-                borderRadius: '2px',
-                animationDelay: `${index * 50}ms`,
-                animation: 'slideInUp 0.6s ease-out both'
-              }}
+              className="group relative bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg dark:hover:shadow-black/30 rounded-mech animate-slide-in-up"
+              style={{ animationDelay: `${index * 50}ms` }}
             >
               <div
-                className="absolute -top-0.5 -left-0.5 w-1 h-full opacity-80 pointer-events-none"
+                className="absolute -top-0.5 -left-0.5 w-1 h-full opacity-80 pointer-events-none animate-gradient-flow-vertical"
                 style={{
                   background: `linear-gradient(180deg, ${['#ff6b6b', '#f7d794', '#1dd1a1', '#54a0ff', '#5f27cd'][index % 5]}, ${['#f7d794', '#1dd1a1', '#54a0ff', '#5f27cd', '#ff6b6b'][index % 5]})`,
-                  backgroundSize: '100% 300%',
-                  animation: 'gradient-flow-vertical 14s linear infinite'
+                  backgroundSize: '100% 300%'
                 }}
               />
 
@@ -190,8 +189,7 @@ export function Home() {
                     {item.tags.slice(0, 3).map(tag => (
                       <span
                         key={tag}
-                        className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-medium"
-                        style={{ borderRadius: '2px' }}
+                        className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-medium rounded-mech"
                       >
                         #{tag}
                       </span>
@@ -218,27 +216,6 @@ export function Home() {
           </div>
         )}
       </div>
-
-      <style>{`
-        @keyframes gradient-flow {
-          0% { background-position: 0% 50%; }
-          100% { background-position: 100% 50%; }
-        }
-        @keyframes gradient-flow-vertical {
-          0% { background-position: 50% 0%; }
-          100% { background-position: 50% 100%; }
-        }
-        @keyframes slideInUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-      `}</style>
     </div>
   )
 }

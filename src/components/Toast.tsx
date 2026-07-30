@@ -45,12 +45,11 @@ export function ToastProvider({ children }: PropsWithChildren) {
           {toasts.map(t => (
             <div
               key={t.id}
-              className="pointer-events-auto animate-slideIn"
+              className="pointer-events-auto cursor-pointer animate-toast-slide-in"
               onClick={() => dismiss(t.id)}
-              style={{ cursor: 'pointer' }}
             >
-              <div className={`flex items-center gap-2 px-4 py-3 border-2 shadow-lg font-medium text-sm ${typeStyles[t.type]}`}
-                style={{ borderRadius: '2px', minWidth: '200px', maxWidth: '360px' }}
+              <div
+                className={`flex items-center gap-2 px-4 py-3 border-2 shadow-lg font-medium text-sm rounded-mech min-w-[200px] max-w-[360px] ${typeStyles[t.type]}`}
               >
                 <span>{typeIcons[t.type]}</span>
                 <span className="flex-1">{t.message}</span>
@@ -60,14 +59,6 @@ export function ToastProvider({ children }: PropsWithChildren) {
           ))}
         </div>
       )}
-
-      <style>{`
-        @keyframes toastSlideIn {
-          from { transform: translateX(100%); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-        .animate-slideIn { animation: toastSlideIn 0.3s ease-out; }
-      `}</style>
     </ToastContext.Provider>
   )
 }

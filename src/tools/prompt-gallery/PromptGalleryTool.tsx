@@ -111,7 +111,7 @@ export function PromptGalleryTool() {
   if (!selectedPrompt) {
     return (
       <ToolLayout title="提示词展柜" description="浏览、预览并复制常用提示词预设。">
-        <div className="text-gray-600">还没有配置提示词。</div>
+        <div className="text-gray-600 dark:text-gray-400">还没有配置提示词。</div>
       </ToolLayout>
     )
   }
@@ -129,7 +129,7 @@ export function PromptGalleryTool() {
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         <aside className="space-y-4">
           <div className="space-y-3">
-            <label className="block text-sm font-semibold text-gray-700" htmlFor="prompt-search">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300" htmlFor="prompt-search">
               搜索提示词
             </label>
             <input
@@ -137,8 +137,7 @@ export function PromptGalleryTool() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="搜索标题、简介、标签或正文..."
-              className="w-full border-2 border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
-              style={{ borderRadius: '2px' }}
+              className="w-full border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:border-blue-500 focus:outline-none rounded-mech"
             />
           </div>
 
@@ -148,19 +147,18 @@ export function PromptGalleryTool() {
                 key={category}
                 type="button"
                 onClick={() => setSelectedCategory(category)}
-                className={`border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                className={`border px-3 py-1.5 text-xs font-semibold transition-colors rounded-mech ${
                   selectedCategory === category
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                    : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100'
                 }`}
-                style={{ borderRadius: '2px' }}
               >
                 {category}
               </button>
             ))}
           </div>
 
-          <div className="text-xs font-medium text-gray-500">找到 {filteredPrompts.length} 条预设</div>
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400">找到 {filteredPrompts.length} 条预设</div>
 
           <div className="space-y-3">
             {filteredPrompts.map((prompt) => (
@@ -168,25 +166,24 @@ export function PromptGalleryTool() {
                 key={prompt.id}
                 type="button"
                 onClick={() => setSelectedId(prompt.id)}
-                className={`w-full border-2 p-4 text-left transition-all ${
+                className={`w-full border-2 p-4 text-left transition-all rounded-mech ${
                   selectedPrompt.id === prompt.id
-                    ? 'border-blue-500 bg-blue-50 shadow-subtle'
-                    : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-subtle'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 shadow-subtle'
+                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-500 hover:shadow-subtle'
                 }`}
-                style={{ borderRadius: '2px' }}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="font-bold text-gray-900">{prompt.title}</h3>
-                    <p className="mt-1 text-sm leading-relaxed text-gray-600">{prompt.description}</p>
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100">{prompt.title}</h3>
+                    <p className="mt-1 text-sm leading-relaxed text-gray-600 dark:text-gray-400">{prompt.description}</p>
                   </div>
-                  <span className="shrink-0 border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-500">
+                  <span className="shrink-0 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 rounded-mech">
                     {prompt.category}
                   </span>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {prompt.tags.map((tag) => (
-                    <span key={tag} className="bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
+                    <span key={tag} className="bg-gray-100 dark:bg-gray-700 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 rounded-mech">
                       #{tag}
                     </span>
                   ))}
@@ -196,25 +193,25 @@ export function PromptGalleryTool() {
           </div>
 
           {filteredPrompts.length === 0 && (
-            <div className="border-2 border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
+            <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 p-6 text-center text-sm text-gray-500 dark:text-gray-400 rounded-mech">
               没有找到匹配的提示词。
             </div>
           )}
         </aside>
 
         <section className="min-w-0 space-y-5">
-          <div className="flex flex-col gap-4 border-2 border-gray-200 bg-gray-50 p-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-4 border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-5 sm:flex-row sm:items-start sm:justify-between rounded-mech">
             <div className="min-w-0 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-xl font-bold text-gray-900">{selectedPrompt.title}</h3>
-                <span className="border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-500">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">{selectedPrompt.title}</h3>
+                <span className="border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 rounded-mech">
                   {selectedPrompt.category}
                 </span>
               </div>
-              <p className="text-sm leading-relaxed text-gray-600">{selectedPrompt.description}</p>
+              <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-400">{selectedPrompt.description}</p>
               <div className="flex flex-wrap gap-1.5">
                 {selectedPrompt.tags.map((tag) => (
-                  <span key={tag} className="bg-white px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-gray-200">
+                  <span key={tag} className="bg-white dark:bg-gray-900 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 ring-1 ring-gray-200 dark:ring-gray-700 rounded-mech">
                     #{tag}
                   </span>
                 ))}
@@ -225,16 +222,14 @@ export function PromptGalleryTool() {
               <button
                 type="button"
                 onClick={() => setDraft(selectedPrompt.content)}
-                className="border-2 border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:border-gray-300 hover:text-gray-900"
-                style={{ borderRadius: '2px' }}
+                className="border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 transition-colors hover:border-gray-300 dark:hover:border-gray-500 hover:text-gray-900 dark:hover:text-gray-100 rounded-mech"
               >
                 重置修改
               </button>
               <button
                 type="button"
                 onClick={handleCopy}
-                className="border-2 border-blue-600 bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-blue-700 hover:bg-blue-700"
-                style={{ borderRadius: '2px' }}
+                className="border-2 border-blue-600 bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-blue-700 hover:bg-blue-700 rounded-mech"
               >
                 {copyStatus === 'copied' ? '已复制' : copyStatus === 'failed' ? '复制失败' : '复制当前内容'}
               </button>
@@ -244,27 +239,25 @@ export function PromptGalleryTool() {
           <div className="grid gap-5 xl:grid-cols-2">
             <div className="min-w-0 space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="font-bold text-gray-900">Markdown 预览</h4>
-                <span className="text-xs text-gray-500">渲染后效果</span>
+                <h4 className="font-bold text-gray-900 dark:text-gray-100">Markdown 预览</h4>
+                <span className="text-xs text-gray-500 dark:text-gray-400">渲染后效果</span>
               </div>
               <article
-                className="prose prose-slate max-w-none border-2 border-gray-200 bg-white p-5 prose-headings:scroll-mt-20 prose-pre:bg-gray-950 prose-pre:text-gray-50"
-                style={{ borderRadius: '2px' }}
+                className="prose prose-slate dark:prose-invert max-w-none border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 prose-headings:scroll-mt-20 prose-pre:bg-gray-950 prose-pre:text-gray-50 rounded-mech"
                 dangerouslySetInnerHTML={{ __html: previewHtml }}
               />
             </div>
 
             <div className="min-w-0 space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="font-bold text-gray-900">临时编辑</h4>
-                <span className="text-xs text-gray-500">不会保存到配置</span>
+                <h4 className="font-bold text-gray-900 dark:text-gray-100">临时编辑</h4>
+                <span className="text-xs text-gray-500 dark:text-gray-400">不会保存到配置</span>
               </div>
               <textarea
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 spellCheck={false}
-                className="min-h-[560px] w-full resize-y border-2 border-gray-200 bg-white p-4 font-mono text-sm leading-6 text-gray-900 focus:border-blue-500 focus:outline-none"
-                style={{ borderRadius: '2px' }}
+                className="min-h-[560px] w-full resize-y border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 p-4 font-mono text-sm leading-6 text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none rounded-mech"
               />
             </div>
           </div>

@@ -79,8 +79,7 @@ export function TextDiffTool() {
               value={textA}
               onChange={e => setTextA(e.target.value)}
               placeholder="粘贴原始文本..."
-              className="w-full h-40 p-3 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm resize-y focus:border-blue-500 focus:outline-none"
-              style={{ borderRadius: '2px' }}
+              className="w-full h-40 p-3 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm resize-y focus:border-blue-500 focus:outline-none rounded-mech"
             />
           </div>
           <div>
@@ -89,8 +88,7 @@ export function TextDiffTool() {
               value={textB}
               onChange={e => setTextB(e.target.value)}
               placeholder="粘贴修改后的文本..."
-              className="w-full h-40 p-3 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm resize-y focus:border-blue-500 focus:outline-none"
-              style={{ borderRadius: '2px' }}
+              className="w-full h-40 p-3 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm resize-y focus:border-blue-500 focus:outline-none rounded-mech"
             />
           </div>
         </div>
@@ -107,7 +105,7 @@ export function TextDiffTool() {
 
         {/* Diff output */}
         {diff.length > 0 && (
-          <div className="border-2 border-gray-200 dark:border-gray-600 overflow-hidden" style={{ borderRadius: '2px' }}>
+          <div className="border-2 border-gray-200 dark:border-gray-600 overflow-hidden rounded-mech">
             <div className="max-h-96 overflow-auto">
               <table className="w-full text-xs font-mono border-collapse">
                 <tbody>

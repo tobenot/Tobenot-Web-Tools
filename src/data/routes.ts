@@ -1,3 +1,4 @@
+import { lazy, type ComponentType, type LazyExoticComponent } from 'react'
 import { ChangelogEntry } from '../components/Changelog'
 
 export interface ToolDef {
@@ -9,7 +10,18 @@ export interface ToolDef {
   category: 'utility' | 'app' | 'info'
   href: string
   tags?: string[]
+  /** 是否占满视口（自带滚动容器、隐藏页脚），如阅读器、大字板 */
+  fullPage?: boolean
+  /**
+   * 工具组件。懒加载以避免把全部工具塞进首屏 bundle。
+   * 缺省表示该条目只是导航入口（如 changelog），由 App 单独处理。
+   */
+  component?: LazyExoticComponent<ComponentType>
 }
+
+/* 懒加载：命名导出需要映射成 default */
+const lazyTool = (loader: () => Promise<Record<string, ComponentType<any>>>, exportName: string) =>
+  lazy(() => loader().then((m) => ({ default: m[exportName] })))
 
 export const tools: ToolDef[] = [
   {
@@ -19,7 +31,8 @@ export const tools: ToolDef[] = [
     emoji: '🗓️',
     version: 'v0.1',
     category: 'utility',
-    href: '#calendar'
+    href: '#calendar',
+    component: lazyTool(() => import('../tools/calendar/CalendarTool'), 'CalendarTool')
   },
   {
     id: 'markdown-reader',
@@ -28,7 +41,9 @@ export const tools: ToolDef[] = [
     emoji: '📖',
     version: 'v0.2',
     category: 'utility',
-    href: '#markdown-reader'
+    href: '#markdown-reader',
+    fullPage: true,
+    component: lazyTool(() => import('../tools/markdown-reader/MarkdownReaderTool'), 'MarkdownReaderTool')
   },
   {
     id: 'prompt-gallery',
@@ -37,7 +52,8 @@ export const tools: ToolDef[] = [
     emoji: 'Pr',
     version: 'v0.1',
     category: 'utility',
-    href: '#prompt-gallery'
+    href: '#prompt-gallery',
+    component: lazyTool(() => import('../tools/prompt-gallery/PromptGalleryTool'), 'PromptGalleryTool')
   },
   {
     id: 'bg-remover',
@@ -46,7 +62,8 @@ export const tools: ToolDef[] = [
     emoji: '🖼️',
     version: 'v0.1',
     category: 'utility',
-    href: '#bg-remover'
+    href: '#bg-remover',
+    component: lazyTool(() => import('../tools/bg-remover/BgRemoverTool'), 'BgRemoverTool')
   },
   {
     id: 'image-to-webp',
@@ -56,7 +73,8 @@ export const tools: ToolDef[] = [
     version: 'v1.0',
     category: 'utility',
     href: '#image-to-webp',
-    tags: ['图片', 'WebP', '压缩', '批量']
+    tags: ['图片', 'WebP', '压缩', '批量'],
+    component: lazyTool(() => import('../tools/image-to-webp/ImageToWebpTool'), 'ImageToWebpTool')
   },
   {
     id: 'image-outline',
@@ -66,7 +84,8 @@ export const tools: ToolDef[] = [
     version: 'v1.0',
     category: 'utility',
     href: '#image-outline',
-    tags: ['图片', '描边', '贴纸', '透明底']
+    tags: ['图片', '描边', '贴纸', '透明底'],
+    component: lazyTool(() => import('../tools/image-outline/ImageOutlineTool'), 'ImageOutlineTool')
   },
   {
     id: 'space-tab-converter',
@@ -75,7 +94,8 @@ export const tools: ToolDef[] = [
     emoji: '↔️',
     version: 'v0.1',
     category: 'utility',
-    href: '#space-tab-converter'
+    href: '#space-tab-converter',
+    component: lazyTool(() => import('../tools/space-tab-converter/SpaceTabConverterTool'), 'SpaceTabConverterTool')
   },
   {
     id: 'json-viewer',
@@ -84,7 +104,8 @@ export const tools: ToolDef[] = [
     emoji: '📊',
     version: 'v0.1',
     category: 'utility',
-    href: '#json-viewer'
+    href: '#json-viewer',
+    component: lazyTool(() => import('../tools/json-viewer/JsonViewerTool'), 'JsonViewerTool')
   },
   {
     id: 'base64',
@@ -93,7 +114,8 @@ export const tools: ToolDef[] = [
     emoji: '🔐',
     version: 'v1.0',
     category: 'utility',
-    href: '#base64'
+    href: '#base64',
+    component: lazyTool(() => import('../tools/base64/Base64Tool'), 'Base64Tool')
   },
   {
     id: 'url-codec',
@@ -102,7 +124,8 @@ export const tools: ToolDef[] = [
     emoji: '🔗',
     version: 'v1.0',
     category: 'utility',
-    href: '#url-codec'
+    href: '#url-codec',
+    component: lazyTool(() => import('../tools/url-codec/UrlCodecTool'), 'UrlCodecTool')
   },
   {
     id: 'regex-tester',
@@ -111,7 +134,8 @@ export const tools: ToolDef[] = [
     emoji: '🎯',
     version: 'v1.0',
     category: 'utility',
-    href: '#regex-tester'
+    href: '#regex-tester',
+    component: lazyTool(() => import('../tools/regex-tester/RegexTesterTool'), 'RegexTesterTool')
   },
   {
     id: 'text-diff',
@@ -120,7 +144,8 @@ export const tools: ToolDef[] = [
     emoji: '📝',
     version: 'v1.0',
     category: 'utility',
-    href: '#text-diff'
+    href: '#text-diff',
+    component: lazyTool(() => import('../tools/text-diff/TextDiffTool'), 'TextDiffTool')
   },
   {
     id: 'qrcode',
@@ -129,7 +154,8 @@ export const tools: ToolDef[] = [
     emoji: '📱',
     version: 'v1.0',
     category: 'utility',
-    href: '#qrcode'
+    href: '#qrcode',
+    component: lazyTool(() => import('../tools/qrcode/QrCodeTool'), 'QrCodeTool')
   },
   {
     id: 'big-text',
@@ -139,7 +165,9 @@ export const tools: ToolDef[] = [
     version: 'v1.0',
     category: 'app',
     href: '#big-text',
-    tags: ['沟通', '无障碍', '展示']
+    tags: ['沟通', '无障碍', '展示'],
+    fullPage: true,
+    component: lazyTool(() => import('../tools/big-text/BigTextTool'), 'BigTextTool')
   },
   {
     id: 'changelog',
@@ -152,27 +180,47 @@ export const tools: ToolDef[] = [
   }
 ]
 
+/* ─── 由注册表派生的查询结构 ─── */
+
+const SITE_TITLE = 'Mecha Tools | 现代机械风 Web 工具站'
+
+export const toolsById: Record<string, ToolDef> = Object.fromEntries(
+  tools.map((t) => [t.id, t])
+)
+
+/**
+ * 页面标题表。从 tools 派生，避免新增工具时漏改而静默 fallback。
+ * 仅非工具页（首页、关于）需要手写。
+ */
 export const pageTitleMap: Record<string, string> = {
-  '': 'Mecha Tools | 现代机械风 Web 工具站',
-  calendar: '日历工具 | Mecha Tools',
-  'markdown-reader': 'Markdown 阅读器 | Mecha Tools',
-  'prompt-gallery': '提示词展柜 | Mecha Tools',
-  'json-viewer': 'JSON 表格查看器 | Mecha Tools',
-  'bg-remover': '图片去底工具 | Mecha Tools',
-  'image-to-webp': '图片转 WebP | Mecha Tools',
-  'image-outline': '图片描边工具 | Mecha Tools',
-  'space-tab-converter': '空格/Tab 转换器 | Mecha Tools',
-  'base64': 'Base64 编解码 | Mecha Tools',
-  'url-codec': 'URL 编解码 | Mecha Tools',
-  'regex-tester': '正则测试器 | Mecha Tools',
-  'text-diff': '文本 Diff 对比 | Mecha Tools',
-  'qrcode': '二维码生成 | Mecha Tools',
-  'big-text': '大字展示板 | Mecha Tools',
-  changelog: '更新日志 | Mecha Tools',
-  about: '关于与设计 | Mecha Tools'
+  '': SITE_TITLE,
+  about: '关于与设计 | Mecha Tools',
+  ...Object.fromEntries(tools.map((t) => [t.id, `${t.title} | Mecha Tools`]))
+}
+
+export function getPageTitle(path: string): string {
+  return pageTitleMap[path] ?? SITE_TITLE
+}
+
+/** 已注册的路由集合（含非工具页），用于 404 判定与「最近使用」过滤 */
+export const knownRoutes = new Set<string>(['', 'about', ...tools.map((t) => t.id)])
+
+export function isKnownRoute(path: string): boolean {
+  return knownRoutes.has(path)
 }
 
 export const globalChangelog: ChangelogEntry[] = [
+  {
+    date: '2026-07-30',
+    title: '工程与体验改进：代码分割、404 页与工程护栏',
+    notes: [
+      '路由改为注册表驱动：新增 404 页，访问失效链接不再是空白页',
+      '工具改为按需加载（React.lazy），首屏体积显著下降',
+      '修复正则测试器在渲染期更新状态的问题，并加入匹配数与耗时熔断，避免病态正则卡死页面',
+      '补齐更新日志、分享按钮等组件的暗色模式样式',
+      '接入 ESLint 与 Vitest 单元测试，并将全部自检纳入 CI'
+    ]
+  },
   {
     date: '2026-07-30',
     title: '安全加固：Markdown 渲染净化与凭证隔离',

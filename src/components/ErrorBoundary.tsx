@@ -35,8 +35,7 @@ export class ErrorBoundary extends Component<PropsWithChildren, State> {
           </p>
           <button
             onClick={this.handleReset}
-            className="px-6 py-3 border-2 border-gray-900 dark:border-gray-100 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors"
-            style={{ borderRadius: '2px' }}
+            className="px-6 py-3 border-2 border-gray-900 dark:border-gray-100 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors rounded-mech"
           >
             返回首页
           </button>

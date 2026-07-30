@@ -71,8 +71,7 @@ export function Base64Tool() {
               mode === 'encode'
                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                 : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-            }`}
-            style={{ borderRadius: '2px' }}
+            } rounded-mech`}
           >
             编码 (Encode)
           </button>
@@ -82,15 +81,13 @@ export function Base64Tool() {
               mode === 'decode'
                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                 : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-            }`}
-            style={{ borderRadius: '2px' }}
+            } rounded-mech`}
           >
             解码 (Decode)
           </button>
           <button
             onClick={handleSwap}
-            className="ml-auto px-3 py-2 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-medium hover:border-gray-400 dark:hover:border-gray-500 transition-all"
-            style={{ borderRadius: '2px' }}
+            className="ml-auto px-3 py-2 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-medium hover:border-gray-400 dark:hover:border-gray-500 transition-all rounded-mech"
             title="交换输入输出"
           >
             ⇅ 交换
@@ -112,23 +109,21 @@ export function Base64Tool() {
             value={input}
             onChange={e => setInput(e.target.value)}
             placeholder={mode === 'encode' ? '输入要编码的文本...' : '输入 Base64 字符串...'}
-            className="w-full h-32 p-3 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm resize-y focus:border-blue-500 focus:outline-none"
-            style={{ borderRadius: '2px' }}
+            className="w-full h-32 p-3 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm resize-y focus:border-blue-500 focus:outline-none rounded-mech"
           />
         </div>
 
         {/* Convert button */}
         <button
           onClick={handleConvert}
-          className="w-full py-3 border-2 border-gray-900 dark:border-gray-100 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors"
-          style={{ borderRadius: '2px' }}
+          className="w-full py-3 border-2 border-gray-900 dark:border-gray-100 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors rounded-mech"
         >
           {mode === 'encode' ? '编码 →' : '← 解码'}
         </button>
 
         {/* Error */}
         {error && (
-          <div className="p-3 border-2 border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm" style={{ borderRadius: '2px' }}>
+          <div className="p-3 border-2 border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm rounded-mech">
             {error}
           </div>
         )}
@@ -152,8 +147,7 @@ export function Base64Tool() {
             value={output}
             readOnly
             placeholder="结果将显示在这里..."
-            className="w-full h-32 p-3 border-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm resize-y"
-            style={{ borderRadius: '2px' }}
+            className="w-full h-32 p-3 border-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm resize-y rounded-mech"
           />
           {output && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

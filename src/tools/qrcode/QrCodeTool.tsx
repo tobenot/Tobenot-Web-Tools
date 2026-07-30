@@ -82,8 +82,7 @@ export function QrCodeTool() {
             value={text}
             onChange={e => setText(e.target.value)}
             placeholder="输入文本或 URL..."
-            className="w-full h-24 p-3 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 text-sm resize-y focus:border-blue-500 focus:outline-none"
-            style={{ borderRadius: '2px' }}
+            className="w-full h-24 p-3 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 text-sm resize-y focus:border-blue-500 focus:outline-none rounded-mech"
           />
         </div>
 
@@ -94,8 +93,7 @@ export function QrCodeTool() {
             <select
               value={size}
               onChange={e => setSize(Number(e.target.value))}
-              className="px-2 py-1 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
-              style={{ borderRadius: '2px' }}
+              className="px-2 py-1 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm rounded-mech"
             >
               <option value={128}>128px</option>
               <option value={256}>256px</option>
@@ -119,8 +117,8 @@ export function QrCodeTool() {
             ref={canvasRef}
             width={size}
             height={size}
-            className="border-2 border-gray-200 dark:border-gray-700"
-            style={{ width: Math.min(size, 300), height: Math.min(size, 300), imageRendering: 'pixelated', borderRadius: '2px' }}
+            className="border-2 border-gray-200 dark:border-gray-700 rounded-mech"
+            style={{ width: Math.min(size, 300), height: Math.min(size, 300), imageRendering: 'pixelated' }}
           />
           {!text && (
             <p className="text-sm text-gray-400 dark:text-gray-500">输入内容后生成二维码</p>
@@ -132,15 +130,13 @@ export function QrCodeTool() {
           <div className="flex items-center gap-3">
             <button
               onClick={handleDownload}
-              className="px-4 py-2 border-2 border-gray-900 dark:border-gray-100 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium text-sm hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors"
-              style={{ borderRadius: '2px' }}
+              className="px-4 py-2 border-2 border-gray-900 dark:border-gray-100 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium text-sm hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors rounded-mech"
             >
               下载 PNG
             </button>
             <button
               onClick={handleCopyImage}
-              className="px-4 py-2 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium text-sm hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
-              style={{ borderRadius: '2px' }}
+              className="px-4 py-2 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium text-sm hover:border-gray-400 dark:hover:border-gray-500 transition-colors rounded-mech"
             >
               复制图片
             </button>

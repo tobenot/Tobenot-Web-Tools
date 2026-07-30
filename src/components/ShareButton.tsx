@@ -19,14 +19,13 @@ export function ShareButton() {
   }
 
   return (
-    <button 
-      onClick={copy} 
-      className={`inline-flex items-center gap-2 px-4 py-2 border-2 font-medium transition-all duration-200 hover:scale-105 group ${
-        copied 
-          ? 'border-green-500 bg-green-50 text-green-700' 
-          : 'border-gray-200 bg-white text-gray-700 hover:border-blue-500 hover:bg-blue-50 hover:text-blue-700'
+    <button
+      onClick={copy}
+      className={`inline-flex items-center gap-2 px-4 py-2 border-2 font-medium transition-all duration-200 hover:scale-105 group rounded-mech ${
+        copied
+          ? 'border-green-500 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+          : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-700 dark:hover:text-blue-300'
       }`}
-      style={{ borderRadius: '2px' }}
     >
       <span className="text-base group-hover:scale-110 transition-transform duration-300">
         {copied ? '✅' : '🔗'}

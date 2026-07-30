@@ -8,51 +8,90 @@ interface MatchResult {
   groups: string[]
 }
 
+/*
+ * 病态正则（如 /(a+)+$/ 配长文本）会指数级回溯，正则测试器的用户
+ * 恰恰最容易写出这类表达式。JS 的 RegExp 无法中断，只能靠
+ * 限制匹配轮数与检查累计耗时来避免整个标签页冻死。
+ */
+const MAX_MATCHES = 10_000
+const TIME_BUDGET_MS = 50
+
+function escapeHtml(s: string) {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br/>')
+}
+
+interface RegexRunResult {
+  matches: MatchResult[]
+  highlighted: string
+  error: string
+  truncated: boolean
+}
+
+function runRegex(pattern: string, flags: string, testText: string): RegexRunResult {
+  const empty: RegexRunResult = { matches: [], highlighted: '', error: '', truncated: false }
+  if (!pattern || !testText) return empty
+
+  let regex: RegExp
+  try {
+    regex = new RegExp(pattern, flags)
+  } catch (e) {
+    return { ...empty, error: e instanceof Error ? e.message : String(e) }
+  }
+
+  const results: MatchResult[] = []
+  let truncated = false
+
+  try {
+    if (flags.includes('g')) {
+      const startedAt = Date.now()
+      let m: RegExpExecArray | null
+      while ((m = regex.exec(testText)) !== null) {
+        results.push({ full: m[0], index: m.index, groups: m.slice(1) })
+        if (!m[0]) regex.lastIndex++
+
+        if (results.length >= MAX_MATCHES || Date.now() - startedAt > TIME_BUDGET_MS) {
+          truncated = true
+          break
+        }
+      }
+    } else {
+      const m = regex.exec(testText)
+      if (m) results.push({ full: m[0], index: m.index, groups: m.slice(1) })
+    }
+  } catch (e) {
+    return { ...empty, error: e instanceof Error ? e.message : String(e) }
+  }
+
+  let html = ''
+  let lastIdx = 0
+  for (const r of results) {
+    html += escapeHtml(testText.slice(lastIdx, r.index))
+    html += `<mark class="bg-yellow-200 dark:bg-yellow-700/60 text-gray-900 dark:text-yellow-100 px-0.5 rounded-sm">${escapeHtml(r.full)}</mark>`
+    lastIdx = r.index + r.full.length
+  }
+  html += escapeHtml(testText.slice(lastIdx))
+
+  return { matches: results, highlighted: html, error: '', truncated }
+}
+
 export function RegexTesterTool() {
   const [pattern, setPattern] = useState('')
   const [flags, setFlags] = useState('g')
   const [testText, setTestText] = useState('')
-  const [error, setError] = useState('')
   const { toast } = useToast()
 
-  const { matches, highlighted } = useMemo(() => {
-    if (!pattern || !testText) return { matches: [] as MatchResult[], highlighted: '' }
-    try {
-      const regex = new RegExp(pattern, flags)
-      const results: MatchResult[] = []
-      let m: RegExpExecArray | null
-
-      if (flags.includes('g')) {
-        while ((m = regex.exec(testText)) !== null) {
-          results.push({ full: m[0], index: m.index, groups: m.slice(1) })
-          if (!m[0]) regex.lastIndex++
-        }
-      } else {
-        m = regex.exec(testText)
-        if (m) results.push({ full: m[0], index: m.index, groups: m.slice(1) })
-      }
-
-      // Build highlighted text
-      let html = ''
-      let lastIdx = 0
-      for (const r of results) {
-        html += escapeHtml(testText.slice(lastIdx, r.index))
-        html += `<mark class="bg-yellow-200 dark:bg-yellow-700/60 text-gray-900 dark:text-yellow-100 px-0.5 rounded-sm">${escapeHtml(r.full)}</mark>`
-        lastIdx = r.index + r.full.length
-      }
-      html += escapeHtml(testText.slice(lastIdx))
-
-      setError('')
-      return { matches: results, highlighted: html }
-    } catch (e: any) {
-      setError(e.message)
-      return { matches: [] as MatchResult[], highlighted: '' }
-    }
-  }, [pattern, flags, testText])
-
-  function escapeHtml(s: string) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>')
-  }
+  /*
+   * error / truncated 作为派生结果返回，而非在 useMemo 里 setState。
+   * 渲染期间更新 state 会触发 React 警告，StrictMode 下行为更难预期。
+   */
+  const { matches, highlighted, error, truncated } = useMemo(
+    () => runRegex(pattern, flags, testText),
+    [pattern, flags, testText],
+  )
 
   function handleCopyRegex() {
     navigator.clipboard.writeText(`/${pattern}/${flags}`)
@@ -82,7 +121,7 @@ export function RegexTesterTool() {
               </button>
             )}
           </div>
-          <div className="flex items-stretch border-2 border-gray-200 dark:border-gray-600 focus-within:border-blue-500" style={{ borderRadius: '2px' }}>
+          <div className="flex items-stretch border-2 border-gray-200 dark:border-gray-600 focus-within:border-blue-500 rounded-mech">
             <span className="flex items-center px-3 text-gray-400 dark:text-gray-500 font-mono text-lg border-r border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800">/</span>
             <input
               type="text"
@@ -112,8 +151,7 @@ export function RegexTesterTool() {
                 flags.includes(flag)
                   ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                   : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
-              }`}
-              style={{ borderRadius: '2px' }}
+              } rounded-mech`}
             >
               {flag} <span className="text-[10px] opacity-60">{label}</span>
             </button>
@@ -122,7 +160,7 @@ export function RegexTesterTool() {
 
         {/* Error */}
         {error && (
-          <div className="p-3 border-2 border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm font-mono" style={{ borderRadius: '2px' }}>
+          <div className="p-3 border-2 border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm font-mono rounded-mech">
             {error}
           </div>
         )}
@@ -134,8 +172,7 @@ export function RegexTesterTool() {
             value={testText}
             onChange={e => setTestText(e.target.value)}
             placeholder="输入要测试的文本..."
-            className="w-full h-28 p-3 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm resize-y focus:border-blue-500 focus:outline-none"
-            style={{ borderRadius: '2px' }}
+            className="w-full h-28 p-3 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm resize-y focus:border-blue-500 focus:outline-none rounded-mech"
           />
         </div>
 
@@ -143,11 +180,15 @@ export function RegexTesterTool() {
         {highlighted && (
           <div>
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
-              匹配结果 ({matches.length} 个匹配)
+              匹配结果 ({matches.length} 个匹配{truncated ? '，已截断' : ''})
             </label>
+            {truncated && (
+              <div className="mb-2 p-2 border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 text-xs rounded-mech">
+                该正则匹配过多或回溯耗时过长，已提前停止以避免页面卡死。请检查是否存在嵌套量词（如 <code className="font-mono">(a+)+</code>）。
+              </div>
+            )}
             <div
-              className="p-3 border-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 font-mono text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-all"
-              style={{ borderRadius: '2px' }}
+              className="p-3 border-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 font-mono text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-all rounded-mech"
               dangerouslySetInnerHTML={{ __html: highlighted }}
             />
           </div>
@@ -159,7 +200,7 @@ export function RegexTesterTool() {
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">匹配详情</label>
             <div className="space-y-1 max-h-48 overflow-y-auto">
               {matches.map((m, i) => (
-                <div key={i} className="flex items-start gap-3 text-xs font-mono p-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700" style={{ borderRadius: '2px' }}>
+                <div key={i} className="flex items-start gap-3 text-xs font-mono p-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-mech">
                   <span className="text-gray-400 dark:text-gray-500 w-6 flex-shrink-0">#{i}</span>
                   <span className="text-green-700 dark:text-green-400 flex-shrink-0">@{m.index}</span>
                   <span className="text-gray-900 dark:text-gray-100 break-all">"{m.full}"</span>

@@ -62,13 +62,12 @@ export function UrlCodecTool() {
             value={input}
             onChange={e => handleConvert(e.target.value)}
             placeholder="输入要编解码的内容... 例如: https://example.com/路径?q=你好"
-            className="w-full h-24 p-3 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm resize-y focus:border-blue-500 focus:outline-none"
-            style={{ borderRadius: '2px' }}
+            className="w-full h-24 p-3 border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 font-mono text-sm resize-y focus:border-blue-500 focus:outline-none rounded-mech"
           />
         </div>
 
         {error && (
-          <div className="p-3 border-2 border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm" style={{ borderRadius: '2px' }}>
+          <div className="p-3 border-2 border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm rounded-mech">
             {error}
           </div>
         )}
@@ -76,7 +75,7 @@ export function UrlCodecTool() {
         {input && (
           <div className="space-y-3">
             {(Object.keys(modeLabels) as CodecMode[]).map(mode => (
-              <div key={mode} className="border-2 border-gray-200 dark:border-gray-700 p-3" style={{ borderRadius: '2px' }}>
+              <div key={mode} className="border-2 border-gray-200 dark:border-gray-700 p-3 rounded-mech">
                 <div className="flex items-center justify-between mb-2">
                   <code className="text-xs font-bold text-blue-600 dark:text-blue-400">{modeLabels[mode]}</code>
                   <button
@@ -86,7 +85,7 @@ export function UrlCodecTool() {
                     复制
                   </button>
                 </div>
-                <div className="font-mono text-sm text-gray-800 dark:text-gray-200 break-all bg-gray-50 dark:bg-gray-800 p-2 select-all" style={{ borderRadius: '2px' }}>
+                <div className="font-mono text-sm text-gray-800 dark:text-gray-200 break-all bg-gray-50 dark:bg-gray-800 p-2 select-all rounded-mech">
                   {results[mode] || '—'}
                 </div>
               </div>

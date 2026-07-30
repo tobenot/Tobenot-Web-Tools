@@ -12,11 +12,10 @@ export function Layout({ children, hideFooter = false }: LayoutProps) {
       <footer className="w-full px-6 pb-12 pt-16">
         <div className="relative bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 p-6">
           <div
-            className="absolute -top-0.5 -left-0.5 -right-0.5 h-1 opacity-60 pointer-events-none"
+            className="absolute -top-0.5 -left-0.5 -right-0.5 h-1 opacity-60 pointer-events-none animate-gradient-flow-slow"
             style={{
               background: 'linear-gradient(90deg, #ff6b6b, #f7d794, #1dd1a1, #54a0ff, #5f27cd, #ff6b6b)',
-              backgroundSize: '300% 100%',
-              animation: 'gradient-flow 20s linear infinite'
+              backgroundSize: '300% 100%'
             }}
           />
 
@@ -44,13 +43,6 @@ export function Layout({ children, hideFooter = false }: LayoutProps) {
         </div>
       </footer>
       )}
-
-      <style>{`
-        @keyframes gradient-flow {
-          0% { background-position: 0% 50%; }
-          100% { background-position: 100% 50%; }
-        }
-      `}</style>
     </div>
   )
 }

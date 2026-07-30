@@ -100,8 +100,7 @@ export function CommandPalette() {
       {/* Panel */}
       <div className="fixed inset-0 z-[9991] flex items-start justify-center pt-[15vh] px-4 pointer-events-none">
         <div
-          className="w-full max-w-lg bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 shadow-2xl pointer-events-auto overflow-hidden"
-          style={{ borderRadius: '2px', animation: 'cmdFadeIn 0.15s ease-out' }}
+          className="w-full max-w-lg bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 shadow-2xl pointer-events-auto overflow-hidden rounded-mech animate-cmd-fade-in"
         >
           {/* Search input */}
           <div className="flex items-center gap-3 px-4 border-b-2 border-gray-100 dark:border-gray-700">
@@ -155,13 +154,6 @@ export function CommandPalette() {
           </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes cmdFadeIn {
-          from { opacity: 0; transform: scale(0.96) translateY(-8px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-      `}</style>
     </>
   )
 }

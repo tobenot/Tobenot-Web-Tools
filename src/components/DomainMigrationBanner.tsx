@@ -39,8 +39,7 @@ export function DomainMigrationBanner() {
         <button
           type="button"
           onClick={dismiss}
-          className="shrink-0 px-2 py-1 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
-          style={{ borderRadius: '2px' }}
+          className="shrink-0 px-2 py-1 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors rounded-mech"
           aria-label="关闭通知"
         >
           关闭

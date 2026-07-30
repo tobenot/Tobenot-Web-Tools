@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { Header } from './components/Header'
 import { DomainMigrationBanner } from './components/DomainMigrationBanner'
 import { Layout } from './components/Layout'
@@ -7,24 +7,23 @@ import { CommandPalette } from './components/CommandPalette'
 import { Home } from './pages/Home'
 import { About } from './pages/About'
 import { ChangelogPage } from './pages/ChangelogPage'
-import { CalendarTool } from './tools/calendar/CalendarTool'
-import { MarkdownReaderTool } from './tools/markdown-reader/MarkdownReaderTool'
-import { PromptGalleryTool } from './tools/prompt-gallery/PromptGalleryTool'
-import { SpaceTabConverterTool } from './tools/space-tab-converter/SpaceTabConverterTool'
-import { BgRemoverTool } from './tools/bg-remover/BgRemoverTool'
-import { ImageToWebpTool } from './tools/image-to-webp/ImageToWebpTool'
-import { ImageOutlineTool } from './tools/image-outline/ImageOutlineTool'
-import { JsonViewerTool } from './tools/json-viewer/JsonViewerTool'
-import { Base64Tool } from './tools/base64/Base64Tool'
-import { UrlCodecTool } from './tools/url-codec/UrlCodecTool'
-import { RegexTesterTool } from './tools/regex-tester/RegexTesterTool'
-import { TextDiffTool } from './tools/text-diff/TextDiffTool'
-import { QrCodeTool } from './tools/qrcode/QrCodeTool'
-import { BigTextTool } from './tools/big-text/BigTextTool'
+import { NotFound } from './pages/NotFound'
 import { getHashLocation } from './utils/hash'
 import { setFavicon } from './utils/favicon'
 import { recordToolVisit } from './utils/recent'
-import { pageTitleMap } from './data/routes'
+import { getPageTitle, isKnownRoute, toolsById } from './data/routes'
+
+/** 懒加载 chunk 就位前的占位，避免布局跳动 */
+function ToolFallback() {
+  return (
+    <div className="flex items-center justify-center py-24">
+      <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+        <span className="inline-block w-4 h-4 border-2 border-gray-300 dark:border-gray-600 border-t-blue-500 rounded-full animate-spin" />
+        <span>加载中…</span>
+      </div>
+    </div>
+  )
+}
 
 export default function App() {
   const [hashKey, setHashKey] = useState(0)
@@ -38,59 +37,50 @@ export default function App() {
   const route = useMemo(() => getHashLocation(), [hashKey])
 
   useEffect(() => {
-    document.title = pageTitleMap[route.path] ?? 'Mecha Tools | 现代机械风 Web 工具站'
+    document.title = getPageTitle(route.path)
     setFavicon(route.path)
-    if (route.path && route.path !== 'changelog' && route.path !== 'about') {
-      recordToolVisit(route.path)
-    }
+    recordToolVisit(route.path)
   }, [route.path])
 
-  const fullPagePaths = ['markdown-reader', 'big-text']
-  const isFullPage = fullPagePaths.includes(route.path)
+  const tool = toolsById[route.path]
+  const ToolComponent = tool?.component
+  const isFullPage = Boolean(tool?.fullPage)
+
+  /*
+   * 全屏工具自带滚动容器并隐藏页脚，因此需要独立的 <main>；
+   * 其余页面共用带内边距的常规容器。
+   */
+  const content = ToolComponent ? (
+    <ErrorBoundary key={route.path}>
+      <Suspense fallback={<ToolFallback />}>
+        <ToolComponent />
+      </Suspense>
+    </ErrorBoundary>
+  ) : route.path === '' ? (
+    <Home />
+  ) : route.path === 'changelog' ? (
+    <ChangelogPage />
+  ) : route.path === 'about' ? (
+    <About />
+  ) : isKnownRoute(route.path) ? null : (
+    <NotFound path={route.path} />
+  )
 
   return (
     <Layout hideFooter={isFullPage}>
       <Header />
       <DomainMigrationBanner />
       <CommandPalette />
-      {route.path === 'markdown-reader' && (
-        <main className="w-full overflow-hidden p-4" style={{ height: 'calc(100vh - 66px)' }}>
-          <ErrorBoundary>
-            <MarkdownReaderTool />
-          </ErrorBoundary>
+      {isFullPage ? (
+        <main
+          className={route.path === 'markdown-reader' ? 'w-full overflow-hidden p-4' : 'w-full'}
+          style={{ height: 'calc(100vh - 66px)' }}
+        >
+          {content}
         </main>
+      ) : (
+        <main className="w-full px-6 pb-16 pt-8">{content}</main>
       )}
-      {route.path === 'big-text' && (
-        <main className="w-full" style={{ height: 'calc(100vh - 66px)' }}>
-          <ErrorBoundary>
-            <BigTextTool />
-          </ErrorBoundary>
-        </main>
-      )}
-      <main className={`w-full px-6 pb-16 pt-8${isFullPage ? ' hidden' : ''}`}>
-        {route.path === '' && <Home />}
-        {route.path === 'calendar' && <ErrorBoundary><CalendarTool /></ErrorBoundary>}
-        {route.path === 'prompt-gallery' && <ErrorBoundary><PromptGalleryTool /></ErrorBoundary>}
-        {route.path === 'bg-remover' && <ErrorBoundary><BgRemoverTool /></ErrorBoundary>}
-        {route.path === 'image-to-webp' && <ErrorBoundary><ImageToWebpTool /></ErrorBoundary>}
-        {route.path === 'image-outline' && <ErrorBoundary><ImageOutlineTool /></ErrorBoundary>}
-        {route.path === 'space-tab-converter' && <ErrorBoundary><SpaceTabConverterTool /></ErrorBoundary>}
-        {route.path === 'json-viewer' && <ErrorBoundary><JsonViewerTool /></ErrorBoundary>}
-        {route.path === 'base64' && <ErrorBoundary><Base64Tool /></ErrorBoundary>}
-        {route.path === 'url-codec' && <ErrorBoundary><UrlCodecTool /></ErrorBoundary>}
-        {route.path === 'regex-tester' && <ErrorBoundary><RegexTesterTool /></ErrorBoundary>}
-        {route.path === 'text-diff' && <ErrorBoundary><TextDiffTool /></ErrorBoundary>}
-        {route.path === 'qrcode' && <ErrorBoundary><QrCodeTool /></ErrorBoundary>}
-        {route.path === 'changelog' && <ChangelogPage />}
-        {route.path === 'about' && <About />}
-      </main>
-
-      <style>{`
-        @keyframes gradient-flow {
-          0% { background-position: 0% 50%; }
-          100% { background-position: 100% 50%; }
-        }
-      `}</style>
     </Layout>
   )
 }
