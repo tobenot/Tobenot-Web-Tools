@@ -10,6 +10,8 @@ export interface ToolDef {
   category: 'utility' | 'app' | 'info'
   href: string
   tags?: string[]
+  /** 外链工具：仅出现在首页与 Ctrl+K，不参与站内路由 */
+  external?: boolean
   /** 是否占满视口（自带滚动容器、隐藏页脚），如阅读器、大字板 */
   fullPage?: boolean
   /**
@@ -170,6 +172,17 @@ export const tools: ToolDef[] = [
     component: lazyTool(() => import('../tools/big-text/BigTextTool'), 'BigTextTool')
   },
   {
+    id: 'wormhole',
+    title: 'Wormhole 文件分享',
+    description: '端到端加密的临时文件传输，链接自动过期，最高支持 10 GB',
+    emoji: '🕳️',
+    version: '外链',
+    category: 'utility',
+    href: 'https://wormhole.app/',
+    tags: ['文件', '分享', '加密', '传输'],
+    external: true
+  },
+  {
     id: 'changelog',
     title: '更新日志',
     description: '查看项目更新记录',
@@ -203,7 +216,7 @@ export function getPageTitle(path: string): string {
 }
 
 /** 已注册的路由集合（含非工具页），用于 404 判定与「最近使用」过滤 */
-export const knownRoutes = new Set<string>(['', 'about', ...tools.map((t) => t.id)])
+export const knownRoutes = new Set<string>(['', 'about', ...tools.filter((t) => !t.external).map((t) => t.id)])
 
 export function isKnownRoute(path: string): boolean {
   return knownRoutes.has(path)

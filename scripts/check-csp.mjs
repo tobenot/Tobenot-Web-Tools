@@ -34,7 +34,9 @@ if (inlineScripts.length === 0) {
     console.warn(`WARN: CSP 声明了 ${declaredHashes.size} 个哈希，但页面已无内联脚本，建议清理`)
   }
 } else {
-  for (const [i, code] of inlineScripts.entries()) {
+  for (const [i, raw] of inlineScripts.entries()) {
+    // 按 LF 哈希：CI(Linux) 与 Windows checkout 的 CRLF 否则会算出不同值
+    const code = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
     const hash = crypto.createHash('sha256').update(code, 'utf8').digest('base64')
     if (declaredHashes.has(hash)) {
       console.log(`OK   inline script #${i} -> sha256-${hash}`)

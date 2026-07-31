@@ -147,11 +147,14 @@ export function Home() {
 
         {/* 项目网格 */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredItems.map((item, index) => (
+          {filteredItems.map((item, index) => {
+            const isExternal = item.href.startsWith('http://') || item.href.startsWith('https://')
+            return (
             <a
               key={item.id}
               href={item.href}
-              target={item.category === 'app' ? '_self' : undefined}
+              target={isExternal ? '_blank' : item.category === 'app' ? '_self' : undefined}
+              rel={isExternal ? 'noopener noreferrer' : undefined}
               className="group relative bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg dark:hover:shadow-black/30 rounded-mech animate-slide-in-up"
               style={{ animationDelay: `${index * 50}ms` }}
             >
@@ -199,13 +202,13 @@ export function Home() {
 
                 <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
                   <div className="text-sm font-medium text-blue-600 dark:text-blue-400 group-hover:text-blue-800 dark:group-hover:text-blue-300 flex items-center gap-2">
-                    <span>打开工具</span>
+                    <span>{isExternal ? '访问外链' : '打开工具'}</span>
                     <span className="text-lg group-hover:translate-x-1 transition-transform duration-300">→</span>
                   </div>
                 </div>
               </div>
             </a>
-          ))}
+          )})}
         </div>
 
         {filteredItems.length === 0 && (

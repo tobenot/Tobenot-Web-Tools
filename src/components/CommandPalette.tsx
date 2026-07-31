@@ -67,7 +67,9 @@ export function CommandPalette() {
 
   function navigate(href: string) {
     setOpen(false)
-    if (href.startsWith('#')) {
+    if (href.startsWith('http://') || href.startsWith('https://')) {
+      window.open(href, '_blank', 'noopener,noreferrer')
+    } else if (href.startsWith('#')) {
       window.location.hash = href
     } else {
       window.location.href = href
