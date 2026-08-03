@@ -128,7 +128,7 @@ interface ReadingProgress {
 
 /* ─── 基础排版恢复（抵消 Tailwind Preflight reset） ─── */
 const BASE_PREVIEW_CSS = `
-  .md-preview { font-family: 'PingFang SC','Microsoft YaHei',sans-serif; line-height: 1.7; color: #333; padding: 28px 32px 48px; max-width: 68ch; margin: 0 auto; box-sizing: border-box; }
+  .md-preview { font-family: 'PingFang SC','Microsoft YaHei',sans-serif; line-height: 1.7; color: #333; padding: 28px 32px 48px; box-sizing: border-box; }
   .md-preview h1 { font-size: 2em; font-weight: bold; margin: 0.4em 0 0.6em; letter-spacing: -0.02em; }
   .md-preview h2 { font-size: 1.45em; font-weight: bold; margin: 1.6em 0 0.7em; padding-bottom: 0.35em; border-bottom: 1px solid rgba(0,0,0,.08); }
   .md-preview h3 { font-size: 1.2em; font-weight: bold; margin: 1.4em 0 0.55em; padding-left: 0.55em; border-left: 3px solid rgba(79,70,229,.45); }
