@@ -94,7 +94,7 @@ export function enrichCodeChrome(html: string): string {
     (match, className = '', content: string) => {
       const langMatch = String(className).match(/\blanguage-([a-z0-9_+-]+)\b/i)
       const lang = (langMatch?.[1] ?? '').toLowerCase()
-      if (lang === 'mermaid' || lang === 'plantuml' || lang === 'puml' || lang === 'graphviz' || lang === 'dot') {
+      if (lang === 'mermaid' || lang === 'plantuml' || lang === 'puml' || lang === 'graphviz' || lang === 'dot' || lang === 'decision') {
         return match
       }
 
@@ -146,6 +146,11 @@ export function extractDecisionItems(html: string): DecisionItem[] {
   while ((m = calloutRe.exec(html)) !== null) {
     const bodyText = m[2].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
     items.push({ id: m[1], text: bodyText.slice(0, 40) || '决策' })
+  }
+  const fenceRe =
+    /<aside class="md-decision-panel"[^>]*id="([^"]+)"[^>]*>[\s\S]*?<div class="md-decision-title">([^<]*)<\/div>/gi
+  while ((m = fenceRe.exec(html)) !== null) {
+    items.push({ id: m[1], text: m[2] || '待决策' })
   }
   return items
 }

@@ -46,7 +46,7 @@ const SVG_ATTRS = [
 const DIAGRAM_ATTRS = ['data-diagram-type']
 
 /** 阅读增强块：callout / 代码 chrome */
-const ENRICH_ATTRS = ['data-callout', 'data-lang']
+const ENRICH_ATTRS = ['data-callout', 'data-lang', 'data-decision']
 
 /**
  * 净化由 Markdown 渲染出的 HTML。

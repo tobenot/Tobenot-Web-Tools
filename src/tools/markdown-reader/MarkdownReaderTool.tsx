@@ -80,8 +80,13 @@ const DEFAULT_MD = `# 技术文档
 
 **待决策**：生命加成归属玩家、本剑，还是整簇共享。
 
-> [!决策]
-> +1 生命：① 玩家 ② 本剑 ③ 整簇 —— 架构都支持，体验不同。
+\`\`\`decision
++1 生命的归属
+- 玩家：吸血流，全局收益
+- 本剑：越战越肉，单剑成长
+- 整簇：共享成长池
+> 三者架构都支持，玩法体验完全不同
+\`\`\`
 
 ### API 接口
 
@@ -209,6 +214,40 @@ const BASE_PREVIEW_CSS = `
   .style-dark h2 { border-bottom-color: #333; }
   .style-dark h3 { border-left-color: #03dac6; }
   .style-dark strong { color: #f3f4f6; }
+
+  /* decision fence 面板 */
+  .md-preview .md-decision-panel {
+    margin: 1.5em 0; padding: 16px 18px; border-radius: 10px;
+    border: 1px solid #fdba74; background: #fff7ed; border-left: 4px solid #f97316;
+  }
+  .md-preview .md-decision-badge {
+    display: inline-block; font-size: 0.72em; font-weight: 700; letter-spacing: 0.04em;
+    padding: 0.15em 0.55em; border-radius: 4px; background: #ffedd5; color: #c2410c; margin-bottom: 0.55em;
+  }
+  .md-preview .md-decision-title { font-size: 1.08em; font-weight: 700; color: #9a3412; margin-bottom: 0.85em; }
+  .md-preview .md-decision-options {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px;
+  }
+  .md-preview .md-decision-option {
+    background: #fff; border: 1px solid #fed7aa; border-radius: 8px; padding: 12px 12px 14px;
+  }
+  .md-preview .md-decision-option-index {
+    width: 1.4em; height: 1.4em; border-radius: 999px; background: #ffedd5; color: #c2410c;
+    font-size: 0.75em; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;
+    margin-bottom: 0.4em;
+  }
+  .md-preview .md-decision-option-label { font-weight: 700; color: #9a3412; margin-bottom: 0.25em; }
+  .md-preview .md-decision-option-detail { font-size: 0.9em; color: #78716c; line-height: 1.45; }
+  .md-preview .md-decision-note {
+    margin-top: 0.85em; padding-top: 0.7em; border-top: 1px dashed #fdba74;
+    font-size: 0.9em; color: #a16207;
+  }
+  .style-dark .md-decision-panel { background: rgba(249,115,22,.12); border-color: #9a3412; }
+  .style-dark .md-decision-option { background: #252525; border-color: #7c2d12; }
+  .style-dark .md-decision-title,
+  .style-dark .md-decision-option-label { color: #fdba74; }
+  .style-dark .md-decision-option-detail { color: #d6d3d1; }
+  .style-dark .md-decision-note { border-top-color: #7c2d12; color: #fdba74; }
 
   /* ─── TOC 面板样式 ─── */
 

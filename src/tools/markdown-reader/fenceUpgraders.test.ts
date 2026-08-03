@@ -27,7 +27,7 @@ describe('upgradeFenceBlocks', () => {
     expect(upgradeFenceBlocks(src)).toBe(src)
   })
 
-  it('注册表含核心图语言', () => {
-    expect(Object.keys(FENCE_UPGRADERS).sort()).toEqual(['graphviz', 'mermaid', 'plantuml'])
+  it('注册表含核心图语言与 decision', () => {
+    expect(Object.keys(FENCE_UPGRADERS).sort()).toEqual(['decision', 'graphviz', 'mermaid', 'plantuml'])
   })
 })

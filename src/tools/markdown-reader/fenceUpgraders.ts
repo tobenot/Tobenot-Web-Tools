@@ -1,3 +1,5 @@
+import { renderDecisionFence } from './decisionFence'
+
 /**
  * Fence 语言 → HTML 升级器。匹配失败退回原 `<pre><code>`。
  * 新能力往表里塞一项即可，不必改阅读器主干分支。
@@ -30,6 +32,7 @@ export const FENCE_UPGRADERS: Record<string, FenceUpgrader> = {
   mermaid: (content) => `<div class="mermaid">${content}</div>`,
   plantuml: (content) => krokiBlock('plantuml', content),
   graphviz: (content) => krokiBlock('graphviz', content),
+  decision: (content) => renderDecisionFence(content),
 }
 
 export function resolveFenceLanguage(raw: string): string {
