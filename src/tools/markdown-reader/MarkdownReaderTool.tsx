@@ -5,6 +5,7 @@ import { CDN, loadScript } from '../../utils/loadScript'
 import { sanitizeMarkdownHtml } from '../../utils/sanitize'
 import { enrichMarkdownHtml, extractDecisionItems } from './mdEnrich'
 import { upgradeFenceBlocks } from './fenceUpgraders'
+import { SYNTAX_GUIDE_INTRO, SYNTAX_GUIDE_ITEMS, buildSyntaxGuideMarkdown } from './syntaxGuide'
 
 
 /* ─── CDN 动态加载 ─── */
@@ -848,6 +849,8 @@ export function MarkdownReaderTool() {
   const [syncScroll, setSyncScroll] = useState(true)
   const [activeHeadingId, setActiveHeadingId] = useState<string>('')
   const [readingProgressRatio, setReadingProgressRatio] = useState(0)
+  const [syntaxGuideOpen, setSyntaxGuideOpen] = useState(false)
+  const [syntaxCopiedId, setSyntaxCopiedId] = useState('')
   const [editorWidth, setEditorWidth] = useState(loadEditorWidthFromStorage)
   const [isResizingColumns, setIsResizingColumns] = useState(false)
   const layoutRef = useRef<HTMLDivElement>(null)
@@ -1341,6 +1344,35 @@ export function MarkdownReaderTool() {
     }, 0)
   }, [md])
 
+  const insertSnippet = useCallback((snippet: string) => {
+    const ta = textareaRef.current
+    const block = snippet.endsWith('\n') ? snippet : `${snippet}\n`
+    if (!ta) {
+      setMd((prev) => (prev.endsWith('\n') || prev.length === 0 ? prev : `${prev}\n`) + block)
+      return
+    }
+    const start = ta.selectionStart
+    const end = ta.selectionEnd
+    const padBefore = start > 0 && md[start - 1] !== '\n' ? '\n\n' : (start > 0 ? '\n' : '')
+    const newText = md.substring(0, start) + padBefore + block + md.substring(end)
+    setMd(newText)
+    const cursor = start + padBefore.length + block.length
+    setTimeout(() => {
+      ta.focus()
+      ta.setSelectionRange(cursor, cursor)
+    }, 0)
+  }, [md])
+
+  const copySyntaxText = useCallback(async (id: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setSyntaxCopiedId(id)
+      window.setTimeout(() => setSyntaxCopiedId((cur) => (cur === id ? '' : cur)), 1200)
+    } catch {
+      window.prompt('请手动复制：', text)
+    }
+  }, [])
+
   /* 分享 / Gist 管理弹窗 */
   const openGistPanel = useCallback((tab: 'instant' | 'share' | 'manage') => {
     const saved = loadGistToken()
@@ -1670,6 +1702,14 @@ export function MarkdownReaderTool() {
           📑 目录
         </button>
         <button
+          type="button"
+          onClick={() => setSyntaxGuideOpen(true)}
+          className="px-3 py-1.5 text-sm font-medium rounded transition-colors bg-violet-500 text-white hover:bg-violet-600"
+          title="查看本阅读器增强语法：Callout、决策面板、图表等"
+        >
+          语法说明
+        </button>
+        <button
           onClick={() => setSyncScroll(!syncScroll)}
           className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${syncScroll ? 'bg-rose-500 text-white hover:bg-rose-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
           title="编辑器与预览区双向滚动同步"
@@ -1808,6 +1848,87 @@ export function MarkdownReaderTool() {
           </div>
         </div>
       </div>
+
+      {/* 增强语法说明 */}
+      {syntaxGuideOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={() => setSyntaxGuideOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl bg-white rounded-xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto border border-gray-100 flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-gray-100 pb-3 mb-4 shrink-0">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">增强语法说明</h3>
+                <p className="text-xs text-gray-500 mt-1 leading-relaxed">{SYNTAX_GUIDE_INTRO}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSyntaxGuideOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors shrink-0"
+                title="关闭"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-2 mb-4 shrink-0">
+              <button
+                type="button"
+                onClick={() => void copySyntaxText('all', buildSyntaxGuideMarkdown())}
+                className="px-3 py-1.5 text-xs font-semibold rounded-md bg-violet-500 text-white hover:bg-violet-600"
+              >
+                {syntaxCopiedId === 'all' ? '已复制全文' : '复制全部速查'}
+              </button>
+              <span className="text-xs text-gray-400 self-center">
+                共 {SYNTAX_GUIDE_ITEMS.length} 项增强 · 新增语法改 syntaxGuide.ts 即可同步到这里
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              {SYNTAX_GUIDE_ITEMS.map((item) => (
+                <section key={item.id} className="rounded-lg border border-gray-200 bg-gray-50/80 p-3">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <h4 className="text-sm font-bold text-gray-900">{item.title}</h4>
+                    <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">
+                      {item.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-2 leading-relaxed">{item.blurb}</p>
+                  <pre className="text-[11px] leading-relaxed font-mono bg-white border border-gray-200 rounded-md p-2.5 overflow-x-auto whitespace-pre-wrap text-gray-800">
+                    {item.example}
+                  </pre>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => void copySyntaxText(item.id, item.example)}
+                      className="px-2.5 py-1 text-xs font-medium rounded bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
+                    >
+                      {syntaxCopiedId === item.id ? '已复制' : '复制示例'}
+                    </button>
+                    {!readMode && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          insertSnippet(item.example)
+                          setSyntaxGuideOpen(false)
+                        }}
+                        className="px-2.5 py-1 text-xs font-medium rounded bg-indigo-500 text-white hover:bg-indigo-600"
+                      >
+                        插入到编辑器
+                      </button>
+                    )}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 分享 / 即时链接 / Gist 管理弹窗 */}
       {shareModalOpen && (
