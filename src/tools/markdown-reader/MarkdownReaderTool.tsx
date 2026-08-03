@@ -3,6 +3,7 @@ import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { getHashLocation } from '../../utils/hash'
 import { CDN, loadScript } from '../../utils/loadScript'
 import { sanitizeMarkdownHtml } from '../../utils/sanitize'
+import { enrichMarkdownHtml } from './mdEnrich'
 
 
 /* ─── CDN 动态加载 ─── */
@@ -75,6 +76,9 @@ const DEFAULT_MD = `# 技术文档
 
 本文档介绍了系统的核心功能和技术架构设计。
 
+> [!洞察]
+> 稳定身份不仅是正确性要求，**更直接解锁了逐弹独立成长这一整类玩法**。
+
 ## 系统架构
 
 系统采用模块化设计，主要包含以下几个核心模块：
@@ -90,18 +94,27 @@ const DEFAULT_MD = `# 技术文档
 
 系统提供了**高效的数据处理能力**，支持*实时数据流*处理和批量数据处理。
 
+**待决策**：生命加成归属玩家、本剑，还是整簇共享。
+
 ### API 接口
 
 提供 RESTful API 接口，支持标准的 HTTP 请求方法。
 
-> 注意：所有 API 请求需要携带有效的认证令牌。
+> [!NOTE]
+> 所有 API 请求需要携带有效的认证令牌。
+
+> [!WARNING]
+> 分享链接里的内容不可信，阅读器会做 HTML 净化。
 
 ## 代码示例
 
-\`\`\`javascript
-function processData(data) {
-  return data.filter(item => item.isValid);
-}
+\`\`\`cpp
+struct FPlayerProjectileState
+{
+    FProjectileHandle Handle;   // 稳定身份 —— 一切前提
+    int32  HitCountSelf;        // 这把剑自己命中过几次
+    float  BonusCritRate;       // 这把剑自己累积的暴击加成
+};
 \`\`\`
 
 ## 相关链接
@@ -122,29 +135,30 @@ interface ReadingProgress {
 
 /* ─── 基础排版恢复（抵消 Tailwind Preflight reset） ─── */
 const BASE_PREVIEW_CSS = `
-  .md-preview { font-family: 'PingFang SC','Microsoft YaHei',sans-serif; line-height: 1.8; color: #333; padding: 20px 30px; }
-  .md-preview h1 { font-size: 2em; font-weight: bold; margin: 0.67em 0; }
-  .md-preview h2 { font-size: 1.5em; font-weight: bold; margin: 0.83em 0; }
-  .md-preview h3 { font-size: 1.25em; font-weight: bold; margin: 1em 0; }
-  .md-preview h4 { font-size: 1.1em; font-weight: bold; margin: 1em 0; }
+  .md-preview { font-family: 'PingFang SC','Microsoft YaHei',sans-serif; line-height: 1.7; color: #333; padding: 28px 32px 48px; max-width: 68ch; margin: 0 auto; box-sizing: border-box; }
+  .md-preview h1 { font-size: 2em; font-weight: bold; margin: 0.4em 0 0.6em; letter-spacing: -0.02em; }
+  .md-preview h2 { font-size: 1.45em; font-weight: bold; margin: 1.6em 0 0.7em; padding-bottom: 0.35em; border-bottom: 1px solid rgba(0,0,0,.08); }
+  .md-preview h3 { font-size: 1.2em; font-weight: bold; margin: 1.4em 0 0.55em; padding-left: 0.55em; border-left: 3px solid rgba(79,70,229,.45); }
+  .md-preview h4 { font-size: 1.08em; font-weight: bold; margin: 1.2em 0; }
   .md-preview h5, .md-preview h6 { font-size: 1em; font-weight: bold; margin: 1em 0; }
-  .md-preview p { margin: 1em 0; }
-  .md-preview ul { list-style: disc; padding-left: 2em; margin: 1em 0; }
-  .md-preview ol { list-style: decimal; padding-left: 2em; margin: 1em 0; }
-  .md-preview li { margin: 0.5em 0; }
-  .md-preview blockquote { margin: 1em 0; padding: 10px 20px; border-left: 4px solid #ddd; background: #f9f9f9; }
-  .md-preview pre { margin: 1em 0; padding: 16px; background: #f6f8fa; border-radius: 6px; overflow-x: auto; }
+  .md-preview p { margin: 1.05em 0; }
+  .md-preview ul { list-style: disc; padding-left: 2em; margin: 1.1em 0; }
+  .md-preview ol { list-style: decimal; padding-left: 2em; margin: 1.1em 0; }
+  .md-preview li { margin: 0.45em 0; }
+  .md-preview blockquote { margin: 1.25em 0; padding: 12px 18px; border-left: 4px solid #ddd; background: #f9f9f9; }
+  .md-preview pre { margin: 0; padding: 14px 16px; background: transparent; border-radius: 0; overflow-x: auto; }
   .md-preview code { font-family: Menlo,Monaco,Consolas,"Courier New",monospace; font-size: 0.9em; }
+  .md-preview p code, .md-preview li code { background: rgba(0,0,0,.05); padding: 0.12em 0.4em; border-radius: 4px; }
   .md-preview a { color: #3498db; text-decoration: underline; }
   .md-preview img { max-width: 100%; height: auto; }
-  .md-preview hr { border: none; border-top: 1px solid #eee; margin: 2em 0; }
-  .md-preview table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+  .md-preview hr { border: none; border-top: 1px solid #eee; margin: 2.2em 0; }
+  .md-preview table { border-collapse: collapse; width: 100%; margin: 1.25em 0; }
   .md-preview th, .md-preview td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
   .md-preview th { background: #f6f8fa; font-weight: 600; }
-  .md-preview strong { font-weight: bold; }
+  .md-preview strong { font-weight: 700; color: #1a1a1a; }
   .md-preview em { font-style: italic; }
   .md-preview .mermaid,
-  .md-preview .kroki-diagram { margin: 1.5em 0; padding: 16px; overflow-x: auto; text-align: center; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; }
+  .md-preview .kroki-diagram { margin: 1.6em 0; padding: 16px; overflow-x: auto; text-align: center; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; }
   .md-preview .mermaid svg,
   .md-preview .kroki-output img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
 
@@ -155,6 +169,59 @@ const BASE_PREVIEW_CSS = `
   .style-dark .mermaid,
   .style-dark .kroki-diagram { background: #252525; border-color: #3a3a3a; }
 
+  /* Callout */
+  .md-preview .md-callout { margin: 1.4em 0; padding: 14px 16px 14px 18px; border-radius: 8px; border-left: 4px solid #94a3b8; background: #f8fafc; }
+  .md-preview .md-callout-title { font-weight: 700; font-size: 0.92em; letter-spacing: 0.02em; margin-bottom: 0.35em; }
+  .md-preview .md-callout-body > :first-child { margin-top: 0; }
+  .md-preview .md-callout-body > :last-child { margin-bottom: 0; }
+  .md-preview .md-callout-note { border-left-color: #3b82f6; background: #eff6ff; }
+  .md-preview .md-callout-note .md-callout-title { color: #1d4ed8; }
+  .md-preview .md-callout-tip { border-left-color: #10b981; background: #ecfdf5; }
+  .md-preview .md-callout-tip .md-callout-title { color: #047857; }
+  .md-preview .md-callout-important { border-left-color: #8b5cf6; background: #f5f3ff; }
+  .md-preview .md-callout-important .md-callout-title { color: #6d28d9; }
+  .md-preview .md-callout-warning,
+  .md-preview .md-callout-caution { border-left-color: #f59e0b; background: #fffbeb; }
+  .md-preview .md-callout-warning .md-callout-title,
+  .md-preview .md-callout-caution .md-callout-title { color: #b45309; }
+  .md-preview .md-callout-decision { border-left-color: #f97316; background: #fff7ed; }
+  .md-preview .md-callout-decision .md-callout-title { color: #c2410c; }
+  .md-preview .md-callout-insight { border-left-color: #0ea5e9; background: #f0f9ff; }
+  .md-preview .md-callout-insight .md-callout-title { color: #0369a1; font-size: 1.02em; }
+  .md-preview .md-callout-insight .md-callout-body { font-size: 1.05em; line-height: 1.75; }
+
+  /* 段首标签 */
+  .md-preview .md-label-badge { display: inline-block; font-size: 0.78em; font-weight: 700; line-height: 1.2; padding: 0.18em 0.55em; border-radius: 4px; background: #eef2ff; color: #4338ca; vertical-align: 0.05em; margin-right: 0.35em; }
+  .md-preview .md-label-decision { background: #ffedd5; color: #c2410c; }
+  .md-preview .md-label-sep { margin-right: 0.15em; }
+
+  /* 代码 chrome */
+  .md-preview .md-code-block { margin: 1.35em 0; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #f6f8fa; }
+  .md-preview .md-code-chrome { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 12px; background: #eef1f4; border-bottom: 1px solid #e5e7eb; font-size: 12px; }
+  .md-preview .md-code-lang { font-family: Menlo,Monaco,Consolas,monospace; color: #64748b; text-transform: lowercase; }
+  .md-preview .md-code-copy { cursor: pointer; user-select: none; color: #475569; padding: 2px 8px; border-radius: 4px; border: 1px solid transparent; }
+  .md-preview .md-code-copy:hover { background: #fff; border-color: #cbd5e1; color: #0f172a; }
+  .md-preview .md-code-copy:focus { outline: 2px solid #818cf8; outline-offset: 1px; }
+  .md-preview .md-code-block pre { margin: 0; }
+  .md-preview .md-code-block code { background: transparent; color: inherit; padding: 0; font-size: 0.88em; line-height: 1.55; }
+  .md-preview .md-code-comment { color: #6b7280; opacity: 0.85; font-style: italic; }
+
+  .style-dark .md-callout-note { background: rgba(59,130,246,.12); }
+  .style-dark .md-callout-tip { background: rgba(16,185,129,.12); }
+  .style-dark .md-callout-important { background: rgba(139,92,246,.12); }
+  .style-dark .md-callout-warning,
+  .style-dark .md-callout-caution { background: rgba(245,158,11,.12); }
+  .style-dark .md-callout-decision { background: rgba(249,115,22,.12); }
+  .style-dark .md-callout-insight { background: rgba(14,165,233,.12); }
+  .style-dark .md-label-badge { background: #312e81; color: #c7d2fe; }
+  .style-dark .md-label-decision { background: #7c2d12; color: #fdba74; }
+  .style-dark .md-code-block { background: #2d2d2d; border-color: #3a3a3a; }
+  .style-dark .md-code-chrome { background: #252525; border-color: #3a3a3a; }
+  .style-dark .md-code-copy:hover { background: #333; border-color: #555; color: #eee; }
+  .style-dark .md-code-comment { color: #9ca3af; }
+  .style-dark h2 { border-bottom-color: #333; }
+  .style-dark h3 { border-left-color: #03dac6; }
+  .style-dark strong { color: #f3f4f6; }
 
   /* ─── TOC 面板样式 ─── */
 
@@ -162,6 +229,16 @@ const BASE_PREVIEW_CSS = `
   .toc-panel .toc-item { display: block; padding: 3px 8px; border-radius: 4px; cursor: pointer; color: #555; text-decoration: none; transition: all 0.15s ease; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .toc-panel .toc-item:hover { background: #f0f4ff; color: #4f46e5; }
   .toc-panel .toc-item.active { background: #eef2ff; color: #4338ca; font-weight: 600; border-left: 3px solid #4f46e5; padding-left: 5px; }
+`
+
+/** 压过各风格里的 `pre { background }`，放在 STYLE_CSS 之后注入 */
+const CODE_CHROME_OVERRIDE_CSS = `
+  .md-preview .md-code-block pre,
+  .style-xiaohongshu .md-code-block pre,
+  .style-clean .md-code-block pre,
+  .style-dark .md-code-block pre,
+  .style-pink .md-code-block pre,
+  .style-business .md-code-block pre { background: transparent; padding: 14px 16px; margin: 0; }
 `
 
 /* ─── 各风格的 CSS（嵌入 style 标签） ─── */
@@ -835,7 +912,7 @@ export function MarkdownReaderTool() {
     if (!ready) return
     try {
       // 解析并为标题注入 id
-      let parsed = normalizeDiagramBlocks(window.marked.parse(md) as string)
+      let parsed = enrichMarkdownHtml(normalizeDiagramBlocks(window.marked.parse(md) as string))
 
       let headingIndex = 0
       parsed = parsed.replace(/<h([1-6])([^>]*)>(.*?)<\/h[1-6]>/gi, (_match, level, attrs, content) => {
@@ -888,6 +965,48 @@ export function MarkdownReaderTool() {
 
     return () => window.clearTimeout(timer)
   }, [html, mermaidReady, ready, style])
+
+  /* 代码块「复制」：span[role=button]，避免放行 <button>（sanitize 禁表单控件） */
+  useEffect(() => {
+    const root = previewRef.current
+    if (!root || !html) return
+
+    const onActivate = async (target: HTMLElement) => {
+      const block = target.closest('.md-code-block')
+      const code = block?.querySelector('pre code')
+      if (!code) return
+      const text = code.textContent ?? ''
+      try {
+        await navigator.clipboard.writeText(text)
+        const prev = target.textContent
+        target.textContent = '已复制'
+        window.setTimeout(() => { target.textContent = prev || '复制' }, 1200)
+      } catch {
+        target.textContent = '失败'
+        window.setTimeout(() => { target.textContent = '复制' }, 1200)
+      }
+    }
+
+    const onClick = (e: MouseEvent) => {
+      const el = (e.target as HTMLElement | null)?.closest?.('.md-code-copy') as HTMLElement | null
+      if (!el || !root.contains(el)) return
+      void onActivate(el)
+    }
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return
+      const el = e.target as HTMLElement | null
+      if (!el?.classList.contains('md-code-copy') || !root.contains(el)) return
+      e.preventDefault()
+      void onActivate(el)
+    }
+
+    root.addEventListener('click', onClick)
+    root.addEventListener('keydown', onKey)
+    return () => {
+      root.removeEventListener('click', onClick)
+      root.removeEventListener('keydown', onKey)
+    }
+  }, [html])
 
   /* 渲染 PlantUML / Graphviz 图表 */
   useEffect(() => {
@@ -1447,7 +1566,7 @@ export function MarkdownReaderTool() {
   return (
     <div className="flex flex-col overflow-hidden" style={{ height: '100%' }}>
       {/* 样式注入 */}
-      <style>{BASE_PREVIEW_CSS + '\n' + Object.values(STYLE_CSS).join('\n')}</style>
+      <style>{BASE_PREVIEW_CSS + '\n' + Object.values(STYLE_CSS).join('\n') + '\n' + CODE_CHROME_OVERRIDE_CSS}</style>
 
       {/* 工具栏 */}
       <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-gray-200 bg-white shrink-0">

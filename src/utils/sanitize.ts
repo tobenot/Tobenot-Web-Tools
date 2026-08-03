@@ -45,6 +45,9 @@ const SVG_ATTRS = [
 /** 图表容器需要保留 class 与 data-diagram-type，供后续 mermaid / kroki 渲染定位 */
 const DIAGRAM_ATTRS = ['data-diagram-type']
 
+/** 阅读增强块：callout / 代码 chrome */
+const ENRICH_ATTRS = ['data-callout', 'data-lang']
+
 /**
  * 净化由 Markdown 渲染出的 HTML。
  *
@@ -55,7 +58,7 @@ const DIAGRAM_ATTRS = ['data-diagram-type']
 export function sanitizeMarkdownHtml(html: string): string {
   return DOMPurify.sanitize(html, {
     ADD_TAGS: SVG_TAGS,
-    ADD_ATTR: [...SVG_ATTRS, ...DIAGRAM_ATTRS],
+    ADD_ATTR: [...SVG_ATTRS, ...DIAGRAM_ATTRS, ...ENRICH_ATTRS],
     /*
      * 禁 form 系与 style：
      * - form/formaction 是提交型数据外发面

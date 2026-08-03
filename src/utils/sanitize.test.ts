@@ -101,6 +101,16 @@ describe('sanitizeMarkdownHtml - 保留正常内容', () => {
     expect(out).toMatch(/viewbox|viewBox/i)
     expect(out).toContain('stroke')
   })
+
+  it('保留 callout / 代码 chrome 的 data 属性', () => {
+    const out = sanitizeMarkdownHtml(
+      '<aside class="md-callout" data-callout="note"><div class="md-callout-title">Note</div></aside>' +
+      '<div class="md-code-block" data-lang="cpp"><span class="md-code-copy" role="button" tabindex="0">复制</span></div>',
+    )
+    expect(out).toContain('data-callout="note"')
+    expect(out).toContain('data-lang="cpp"')
+    expect(out).toContain('role="button"')
+  })
 })
 
 describe('sanitizeRichText', () => {
