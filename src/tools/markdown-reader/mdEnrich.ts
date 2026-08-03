@@ -135,12 +135,17 @@ export function extractDecisionItems(html: string): DecisionItem[] {
   const badgeRe = /<span class="md-label-badge md-label-decision"[^>]*id="(decision-\d+)"[^>]*>([^<]*)<\/span>/gi
   let m: RegExpExecArray | null
   while ((m = badgeRe.exec(html)) !== null) {
-    items.push({ id: m[1], text: m[2] })
+    // 取 badge 后同段剩余文字做摘要
+    const after = html.slice(m.index + m[0].length, m.index + m[0].length + 80)
+    const snippet = after.replace(/<[^>]*>/g, '').replace(/^[：:\s]+/, '').trim()
+    const text = snippet ? `${m[2]}：${snippet.slice(0, 36)}` : m[2]
+    items.push({ id: m[1], text })
   }
-  const calloutRe = /<aside class="md-callout md-callout-decision"[^>]*(?:id="([^"]+)")?[^>]*>[\s\S]*?<div class="md-callout-title">([^<]*)<\/div>/gi
-  let calloutIndex = 0
+  const calloutRe =
+    /<aside class="md-callout md-callout-decision"[^>]*id="([^"]+)"[^>]*>[\s\S]*?<div class="md-callout-body">([\s\S]*?)<\/div>\s*<\/aside>/gi
   while ((m = calloutRe.exec(html)) !== null) {
-    items.push({ id: m[1] || `callout-decision-${calloutIndex++}`, text: m[2] || '决策' })
+    const bodyText = m[2].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+    items.push({ id: m[1], text: bodyText.slice(0, 40) || '决策' })
   }
   return items
 }

@@ -3,7 +3,8 @@ import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { getHashLocation } from '../../utils/hash'
 import { CDN, loadScript } from '../../utils/loadScript'
 import { sanitizeMarkdownHtml } from '../../utils/sanitize'
-import { enrichMarkdownHtml } from './mdEnrich'
+import { enrichMarkdownHtml, extractDecisionItems } from './mdEnrich'
+import { upgradeFenceBlocks } from './fenceUpgraders'
 
 
 /* ─── CDN 动态加载 ─── */
@@ -37,23 +38,6 @@ const KROKI_DIAGRAM_LABELS: Record<KrokiDiagramType, string> = {
 
 function isKrokiDiagramType(type: string | undefined): type is KrokiDiagramType {
   return type === 'plantuml' || type === 'graphviz'
-}
-
-function normalizeDiagramBlocks(html: string): string {
-  return html.replace(
-    /<pre><code class="[^"]*\blanguage-([a-z0-9_-]+)\b[^"]*">([\s\S]*?)<\/code><\/pre>/gi,
-    (match, rawLanguage: string, content: string) => {
-      const language = rawLanguage.toLowerCase()
-      if (language === 'mermaid') return `<div class="mermaid">${content}</div>`
-      if (language === 'plantuml' || language === 'puml') {
-        return `<div class="kroki-diagram" data-diagram-type="plantuml"><pre class="kroki-source">${content}</pre><div class="kroki-output">PlantUML 图表渲染中...</div></div>`
-      }
-      if (language === 'graphviz' || language === 'dot') {
-        return `<div class="kroki-diagram" data-diagram-type="graphviz"><pre class="kroki-source">${content}</pre><div class="kroki-output">Graphviz 图表渲染中...</div></div>`
-      }
-      return match
-    },
-  )
 }
 
 
@@ -95,6 +79,9 @@ const DEFAULT_MD = `# 技术文档
 系统提供了**高效的数据处理能力**，支持*实时数据流*处理和批量数据处理。
 
 **待决策**：生命加成归属玩家、本剑，还是整簇共享。
+
+> [!决策]
+> +1 生命：① 玩家 ② 本剑 ③ 整簇 —— 架构都支持，体验不同。
 
 ### API 接口
 
@@ -229,6 +216,19 @@ const BASE_PREVIEW_CSS = `
   .toc-panel .toc-item { display: block; padding: 3px 8px; border-radius: 4px; cursor: pointer; color: #555; text-decoration: none; transition: all 0.15s ease; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .toc-panel .toc-item:hover { background: #f0f4ff; color: #4f46e5; }
   .toc-panel .toc-item.active { background: #eef2ff; color: #4338ca; font-weight: 600; border-left: 3px solid #4f46e5; padding-left: 5px; }
+  .toc-panel .toc-section-title { font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.06em; margin: 14px 0 6px; padding: 0 8px; }
+  .toc-panel .toc-decision { color: #c2410c; }
+  .toc-panel .toc-decision:hover { background: #fff7ed; color: #9a3412; }
+  .toc-panel .toc-decision.active { background: #ffedd5; color: #9a3412; border-left-color: #f97316; }
+
+  .md-reading-progress {
+    position: sticky; top: 0; z-index: 5; height: 3px; width: 100%;
+    background: transparent; pointer-events: none;
+  }
+  .md-reading-progress-bar {
+    height: 100%; width: 0%; background: linear-gradient(90deg, #6366f1, #818cf8);
+    transition: width 80ms linear;
+  }
 `
 
 /** 压过各风格里的 `pre { background }`，放在 STYLE_CSS 之后注入 */
@@ -808,6 +808,7 @@ export function MarkdownReaderTool() {
   const [tocOpen, setTocOpen] = useState(true)
   const [syncScroll, setSyncScroll] = useState(true)
   const [activeHeadingId, setActiveHeadingId] = useState<string>('')
+  const [readingProgressRatio, setReadingProgressRatio] = useState(0)
   const [editorWidth, setEditorWidth] = useState(loadEditorWidthFromStorage)
   const [isResizingColumns, setIsResizingColumns] = useState(false)
   const layoutRef = useRef<HTMLDivElement>(null)
@@ -912,7 +913,7 @@ export function MarkdownReaderTool() {
     if (!ready) return
     try {
       // 解析并为标题注入 id
-      let parsed = enrichMarkdownHtml(normalizeDiagramBlocks(window.marked.parse(md) as string))
+      let parsed = enrichMarkdownHtml(upgradeFenceBlocks(window.marked.parse(md) as string))
 
       let headingIndex = 0
       parsed = parsed.replace(/<h([1-6])([^>]*)>(.*?)<\/h[1-6]>/gi, (_match, level, attrs, content) => {
@@ -1089,12 +1090,16 @@ export function MarkdownReaderTool() {
     return items
   }, [html])
 
+  const decisionItems = useMemo(() => extractDecisionItems(html), [html])
+
   const saveReadingProgressNow = useCallback(() => {
     const container = previewWrapRef.current
     if (!container) return
+    const scrollRatio = getScrollRatio(container)
+    setReadingProgressRatio(scrollRatio)
     const progress: ReadingProgress = {
       scrollTop: container.scrollTop,
-      scrollRatio: getScrollRatio(container),
+      scrollRatio,
     }
     try {
       localStorage.setItem(STORAGE_KEY_READING_PROGRESS, JSON.stringify(progress))
@@ -1118,6 +1123,9 @@ export function MarkdownReaderTool() {
     const progress = loadReadingProgressFromStorage()
     if (progress) {
       container.scrollTop = getScrollTopFromProgress(container, progress)
+      setReadingProgressRatio(progress.scrollRatio)
+    } else {
+      setReadingProgressRatio(getScrollRatio(container))
     }
     readingProgressRestoredRef.current = true
   }, [])
@@ -1227,6 +1235,7 @@ export function MarkdownReaderTool() {
     if (!container) return
 
     const handleScroll = () => {
+      setReadingProgressRatio(getScrollRatio(container))
       if (tocItems.length > 0) {
         const headings = container.querySelectorAll<HTMLElement>('[id^="toc-heading-"]')
         let currentId = ''
@@ -1253,11 +1262,12 @@ export function MarkdownReaderTool() {
     return () => container.removeEventListener('scroll', handleScroll)
   }, [saveReadingProgress, syncPreviewToEditor, tocItems])
 
-  /* 点击 TOC 跳转 */
+  /* 点击 TOC / 决策点跳转 */
   const scrollToHeading = useCallback((id: string) => {
     const container = previewWrapRef.current
     if (!container) return
-    const el = container.querySelector(`#${id}`)
+    // CSS.escape 避免 id 含特殊字符时 querySelector 炸掉
+    const el = container.querySelector(`#${CSS.escape(id)}`)
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' })
       setActiveHeadingId(id)
@@ -1691,25 +1701,47 @@ export function MarkdownReaderTool() {
         <div className="flex-1 min-w-0 min-h-0 flex">
 
           {/* TOC 侧栏 */}
-          {tocOpen && tocItems.length > 0 && (
+          {tocOpen && (tocItems.length > 0 || decisionItems.length > 0) && (
             <div className="toc-panel w-48 shrink-0 overscroll-contain border-r border-gray-200 bg-gray-50/80 overflow-y-auto p-3">
-              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">📑 目录导航</div>
-              {tocItems.map(item => (
-                <div
-                  key={item.id}
-                  className={`toc-item ${activeHeadingId === item.id ? 'active' : ''}`}
-                  style={{ paddingLeft: `${(item.level - 1) * 12 + 8}px` }}
-                  onClick={() => scrollToHeading(item.id)}
-                  title={item.text}
-                >
-                  {item.text}
-                </div>
-              ))}
+              {tocItems.length > 0 && (
+                <>
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">目录导航</div>
+                  {tocItems.map(item => (
+                    <div
+                      key={item.id}
+                      className={`toc-item ${activeHeadingId === item.id ? 'active' : ''}`}
+                      style={{ paddingLeft: `${(item.level - 1) * 12 + 8}px` }}
+                      onClick={() => scrollToHeading(item.id)}
+                      title={item.text}
+                    >
+                      {item.text}
+                    </div>
+                  ))}
+                </>
+              )}
+              {decisionItems.length > 0 && (
+                <>
+                  <div className="toc-section-title">待决策 · {decisionItems.length}</div>
+                  {decisionItems.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className={`toc-item toc-decision ${activeHeadingId === item.id ? 'active' : ''}`}
+                      onClick={() => scrollToHeading(item.id)}
+                      title={item.text}
+                    >
+                      {index + 1}. {item.text}
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           )}
 
           {/* 预览内容 */}
-          <div ref={previewWrapRef} className="flex-1 min-w-0 min-h-0 overflow-auto overscroll-contain">
+          <div ref={previewWrapRef} className="flex-1 min-w-0 min-h-0 overflow-auto overscroll-contain relative">
+            <div className="md-reading-progress" aria-hidden="true">
+              <div className="md-reading-progress-bar" style={{ width: `${Math.round(readingProgressRatio * 1000) / 10}%` }} />
+            </div>
             {!ready ? (
               <div className="flex items-center justify-center h-full text-gray-500 text-sm">加载渲染引擎中...</div>
             ) : gistError ? (
@@ -1729,7 +1761,7 @@ export function MarkdownReaderTool() {
                 key={style}
                 ref={previewRef}
                 className={`md-preview style-${style}`}
-                style={{ lineHeight: 1.8, minHeight: '100%' }}
+                style={{ lineHeight: 1.7, minHeight: '100%' }}
                 dangerouslySetInnerHTML={{ __html: html }}
               />
 
