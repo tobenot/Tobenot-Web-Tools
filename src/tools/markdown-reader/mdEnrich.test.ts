@@ -6,6 +6,7 @@ import {
   enrichLabelBadges,
   enrichMarkdownHtml,
   extractDecisionItems,
+  normalizeFootnoteDefs,
 } from './mdEnrich'
 
 describe('enrichCallouts', () => {
@@ -82,23 +83,35 @@ describe('enrichMarkdownHtml + extractDecisionItems', () => {
 })
 
 describe('enrichFootnotes', () => {
-  it('引用 + 定义 → 上标链接 + 文末列表', () => {
+  it('引用 + 定义 → 上标链接 + 就地定义标记，不聚到文末', () => {
     const html = ['<p>正文[^A-01^]。</p>', '<p>[^A-01^] 参见某文档。</p>'].join('')
     const out = enrichFootnotes(html)
+    // 引用转上标链接
     expect(out).toContain('class="md-fnref"')
     expect(out).toContain('href="#fn-1"')
     expect(out).toContain('id="fnref-1"')
-    expect(out).toContain('class="md-footnotes"')
+    // 定义就地渲染为可点击标记（既是跳转目标，又可点回跳）
+    expect(out).toContain('class="md-fn-def"')
     expect(out).toContain('id="fn-1"')
+    expect(out).toContain('href="#fnref-1"')
     expect(out).toContain('参见某文档')
-    expect(out).toContain('md-fn-back')
+    // 不再生成文末列表
+    expect(out).not.toContain('md-footnotes')
     expect(out).not.toContain('[^A-01^]')
+  })
+
+  it('兼容标准 [^id]（无尾尖号）引用与定义', () => {
+    const html = ['<p>正文[^a]。</p>', '<p>[^a] 标准脚注。</p>'].join('')
+    const out = enrichFootnotes(html)
+    expect(out).toContain('href="#fn-1"')
+    expect(out).toContain('class="md-fn-def"')
+    expect(out).toContain('标准脚注')
+    expect(out).not.toContain('[^a]')
   })
 
   it('无定义的引用保留原文', () => {
     const out = enrichFootnotes('<p>正文[^X^]。</p>')
     expect(out).toContain('[^X^]')
-    expect(out).not.toContain('md-footnotes')
   })
 
   it('无脚注时原样返回', () => {
@@ -106,7 +119,7 @@ describe('enrichFootnotes', () => {
     expect(enrichFootnotes(html)).toBe(html)
   })
 
-  it('同一 <p> 内 <br> 分隔的多条定义', () => {
+  it('同一 <p> 内多条定义就地渲染，顺序编号', () => {
     const html = '<p>正文[^A^][^B^]。</p><p>[^A^] 内容A<br>[^B^] 内容B</p>'
     const out = enrichFootnotes(html)
     expect(out).toContain('href="#fn-1"')
@@ -117,7 +130,7 @@ describe('enrichFootnotes', () => {
     expect(out).not.toContain('[^B^]')
   })
 
-  it('软换行（无 <br>，marked 默认输出）的多条定义也能切分', () => {
+  it('软换行（marked 默认输出）的多条定义也能就地渲染', () => {
     const html = '<p>正文[^A^][^B^]。</p><p>[^A^] 内容A\n[^B^] 内容B</p>'
     const out = enrichFootnotes(html)
     expect(out).toContain('href="#fn-1"')
@@ -128,11 +141,33 @@ describe('enrichFootnotes', () => {
     expect(out).not.toContain('[^B^]')
   })
 
-  it('定义段以 <p>[^id^] 开头才识别，正文中的 [^id^] 不误判为定义', () => {
+  it('定义段以 <p>[^id] 开头才识别，正文中的引用不误判为定义', () => {
     const html = '<p>这里是[^A^]引用。</p><p>普通段落。</p>'
     const out = enrichFootnotes(html)
-    // 无定义段，引用保留原文，不生成列表
     expect(out).toContain('[^A^]')
-    expect(out).not.toContain('md-footnotes')
+    expect(out).not.toContain('md-fn-def')
+  })
+})
+
+describe('normalizeFootnoteDefs', () => {
+  it('标准 [^id]: 定义 → [^id^] 定义（行首）', () => {
+    expect(normalizeFootnoteDefs('[^a]: 内容')).toBe('[^a^] 内容')
+    expect(normalizeFootnoteDefs('[^A-01]: x')).toBe('[^A-01^] x')
+  })
+
+  it('消费定义后的空白，只保留一个空格', () => {
+    expect(normalizeFootnoteDefs('[^a]:    内容')).toBe('[^a^] 内容')
+  })
+
+  it('不动用户已有的 [^id^] 定义（无冒号）', () => {
+    expect(normalizeFootnoteDefs('[^a^] 内容')).toBe('[^a^] 内容')
+  })
+
+  it('不动普通 reference link 定义（label 不以 ^ 开头）', () => {
+    expect(normalizeFootnoteDefs('[ref]: https://x.com')).toBe('[ref]: https://x.com')
+  })
+
+  it('多行多处定义都归一化', () => {
+    expect(normalizeFootnoteDefs('[^a]: A\n正文\n[^b]: B')).toBe('[^a^] A\n正文\n[^b^] B')
   })
 })

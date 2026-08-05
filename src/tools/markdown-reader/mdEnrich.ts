@@ -157,58 +157,48 @@ export function extractDecisionItems(html: string): DecisionItem[] {
 }
 
 /**
- * 脚注：`[^id^]` 引用 + `[^id^] 内容` 定义段。
+ * 脚注：`[^id^]` / `[^id]` 引用 + `[^id^] 内容` / `[^id]: 内容` 定义。
  * 非标准语法（marked v5+ 不解析，原样穿透为文本），这里做确定性字符串变换。
- * 引用 → 上标数字链接；定义段（以 `[^id^] ` 开头的 <p>，段内多条定义按 `[^id^]` 边界切分）→ 文末列表 + 回跳。
- * 点击跳转由预览区 click 委托处理（见 MarkdownReaderTool）。
+ * 定义段就地渲染（不聚到文末）：段首标记 → [N] 锚点（既是跳转目标，又可点回跳）；
+ * 引用 → 上标数字链接。点击跳转由预览区 click 委托处理（见 MarkdownReaderTool）。
  */
 export function enrichFootnotes(html: string): string {
-  const defs: { n: number; content: string }[] = []
   const labelToN = new Map<string, number>()
+  let count = 0
 
-  const stripped = html.replace(
-    /<p>\s*\[\^([^\]^\s]+)\^\][\s\S]*?<\/p>/gi,
+  // 定义段：<p> 开头紧跟标记（标记后是 : 或 空白），就地渲染，标记 → [N] 锚点
+  const inPlace = html.replace(
+    /<p>\s*\[\^([^\]^\s]+)\^?\][:\s][\s\S]*?<\/p>/gi,
     (block) => {
-      // 归一化 <br>，再按 [^id^] 边界切定义（不依赖硬换行/软换行/<br> 的具体形式）
-      const norm = block
-        .replace(/^<p>\s*/i, '')
-        .replace(/\s*<\/p>$/i, '')
-        .replace(/<br\s*\/?>/gi, '\n')
       let captured = false
-      const defRe = /\[\^([^\]^\s]+)\^\]\s*([\s\S]*?)(?=\s*\[\^|$)/g
-      let m: RegExpExecArray | null
-      while ((m = defRe.exec(norm)) !== null) {
-        const label = m[1]
-        if (labelToN.has(label)) { captured = true; continue }
-        const n = defs.length + 1
-        labelToN.set(label, n)
-        defs.push({ n, content: m[2].trim() })
+      const out = block.replace(/\[\^([^\]^\s]+)\^?\]/g, (_tok, label: string) => {
+        if (!labelToN.has(label)) { count++; labelToN.set(label, count) }
         captured = true
-      }
-      return captured ? '' : block
+        const n = labelToN.get(label)!
+        return `<a class="md-fn-def" id="fn-${n}" href="#fnref-${n}">[${n}]</a>`
+      })
+      return captured ? out : block
     },
   )
 
-  if (defs.length === 0) return html
+  if (count === 0) return html
 
-  const withRefs = stripped.replace(
-    /\[\^([^\]^\s]+)\^\]/g,
-    (full, label: string) => {
-      const n = labelToN.get(label)
-      if (!n) return full
-      return `<sup class="md-fnref" id="fnref-${n}"><a href="#fn-${n}" class="md-fnref-link">${n}</a></sup>`
-    },
-  )
+  // 引用：剩余标记 → 上标链接；首次引用带 id 供回跳
+  const refSeen = new Set<string>()
+  return inPlace.replace(/\[\^([^\]^\s]+)\^?\]/g, (full, label: string) => {
+    const n = labelToN.get(label)
+    if (!n) return full
+    const idAttr = refSeen.has(label) ? '' : ` id="fnref-${n}"`
+    refSeen.add(label)
+    return `<sup class="md-fnref"${idAttr}><a href="#fn-${n}" class="md-fnref-link">${n}</a></sup>`
+  })
+}
 
-  const listHtml =
-    `<section class="md-footnotes" aria-label="脚注"><hr class="md-footnotes-sep"><ol>` +
-    defs
-      .map(
-        (d) =>
-          `<li id="fn-${d.n}">${d.content} <a href="#fnref-${d.n}" class="md-fn-back" aria-label="返回正文">↩</a></li>`,
-      )
-      .join('') +
-    `</ol></section>`
-
-  return withRefs + listHtml
+/**
+ * 标准脚注定义 `[^id]: 内容` 会被 marked 当 reference link 解析（[label]: url）。
+ * parse 前归一化成 `[^id^] 内容`，让 marked 原样穿透，再由 enrichFootnotes 接手。
+ * 仅处理 label 以 ^ 开头且不含 ^ 的定义，不碰普通 reference link。
+ */
+export function normalizeFootnoteDefs(md: string): string {
+  return md.replace(/^\[\^([^\]\^]+)\]:\s*/gm, '[^$1^] ')
 }

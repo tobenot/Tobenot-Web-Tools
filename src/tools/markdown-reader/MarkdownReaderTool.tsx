@@ -3,7 +3,7 @@ import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { getHashLocation } from '../../utils/hash'
 import { CDN, loadScript } from '../../utils/loadScript'
 import { sanitizeMarkdownHtml } from '../../utils/sanitize'
-import { enrichMarkdownHtml, extractDecisionItems } from './mdEnrich'
+import { enrichMarkdownHtml, extractDecisionItems, normalizeFootnoteDefs } from './mdEnrich'
 import { upgradeFenceBlocks } from './fenceUpgraders'
 import { SYNTAX_GUIDE_INTRO, SYNTAX_GUIDE_ITEMS, buildSyntaxGuideMarkdown } from './syntaxGuide'
 
@@ -250,18 +250,13 @@ const BASE_PREVIEW_CSS = `
   .style-dark .md-decision-option-detail { color: #d6d3d1; }
   .style-dark .md-decision-note { border-top-color: #7c2d12; color: #fdba74; }
 
-  /* 脚注 */
-  .md-preview .md-fnref { font-size: 0.75em; vertical-align: super; line-height: 0; margin-left: 1px; }
+  /* 脚注：引用上标 + 就地定义标记 */
+  .md-preview .md-fnref { font-size: 0.75em; vertical-align: super; line-height: 0; margin-left: 1px; scroll-margin-top: 12px; }
   .md-preview .md-fnref-link { color: #4f46e5; text-decoration: none; cursor: pointer; }
   .md-preview .md-fnref-link:hover { text-decoration: underline; }
-  .md-preview .md-footnotes { margin-top: 2.4em; font-size: 0.88em; color: #555; }
-  .md-preview .md-footnotes-sep { margin: 2em 0 1.2em; }
-  .md-preview .md-footnotes ol { padding-left: 1.5em; margin: 0; }
-  .md-preview .md-footnotes li { margin: 0.5em 0; line-height: 1.6; }
-  .md-preview .md-fn-back { font-size: 0.85em; text-decoration: none; margin-left: 0.3em; }
-  .md-preview .md-fnref, .md-preview .md-footnotes li { scroll-margin-top: 12px; }
-  .style-dark .md-fnref-link { color: #a5b4fc; }
-  .style-dark .md-footnotes { color: #9ca3af; }
+  .md-preview .md-fn-def { color: #4f46e5; text-decoration: none; font-weight: 600; font-size: 0.85em; cursor: pointer; scroll-margin-top: 12px; }
+  .md-preview .md-fn-def:hover { text-decoration: underline; }
+  .style-dark .md-fnref-link, .style-dark .md-fn-def { color: #a5b4fc; }
 
   /* ─── TOC 面板样式 ─── */
 
@@ -968,7 +963,7 @@ export function MarkdownReaderTool() {
     if (!ready) return
     try {
       // 解析并为标题注入 id
-      let parsed = enrichMarkdownHtml(upgradeFenceBlocks(window.marked.parse(md) as string))
+      let parsed = enrichMarkdownHtml(upgradeFenceBlocks(window.marked.parse(normalizeFootnoteDefs(md)) as string))
 
       let headingIndex = 0
       parsed = parsed.replace(/<h([1-6])([^>]*)>(.*?)<\/h[1-6]>/gi, (_match, level, attrs, content) => {
