@@ -23,7 +23,7 @@ export function Header() {
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center">
         {/* Logo */}
         <a
-          href="#"
+          href="/"
           className="flex items-center gap-3 font-bold text-xl tracking-wider text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors group"
         >
           <div className="text-2xl group-hover:scale-110 transition-transform duration-300">⚙️</div>
@@ -33,10 +33,10 @@ export function Header() {
         {/* 导航菜单 */}
         <nav className="ml-auto flex items-center gap-1">
           {[
-            { href: '#', icon: '🏠', label: '首页' },
-            { href: '#calendar', icon: '🗓️', label: '日历' },
-            { href: '#changelog', icon: '📝', label: '日志' },
-            { href: '#about', icon: 'ℹ️', label: '关于' }
+            { href: '/', icon: '🏠', label: '首页' },
+            { href: '/calendar', icon: '🗓️', label: '日历' },
+            { href: '/changelog', icon: '📝', label: '日志' },
+            { href: '/about', icon: 'ℹ️', label: '关于' }
           ].map((item, index) => (
             <a
               key={item.href}

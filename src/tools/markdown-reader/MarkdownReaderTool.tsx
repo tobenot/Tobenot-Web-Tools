@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
-import { getHashLocation } from '../../utils/hash'
+import { getRouteLocation } from '../../utils/hash'
 import { CDN, loadScript } from '../../utils/loadScript'
 import { sanitizeMarkdownHtml } from '../../utils/sanitize'
 import { enrichMarkdownHtml, extractDecisionItems, normalizeFootnoteDefs } from './mdEnrich'
@@ -709,7 +709,7 @@ interface SharedContentRef {
 
 function readSharedContentRef(): SharedContentRef | null {
   try {
-    const { params } = getHashLocation()
+    const { params } = getRouteLocation()
     // URLSearchParams 会把未编码的 + 当成空格；lz-string 的 decompress 会把空格还原成 +
     const encoded = params.get(SHARE_CONTENT_PARAM)
     if (!encoded) return null
@@ -722,7 +722,7 @@ function readSharedContentRef(): SharedContentRef | null {
 
 function readSharedGistRef(): SharedGistRef | null {
   try {
-    const { params } = getHashLocation()
+    const { params } = getRouteLocation()
     const id = params.get(SHARE_GIST_PARAM)
     if (!id) return null
     const styleParam = params.get(SHARE_STYLE_PARAM)
@@ -741,8 +741,9 @@ async function ensureLzString(): Promise<void> {
 
 function buildContentShareUrl(encoded: string, style: StyleKey): string {
   // 手动拼接，避免 URLSearchParams 改写 lz-string 的 + / $
+  // 路由已在 pathname，分享 payload 留在 fragment（爬虫看不到，编码不被服务器改写）
   const { origin, pathname } = window.location
-  return `${origin}${pathname}#markdown-reader?${SHARE_CONTENT_PARAM}=${encoded}&${SHARE_STYLE_PARAM}=${style}`
+  return `${origin}${pathname}#${SHARE_CONTENT_PARAM}=${encoded}&${SHARE_STYLE_PARAM}=${style}`
 }
 
 async function createSharedGist(md: string, token: string): Promise<CreatedGist> {
@@ -805,7 +806,7 @@ function buildGistShareUrl(id: string, style: StyleKey): string {
   params.set(SHARE_GIST_PARAM, id)
   params.set(SHARE_STYLE_PARAM, style)
   const { origin, pathname } = window.location
-  return `${origin}${pathname}#markdown-reader?${params.toString()}`
+  return `${origin}${pathname}#${params.toString()}`
 }
 
 const INITIAL_SHARED_CONTENT = readSharedContentRef()

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { ToolLayout } from '../../components/ToolLayout'
-import { setHash, getHashLocation } from '../../utils/hash'
+import { setStateHash, getRouteLocation } from '../../utils/hash'
 import { Solar, HolidayUtil } from 'lunar-typescript'
 
 /* ───── 基础日期工具函数 ───── */
@@ -138,7 +138,7 @@ function useHolidayApi(year: number): HolidayApiData | null {
 export function CalendarTool() {
   const now = useMemo(() => new Date(), [])
   const initial = useMemo(() => {
-    const { params } = getHashLocation()
+    const { params } = getRouteLocation()
     const parsed = parseISODate(params.get('d') || undefined)
     if (parsed) return parsed
     return { y: now.getFullYear(), m: now.getMonth(), d: now.getDate() }
@@ -152,8 +152,8 @@ export function CalendarTool() {
   const holidayApiData = useHolidayApi(year)
 
   useEffect(() => {
-    const onHash = () => {
-      const { params, path } = getHashLocation()
+    const onNav = () => {
+      const { params, path } = getRouteLocation()
       if (path !== 'calendar') return
       const parsed = parseISODate(params.get('d') || undefined)
       if (parsed) {
@@ -162,8 +162,8 @@ export function CalendarTool() {
         setSelectedDay(parsed.d)
       }
     }
-    window.addEventListener('hashchange', onHash)
-    return () => window.removeEventListener('hashchange', onHash)
+    window.addEventListener('popstate', onNav)
+    return () => window.removeEventListener('popstate', onNav)
   }, [])
 
   const goTo = useCallback((y: number, m: number) => {
@@ -186,7 +186,7 @@ export function CalendarTool() {
   function selectDay(day: number) {
     setSelectedDay(day)
     const iso = formatDate(year, month, day)
-    setHash('calendar', { d: iso })
+    setStateHash({ d: iso })
   }
 
   const days = getDaysInMonth(year, month)
@@ -272,7 +272,7 @@ export function CalendarTool() {
                 setYear(d.getFullYear())
                 setMonth(d.getMonth())
                 setSelectedDay(d.getDate())
-                setHash('calendar', { d: formatDate(d.getFullYear(), d.getMonth(), d.getDate()) })
+                setStateHash({ d: formatDate(d.getFullYear(), d.getMonth(), d.getDate()) })
               }}
             >今天</button>
           </div>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { tools } from '../data/routes'
+import { tools, isKnownRoute } from '../data/routes'
 import { getHtmlApps } from '../data/apps'
+import { navigate as routeTo } from '../utils/hash'
 
 interface SearchItem {
   id: string
@@ -69,11 +70,12 @@ export function CommandPalette() {
     setOpen(false)
     if (href.startsWith('http://') || href.startsWith('https://')) {
       window.open(href, '_blank', 'noopener,noreferrer')
-    } else if (href.startsWith('#')) {
-      window.location.hash = href
-    } else {
-      window.location.href = href
+      return
     }
+    // 独立 HTML 应用（apps/<slug>/）是真实页面，非 SPA 路由 → 整页跳转
+    const path = href.replace(/^\/+|\/+$/g, '')
+    if (isKnownRoute(path)) routeTo(href)
+    else window.location.assign(href)
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {

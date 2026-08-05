@@ -27,7 +27,7 @@
       http-equiv="Content-Security-Policy"
       content="
         default-src 'self';
-        script-src 'self' https://cdn.jsdelivr.net 'sha256-fUqPNDRpkL/GzhkMCzE8guEBAiV7OFwfJ1huRtA0mBQ=';
+        script-src 'self' https://cdn.jsdelivr.net 'sha256-3nMKDGgQe5s2iCt1QnDd1hOhCwviu6Y5KXXVqE5SRTI=';
         style-src 'self' 'unsafe-inline';
         img-src 'self' data: blob: https:;
         font-src 'self' data:;
@@ -40,7 +40,7 @@
       "
     />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <link rel="manifest" href="./manifest.json" />
+    <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0%200%2064%2064'%3E%3Crect width='64' height='64' rx='14' fill='%230f172a'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-family='Arial' font-size='30' font-weight='800' fill='white'%3EM%3C/text%3E%3C/svg%3E" />
     <title>Mecha Tools | 现代机械风 Web 工具站</title>
   </head>
@@ -48,10 +48,13 @@
   <body class="min-h-screen bg-white dark:bg-gray-900 text-mech-text dark:text-gray-100 antialiased">
     <div id="root"></div>
     <script>
+      // 旧哈希路由兼容：仅在根路径时，把 #tool / #tool?params 改写成 /tool#params。
+      // 保历史书签与已分享卡片不断；分享 payload 仍留在 fragment，lz 编码逐字保留。
+      try{if(location.pathname.replace(/\/+$/,'')===''){var h=location.hash;if(h.length>1){var raw=h.slice(1),qi=raw.indexOf('?'),p=qi<0?raw:raw.slice(0,qi),q=qi<0?'':raw.slice(qi+1);if(/^[a-z0-9-]+$/i.test(p))history.replaceState(null,'','/'+p+(q?'#'+q:''))}}}catch(e){}
       // Prevent FOUC: apply dark mode before React loads
       try{const t=localStorage.getItem('mecha-theme');if(t==='dark'||(t==null&&matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')}catch(e){}
       // Register service worker
-      if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{})}
+      if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>

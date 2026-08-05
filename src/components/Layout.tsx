@@ -28,7 +28,7 @@ export function Layout({ children, hideFooter = false }: LayoutProps) {
             <div className="flex items-center gap-4">
               <a
                 className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors group"
-                href="#about"
+                href="/about"
               >
                 <span>设计说明</span>
                 <span className="text-xs group-hover:translate-x-1 transition-transform duration-300">→</span>

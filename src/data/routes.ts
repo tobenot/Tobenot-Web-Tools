@@ -33,7 +33,7 @@ export const tools: ToolDef[] = [
     emoji: '🗓️',
     version: 'v0.1',
     category: 'utility',
-    href: '#calendar',
+    href: '/calendar',
     component: lazyTool(() => import('../tools/calendar/CalendarTool'), 'CalendarTool')
   },
   {
@@ -43,7 +43,7 @@ export const tools: ToolDef[] = [
     emoji: '📖',
     version: 'v0.2',
     category: 'utility',
-    href: '#markdown-reader',
+    href: '/markdown-reader',
     fullPage: true,
     component: lazyTool(() => import('../tools/markdown-reader/MarkdownReaderTool'), 'MarkdownReaderTool')
   },
@@ -54,7 +54,7 @@ export const tools: ToolDef[] = [
     emoji: 'Pr',
     version: 'v0.1',
     category: 'utility',
-    href: '#prompt-gallery',
+    href: '/prompt-gallery',
     component: lazyTool(() => import('../tools/prompt-gallery/PromptGalleryTool'), 'PromptGalleryTool')
   },
   {
@@ -64,7 +64,7 @@ export const tools: ToolDef[] = [
     emoji: '🖼️',
     version: 'v0.1',
     category: 'utility',
-    href: '#bg-remover',
+    href: '/bg-remover',
     component: lazyTool(() => import('../tools/bg-remover/BgRemoverTool'), 'BgRemoverTool')
   },
   {
@@ -74,7 +74,7 @@ export const tools: ToolDef[] = [
     emoji: '🗜️',
     version: 'v1.0',
     category: 'utility',
-    href: '#image-to-webp',
+    href: '/image-to-webp',
     tags: ['图片', 'WebP', '压缩', '批量'],
     component: lazyTool(() => import('../tools/image-to-webp/ImageToWebpTool'), 'ImageToWebpTool')
   },
@@ -85,7 +85,7 @@ export const tools: ToolDef[] = [
     emoji: '🖊️',
     version: 'v1.0',
     category: 'utility',
-    href: '#image-outline',
+    href: '/image-outline',
     tags: ['图片', '描边', '贴纸', '透明底'],
     component: lazyTool(() => import('../tools/image-outline/ImageOutlineTool'), 'ImageOutlineTool')
   },
@@ -96,7 +96,7 @@ export const tools: ToolDef[] = [
     emoji: '↔️',
     version: 'v0.1',
     category: 'utility',
-    href: '#space-tab-converter',
+    href: '/space-tab-converter',
     component: lazyTool(() => import('../tools/space-tab-converter/SpaceTabConverterTool'), 'SpaceTabConverterTool')
   },
   {
@@ -106,7 +106,7 @@ export const tools: ToolDef[] = [
     emoji: '📊',
     version: 'v0.1',
     category: 'utility',
-    href: '#json-viewer',
+    href: '/json-viewer',
     component: lazyTool(() => import('../tools/json-viewer/JsonViewerTool'), 'JsonViewerTool')
   },
   {
@@ -116,7 +116,7 @@ export const tools: ToolDef[] = [
     emoji: '🔐',
     version: 'v1.0',
     category: 'utility',
-    href: '#base64',
+    href: '/base64',
     component: lazyTool(() => import('../tools/base64/Base64Tool'), 'Base64Tool')
   },
   {
@@ -126,7 +126,7 @@ export const tools: ToolDef[] = [
     emoji: '🔗',
     version: 'v1.0',
     category: 'utility',
-    href: '#url-codec',
+    href: '/url-codec',
     component: lazyTool(() => import('../tools/url-codec/UrlCodecTool'), 'UrlCodecTool')
   },
   {
@@ -136,7 +136,7 @@ export const tools: ToolDef[] = [
     emoji: '🎯',
     version: 'v1.0',
     category: 'utility',
-    href: '#regex-tester',
+    href: '/regex-tester',
     component: lazyTool(() => import('../tools/regex-tester/RegexTesterTool'), 'RegexTesterTool')
   },
   {
@@ -146,7 +146,7 @@ export const tools: ToolDef[] = [
     emoji: '📝',
     version: 'v1.0',
     category: 'utility',
-    href: '#text-diff',
+    href: '/text-diff',
     component: lazyTool(() => import('../tools/text-diff/TextDiffTool'), 'TextDiffTool')
   },
   {
@@ -156,7 +156,7 @@ export const tools: ToolDef[] = [
     emoji: '📱',
     version: 'v1.0',
     category: 'utility',
-    href: '#qrcode',
+    href: '/qrcode',
     component: lazyTool(() => import('../tools/qrcode/QrCodeTool'), 'QrCodeTool')
   },
   {
@@ -166,7 +166,7 @@ export const tools: ToolDef[] = [
     emoji: '🔤',
     version: 'v1.0',
     category: 'app',
-    href: '#big-text',
+    href: '/big-text',
     tags: ['沟通', '无障碍', '展示'],
     fullPage: true,
     component: lazyTool(() => import('../tools/big-text/BigTextTool'), 'BigTextTool')
@@ -189,7 +189,7 @@ export const tools: ToolDef[] = [
     emoji: '📝',
     version: '站点',
     category: 'info',
-    href: '#changelog'
+    href: '/changelog'
   }
 ]
 

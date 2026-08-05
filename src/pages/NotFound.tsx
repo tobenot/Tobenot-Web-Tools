@@ -18,7 +18,7 @@ export function NotFound({ path }: { path: string }) {
         <p className="text-gray-600 dark:text-gray-400">
           没有找到路径
           <code className="mx-1.5 px-2 py-0.5 font-mono text-sm bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-mech break-all">
-            #{path}
+            /{path}
           </code>
           对应的工具。
         </p>
@@ -29,7 +29,7 @@ export function NotFound({ path }: { path: string }) {
 
       <div className="flex items-center justify-center gap-3">
         <a
-          href="#"
+          href="/"
           className="px-6 py-3 border-2 border-gray-900 dark:border-gray-100 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors rounded-mech"
         >
           返回首页

@@ -4,6 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import { execSync } from 'child_process'
 import { fileURLToPath } from 'url'
+import { siteTools } from './scripts/site-tools.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -88,9 +89,47 @@ function swVersionPlugin(): Plugin {
   }
 }
 
+/**
+ * 构建期为每个工具生成带专属 OG 的真 HTML（dist/<id>/index.html）。
+ *
+ * 路由已迁到路径路由，但爬虫不跑 JS —— 光路径路由拿到的仍是同一份首页 OG。
+ * 故按 dist/index.html 复制出每工具一份，只替换 title 与 OG meta。
+ * 附带好处：已知路由都是真文件，GH Pages 无需脆弱的 404 query 搬运；
+ * 未知路径落 dist/404.html（同为 SPA shell，由 App 渲染 NotFound）。
+ */
+function prerenderTools(): Plugin {
+  const SITE = 'https://tools.tobenot.top'
+  const setMeta = (html: string, key: string, val: string, attr = 'property') =>
+    html.replace(new RegExp(`(<meta ${attr}="${key}" content=")[^"]*(")`), `$1${val}$2`)
+  return {
+    name: 'prerender-tools',
+    apply: 'build',
+    closeBundle() {
+      const distDir = path.resolve(__dirname, 'dist')
+      const distIndex = path.join(distDir, 'index.html')
+      if (!fs.existsSync(distIndex)) return
+      const base = fs.readFileSync(distIndex, 'utf8')
+      for (const t of siteTools) {
+        const url = `${SITE}/${t.id}/`
+        const title = `${t.title} | Mecha Tools`
+        let html = base.replace(/<title>[\s\S]*?<\/title>/, `<title>${title}</title>`)
+        html = setMeta(html, 'og:url', url)
+        html = setMeta(html, 'og:title', title)
+        html = setMeta(html, 'og:description', t.description)
+        html = setMeta(html, 'og:image', `${SITE}/og/${t.id}.png`)
+        html = setMeta(html, 'description', t.description, 'name')
+        const dir = path.join(distDir, t.id)
+        fs.mkdirSync(dir, { recursive: true })
+        fs.writeFileSync(path.join(dir, 'index.html'), html)
+      }
+      fs.copyFileSync(distIndex, path.join(distDir, '404.html'))
+    },
+  }
+}
+
 export default defineConfig({
-  base: './',
-  plugins: [react(), swVersionPlugin()],
+  base: '/',
+  plugins: [react(), swVersionPlugin(), prerenderTools()],
   build: {
     rollupOptions: {
       input: discoverHtmlEntries(),

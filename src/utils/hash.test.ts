@@ -1,119 +1,94 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest'
-import { getHashLocation, setHash } from './hash'
+import { describe, expect, it, afterEach, vi } from 'vitest'
+import { getRouteLocation, setStateHash } from './hash'
 
 /*
- * hash.ts 是全站路由与「状态进链接」分享模型的基础，
- * 尤其 lz-string 的 URL 安全字母表含 '+' / '$'，
- * 解析行为一旦回退会静默破坏所有历史分享链接。
+ * hash.ts 是全站路由与「状态进链接」分享模型的基础。
+ * 迁到路径路由后：路由取自 pathname，分享 payload 留在 fragment。
+ * lz-string 的 URL 安全字母表含 '+' / '$'，解析行为一旦回退会静默破坏历史分享链接，
+ * 故这里锁死 fragment 的解析契约。
  */
 
-const originalLocation = window.location
+const original = window.location
 
-function mockHash(hash: string) {
+function mockLocation(pathname: string, hash: string) {
   Object.defineProperty(window, 'location', {
-    value: { ...originalLocation, hash },
+    value: { ...original, pathname, hash },
     writable: true,
     configurable: true,
   })
 }
 
-describe('getHashLocation', () => {
-  afterEach(() => {
-    Object.defineProperty(window, 'location', {
-      value: originalLocation,
-      writable: true,
-      configurable: true,
-    })
+afterEach(() => {
+  Object.defineProperty(window, 'location', { value: original, writable: true, configurable: true })
+  vi.restoreAllMocks()
+})
+
+describe('getRouteLocation', () => {
+  it('根路径返回空 path', () => {
+    mockLocation('/', '')
+    expect(getRouteLocation().path).toBe('')
   })
 
-  it('空 hash 返回空 path', () => {
-    mockHash('')
-    expect(getHashLocation().path).toBe('')
+  it('去掉首尾斜杠', () => {
+    mockLocation('/calendar/', '')
+    expect(getRouteLocation().path).toBe('calendar')
   })
 
-  it('仅 # 返回空 path', () => {
-    mockHash('#')
-    expect(getHashLocation().path).toBe('')
+  it('带连字符的路径名不被截断', () => {
+    mockLocation('/space-tab-converter', '')
+    expect(getRouteLocation().path).toBe('space-tab-converter')
   })
 
-  it('解析简单路径', () => {
-    mockHash('#calendar')
-    expect(getHashLocation().path).toBe('calendar')
-  })
-
-  it('解析路径与查询参数', () => {
-    mockHash('#calendar?d=2026-07-30')
-    const { path, params } = getHashLocation()
-    expect(path).toBe('calendar')
-    expect(params.get('d')).toBe('2026-07-30')
-  })
-
-  it('解析多个参数', () => {
-    mockHash('#markdown-reader?c=ABC&style=business')
-    const { path, params } = getHashLocation()
+  it('从 fragment 解析分享参数', () => {
+    mockLocation('/markdown-reader', '#c=ABC&style=business')
+    const { path, params } = getRouteLocation()
     expect(path).toBe('markdown-reader')
     expect(params.get('c')).toBe('ABC')
     expect(params.get('style')).toBe('business')
   })
 
-  it('带连字符的路径名不被截断', () => {
-    mockHash('#space-tab-converter')
-    expect(getHashLocation().path).toBe('space-tab-converter')
-  })
-
   it('未编码的 + 会被 URLSearchParams 解析成空格（lz-string 已知行为）', () => {
-    // 该行为是 architecture.md 记录的已知边界：
     // lz-string 的 decompress 会把空格还原成 +，故仍可正常解压
-    mockHash('#markdown-reader?c=A+B')
-    expect(getHashLocation().params.get('c')).toBe('A B')
+    mockLocation('/markdown-reader', '#c=A+B')
+    expect(getRouteLocation().params.get('c')).toBe('A B')
   })
 
   it('保留 lz-string 字母表中的 $ 字符', () => {
-    mockHash('#markdown-reader?c=A$B')
-    expect(getHashLocation().params.get('c')).toBe('A$B')
+    mockLocation('/markdown-reader', '#c=A$B')
+    expect(getRouteLocation().params.get('c')).toBe('A$B')
   })
 
   it('参数值为空时返回空字符串而非 null', () => {
-    mockHash('#calendar?d=')
-    expect(getHashLocation().params.get('d')).toBe('')
+    mockLocation('/calendar', '#d=')
+    expect(getRouteLocation().params.get('d')).toBe('')
   })
 })
 
-describe('setHash', () => {
-  beforeEach(() => {
-    mockHash('')
-  })
+describe('setStateHash', () => {
+  function spyPush() {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    vi.spyOn(window, 'dispatchEvent').mockImplementation(() => true)
+    return vi.spyOn(window.history, 'pushState').mockImplementation(() => {})
+  }
 
-  afterEach(() => {
-    Object.defineProperty(window, 'location', {
-      value: originalLocation,
-      writable: true,
-      configurable: true,
-    })
-  })
-
-  it('无参数时只写路径', () => {
-    setHash('calendar')
-    expect(window.location.hash).toBe('#calendar')
-  })
-
-  it('写入参数', () => {
-    setHash('calendar', { d: '2026-07-30' })
-    expect(window.location.hash).toBe('#calendar?d=2026-07-30')
+  it('把状态写进当前 pathname 的 fragment', () => {
+    mockLocation('/calendar', '')
+    const spy = spyPush()
+    setStateHash({ d: '2026-07-30' })
+    expect(spy).toHaveBeenCalledWith(null, '', '/calendar#d=2026-07-30')
   })
 
   it('跳过 undefined / null / 空字符串', () => {
-    setHash('calendar', { a: undefined, b: null, c: '', d: 'ok' })
-    expect(window.location.hash).toBe('#calendar?d=ok')
-  })
-
-  it('数字参数转为字符串', () => {
-    setHash('calendar', { year: 2026 })
-    expect(window.location.hash).toBe('#calendar?year=2026')
+    mockLocation('/calendar', '')
+    const spy = spyPush()
+    setStateHash({ a: undefined, b: null, c: '', d: 'ok' })
+    expect(spy).toHaveBeenCalledWith(null, '', '/calendar#d=ok')
   })
 
   it('数字 0 不被当作空值跳过', () => {
-    setHash('calendar', { n: 0 })
-    expect(window.location.hash).toBe('#calendar?n=0')
+    mockLocation('/calendar', '')
+    const spy = spyPush()
+    setStateHash({ n: 0 })
+    expect(spy).toHaveBeenCalledWith(null, '', '/calendar#n=0')
   })
 })

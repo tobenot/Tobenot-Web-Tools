@@ -9,7 +9,7 @@ import { Home } from './pages/Home'
 import { About } from './pages/About'
 import { ChangelogPage } from './pages/ChangelogPage'
 import { NotFound } from './pages/NotFound'
-import { getHashLocation } from './utils/hash'
+import { getRouteLocation, navigate } from './utils/hash'
 import { setFavicon } from './utils/favicon'
 import { recordToolVisit } from './utils/recent'
 import { getPageTitle, isKnownRoute, toolsById } from './data/routes'
@@ -27,20 +27,44 @@ function ToolFallback() {
 }
 
 export default function App() {
-  const [hashKey, setHashKey] = useState(0)
+  const [routeKey, setRouteKey] = useState(0)
 
   useEffect(() => {
-    const onHashChange = () => setHashKey((k) => k + 1)
-    window.addEventListener('hashchange', onHashChange)
-    return () => window.removeEventListener('hashchange', onHashChange)
+    const onNav = () => setRouteKey((k) => k + 1)
+    window.addEventListener('popstate', onNav)
+    return () => window.removeEventListener('popstate', onNav)
   }, [])
 
   /*
-   * hashKey 仅用于在 hashchange 时触发重新计算，
-   * 故意作为依赖项存在（getHashLocation 读的是 window.location，非响应式）。
+   * 全局拦截站内链接点击 → 走 History API，保持 SPA 体验。
+   * 只接管指向已知 SPA 路由的同源链接；纯 #锚点（如阅读器脚注）、
+   * 外链、/apps/ 独立页与带 download 的链接一律交还浏览器。
+   */
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      const a = (e.target as HTMLElement | null)?.closest?.('a') as HTMLAnchorElement | null
+      if (!a) return
+      const href = a.getAttribute('href')
+      if (!href || href.startsWith('#')) return
+      if ((a.target && a.target !== '_self') || a.hasAttribute('download')) return
+      const url = new URL(a.href, window.location.href)
+      if (url.origin !== window.location.origin) return
+      const path = url.pathname.replace(/^\/+|\/+$/g, '')
+      if (!isKnownRoute(path)) return
+      e.preventDefault()
+      navigate(url.pathname + url.hash)
+    }
+    document.addEventListener('click', onClick)
+    return () => document.removeEventListener('click', onClick)
+  }, [])
+
+  /*
+   * routeKey 仅用于在导航时触发重新计算，
+   * 故意作为依赖项存在（getRouteLocation 读的是 window.location，非响应式）。
    */
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const route = useMemo(() => getHashLocation(), [hashKey])
+  const route = useMemo(() => getRouteLocation(), [routeKey])
 
   useEffect(() => {
     document.title = getPageTitle(route.path)

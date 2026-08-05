@@ -18,7 +18,7 @@ export class ErrorBoundary extends Component<PropsWithChildren, State> {
 
   handleReset = () => {
     this.setState({ hasError: false, error: null })
-    window.location.hash = ''
+    window.location.href = '/'
   }
 
   render() {

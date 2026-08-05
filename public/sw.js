@@ -45,7 +45,10 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone))
         }
         return response
-      }).catch(() => cached)
+      }).catch(() =>
+        // 路径路由：离线且未缓存的工具页导航，回退到 SPA shell
+        cached || (event.request.mode === 'navigate' ? caches.match('./index.html') : undefined)
+      )
 
       return cached || fetched
     })
