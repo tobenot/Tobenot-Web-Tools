@@ -200,5 +200,5 @@ export function enrichFootnotes(html: string): string {
  * 仅处理 label 以 ^ 开头且不含 ^ 的定义，不碰普通 reference link。
  */
 export function normalizeFootnoteDefs(md: string): string {
-  return md.replace(/^\[\^([^\]\^]+)\]:\s*/gm, '[^$1^] ')
+  return md.replace(/^\[\^([^\]^]+)\]:\s*/gm, '[^$1^] ')
 }
