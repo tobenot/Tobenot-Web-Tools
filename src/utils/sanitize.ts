@@ -21,6 +21,8 @@ import DOMPurify from 'dompurify'
  */
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
   if (node.nodeName === 'A' && node instanceof Element && node.hasAttribute('href')) {
+    // 同页片段锚点（#frag）由预览区 click 委托做同页滚动；加 target=_blank 会让中键/直接点击开新窗，语义错误
+    if ((node.getAttribute('href') || '').startsWith('#')) return
     node.setAttribute('target', '_blank')
     node.setAttribute('rel', 'noopener noreferrer nofollow')
   }

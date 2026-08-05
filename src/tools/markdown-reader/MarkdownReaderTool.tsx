@@ -250,6 +250,19 @@ const BASE_PREVIEW_CSS = `
   .style-dark .md-decision-option-detail { color: #d6d3d1; }
   .style-dark .md-decision-note { border-top-color: #7c2d12; color: #fdba74; }
 
+  /* 脚注 */
+  .md-preview .md-fnref { font-size: 0.75em; vertical-align: super; line-height: 0; margin-left: 1px; }
+  .md-preview .md-fnref-link { color: #4f46e5; text-decoration: none; cursor: pointer; }
+  .md-preview .md-fnref-link:hover { text-decoration: underline; }
+  .md-preview .md-footnotes { margin-top: 2.4em; font-size: 0.88em; color: #555; }
+  .md-preview .md-footnotes-sep { margin: 2em 0 1.2em; }
+  .md-preview .md-footnotes ol { padding-left: 1.5em; margin: 0; }
+  .md-preview .md-footnotes li { margin: 0.5em 0; line-height: 1.6; }
+  .md-preview .md-fn-back { font-size: 0.85em; text-decoration: none; margin-left: 0.3em; }
+  .md-preview .md-fnref, .md-preview .md-footnotes li { scroll-margin-top: 12px; }
+  .style-dark .md-fnref-link { color: #a5b4fc; }
+  .style-dark .md-footnotes { color: #9ca3af; }
+
   /* ─── TOC 面板样式 ─── */
 
   .toc-panel { font-size: 13px; line-height: 1.6; }
@@ -1049,6 +1062,29 @@ export function MarkdownReaderTool() {
       root.removeEventListener('click', onClick)
       root.removeEventListener('keydown', onKey)
     }
+  }, [html])
+
+  /* 同页锚点（脚注引用 / 回跳 / 普通锚点）：平滑滚动到目标；
+     preventDefault 避免改 hash 触发本站 hash 路由跳转 */
+  useEffect(() => {
+    const root = previewRef.current
+    if (!root || !html) return
+
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented) return
+      const a = (e.target as HTMLElement | null)?.closest?.('a') as HTMLAnchorElement | null
+      if (!a || !root.contains(a)) return
+      const href = a.getAttribute('href') || ''
+      if (!href.startsWith('#')) return
+      const id = href.slice(1)
+      if (!id) return
+      e.preventDefault()
+      const target = root.querySelector(`#${CSS.escape(id)}`)
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+
+    root.addEventListener('click', onClick)
+    return () => root.removeEventListener('click', onClick)
   }, [html])
 
   /* 渲染 PlantUML / Graphviz 图表 */

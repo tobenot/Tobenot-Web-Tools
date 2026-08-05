@@ -121,6 +121,7 @@ export function enrichMarkdownHtml(html: string): string {
   out = enrichCodeChrome(out)
   out = enrichCallouts(out)
   out = enrichLabelBadges(out)
+  out = enrichFootnotes(out)
   return out
 }
 
@@ -153,4 +154,61 @@ export function extractDecisionItems(html: string): DecisionItem[] {
     items.push({ id: m[1], text: m[2] || '待决策' })
   }
   return items
+}
+
+/**
+ * 脚注：`[^id^]` 引用 + `[^id^] 内容` 定义段。
+ * 非标准语法（marked v5+ 不解析，原样穿透为文本），这里做确定性字符串变换。
+ * 引用 → 上标数字链接；定义段（以 `[^id^] ` 开头的 <p>，段内多条定义按 `[^id^]` 边界切分）→ 文末列表 + 回跳。
+ * 点击跳转由预览区 click 委托处理（见 MarkdownReaderTool）。
+ */
+export function enrichFootnotes(html: string): string {
+  const defs: { n: number; content: string }[] = []
+  const labelToN = new Map<string, number>()
+
+  const stripped = html.replace(
+    /<p>\s*\[\^([^\]^\s]+)\^\][\s\S]*?<\/p>/gi,
+    (block) => {
+      // 归一化 <br>，再按 [^id^] 边界切定义（不依赖硬换行/软换行/<br> 的具体形式）
+      const norm = block
+        .replace(/^<p>\s*/i, '')
+        .replace(/\s*<\/p>$/i, '')
+        .replace(/<br\s*\/?>/gi, '\n')
+      let captured = false
+      const defRe = /\[\^([^\]^\s]+)\^\]\s*([\s\S]*?)(?=\s*\[\^|$)/g
+      let m: RegExpExecArray | null
+      while ((m = defRe.exec(norm)) !== null) {
+        const label = m[1]
+        if (labelToN.has(label)) { captured = true; continue }
+        const n = defs.length + 1
+        labelToN.set(label, n)
+        defs.push({ n, content: m[2].trim() })
+        captured = true
+      }
+      return captured ? '' : block
+    },
+  )
+
+  if (defs.length === 0) return html
+
+  const withRefs = stripped.replace(
+    /\[\^([^\]^\s]+)\^\]/g,
+    (full, label: string) => {
+      const n = labelToN.get(label)
+      if (!n) return full
+      return `<sup class="md-fnref" id="fnref-${n}"><a href="#fn-${n}" class="md-fnref-link">${n}</a></sup>`
+    },
+  )
+
+  const listHtml =
+    `<section class="md-footnotes" aria-label="脚注"><hr class="md-footnotes-sep"><ol>` +
+    defs
+      .map(
+        (d) =>
+          `<li id="fn-${d.n}">${d.content} <a href="#fnref-${d.n}" class="md-fn-back" aria-label="返回正文">↩</a></li>`,
+      )
+      .join('') +
+    `</ol></section>`
+
+  return withRefs + listHtml
 }

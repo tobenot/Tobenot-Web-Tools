@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   enrichCallouts,
   enrichCodeChrome,
+  enrichFootnotes,
   enrichLabelBadges,
   enrichMarkdownHtml,
   extractDecisionItems,
@@ -77,5 +78,61 @@ describe('enrichMarkdownHtml + extractDecisionItems', () => {
     const decisions = extractDecisionItems(out)
     expect(decisions.length).toBeGreaterThanOrEqual(2)
     expect(decisions.some((d) => d.id.startsWith('decision-'))).toBe(true)
+  })
+})
+
+describe('enrichFootnotes', () => {
+  it('引用 + 定义 → 上标链接 + 文末列表', () => {
+    const html = ['<p>正文[^A-01^]。</p>', '<p>[^A-01^] 参见某文档。</p>'].join('')
+    const out = enrichFootnotes(html)
+    expect(out).toContain('class="md-fnref"')
+    expect(out).toContain('href="#fn-1"')
+    expect(out).toContain('id="fnref-1"')
+    expect(out).toContain('class="md-footnotes"')
+    expect(out).toContain('id="fn-1"')
+    expect(out).toContain('参见某文档')
+    expect(out).toContain('md-fn-back')
+    expect(out).not.toContain('[^A-01^]')
+  })
+
+  it('无定义的引用保留原文', () => {
+    const out = enrichFootnotes('<p>正文[^X^]。</p>')
+    expect(out).toContain('[^X^]')
+    expect(out).not.toContain('md-footnotes')
+  })
+
+  it('无脚注时原样返回', () => {
+    const html = '<p>普通正文。</p>'
+    expect(enrichFootnotes(html)).toBe(html)
+  })
+
+  it('同一 <p> 内 <br> 分隔的多条定义', () => {
+    const html = '<p>正文[^A^][^B^]。</p><p>[^A^] 内容A<br>[^B^] 内容B</p>'
+    const out = enrichFootnotes(html)
+    expect(out).toContain('href="#fn-1"')
+    expect(out).toContain('href="#fn-2"')
+    expect(out).toContain('内容A')
+    expect(out).toContain('内容B')
+    expect(out).not.toContain('[^A^]')
+    expect(out).not.toContain('[^B^]')
+  })
+
+  it('软换行（无 <br>，marked 默认输出）的多条定义也能切分', () => {
+    const html = '<p>正文[^A^][^B^]。</p><p>[^A^] 内容A\n[^B^] 内容B</p>'
+    const out = enrichFootnotes(html)
+    expect(out).toContain('href="#fn-1"')
+    expect(out).toContain('href="#fn-2"')
+    expect(out).toContain('内容A')
+    expect(out).toContain('内容B')
+    expect(out).not.toContain('[^A^]')
+    expect(out).not.toContain('[^B^]')
+  })
+
+  it('定义段以 <p>[^id^] 开头才识别，正文中的 [^id^] 不误判为定义', () => {
+    const html = '<p>这里是[^A^]引用。</p><p>普通段落。</p>'
+    const out = enrichFootnotes(html)
+    // 无定义段，引用保留原文，不生成列表
+    expect(out).toContain('[^A^]')
+    expect(out).not.toContain('md-footnotes')
   })
 })
