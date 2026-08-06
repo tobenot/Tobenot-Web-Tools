@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "check:csp": "node scripts/check-csp.mjs",
     "check:lz": "node scripts/check-lz-url.mjs",
-    "check": "npm run check:csp && npm run check:lz"
+    "check:tools": "node scripts/check-tools.mjs",
+    "check": "npm run check:csp && npm run check:lz && npm run check:tools"
   },
   "dependencies": {
     "dompurify": "^3.4.12",

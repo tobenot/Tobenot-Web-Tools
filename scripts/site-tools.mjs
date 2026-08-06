@@ -1,6 +1,6 @@
 // 构建期工具清单：预渲染（vite.config）与 OG 图生成（gen-og）共用。
-// 单一事实源仍是 src/data/routes.ts —— 新增工具时同步这里的一行即可。
-// 若漏同步：该工具仍能路由，只是拿到站点默认 OG（优雅降级，不报错）。
+// 单一事实源是 src/data/routes.ts —— 新增工具时同步这里的一行，再 `node scripts/gen-og.mjs` 补图。
+// 漏同步不会静默：`npm run check`（check:tools）会比对 routes.ts 与本文件并在 CI 卡红。
 export const siteTools = [
   { id: 'calendar', title: '日历工具', description: '快速查看与分享指定日期' },
   { id: 'markdown-reader', title: 'Markdown 阅读器', description: '精美 Markdown 实时预览，多种风格切换、图片导出与 Gist 链接分享' },
