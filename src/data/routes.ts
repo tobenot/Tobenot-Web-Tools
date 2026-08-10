@@ -172,6 +172,17 @@ export const tools: ToolDef[] = [
     component: lazyTool(() => import('../tools/big-text/BigTextTool'), 'BigTextTool')
   },
   {
+    id: 'secure-archive',
+    title: '安全压缩脚本',
+    description: '为 Windows + 7-Zip 生成加密压缩脚本（.bat），AES-256 加密文件与文件名，密码交互式输入',
+    emoji: '🔐',
+    version: 'v0.1',
+    category: 'utility',
+    href: '/secure-archive',
+    tags: ['压缩', '加密', '7-Zip', '安全'],
+    component: lazyTool(() => import('../tools/secure-archive/SecureArchiveTool'), 'SecureArchiveTool')
+  },
+  {
     id: 'wormhole',
     title: 'Wormhole 文件分享',
     description: '端到端加密的临时文件传输，链接自动过期，最高支持 10 GB',
@@ -223,6 +234,15 @@ export function isKnownRoute(path: string): boolean {
 }
 
 export const globalChangelog: ChangelogEntry[] = [
+  {
+    date: '2026-08-11',
+    title: '新增安全压缩脚本生成工具',
+    notes: [
+      '为 Windows + 7-Zip 生成加密压缩脚本（.bat）：AES-256 加密文件与文件名（-mhe=on），密码交互式输入，全程不碰网络',
+      '下载后拖拽文件/文件夹到脚本即可压缩；压缩发生在本机，数据不出机器，密码不进脚本、不进命令行历史',
+      '附脚本逐行解析：展示的代码与下载的完全一致，每一段都说明它在做什么、为什么安全'
+    ]
+  },
   {
     date: '2026-07-30',
     title: '工程与体验改进：代码分割、404 页与工程护栏',

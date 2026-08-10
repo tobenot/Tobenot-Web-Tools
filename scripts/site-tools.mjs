@@ -16,4 +16,5 @@ export const siteTools = [
   { id: 'text-diff', title: '文本 Diff 对比', description: '逐行对比两段文本，高亮新增和删除的差异' },
   { id: 'qrcode', title: '二维码生成', description: '输入文本或 URL 即时生成二维码，支持自定义颜色和下载' },
   { id: 'big-text', title: '大字展示板', description: '输入文字即时大字展示，适合需要辅助沟通的场景' },
+  { id: 'secure-archive', title: '安全压缩脚本', description: '为 Windows + 7-Zip 生成加密压缩脚本（.bat），AES-256 加密文件与文件名，密码交互式输入' },
 ]
