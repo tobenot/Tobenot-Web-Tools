@@ -104,7 +104,7 @@ export default function App() {
       <UpdatePrompt />
       {isFullPage ? (
         <main
-          className={route.path === 'markdown-reader' ? 'w-full overflow-hidden p-4' : 'w-full'}
+          className={route.path === 'markdown-reader' ? 'w-full overflow-hidden p-0 sm:p-4' : 'w-full'}
           style={{ height: 'calc(100vh - 66px)' }}
         >
           {content}

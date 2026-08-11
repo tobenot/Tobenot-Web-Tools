@@ -54,6 +54,9 @@ const STYLE_OPTIONS: { key: StyleKey; label: string }[] = [
   { key: 'pink', label: '少女粉风格' },
 ]
 
+/* 手机端判定：与 Tailwind 的 lg（min-width: 1024px）严格对齐 */
+const MOBILE_QUERY = '(max-width: 1023.98px)'
+
 /* ─── 默认内容 ─── */
 const DEFAULT_MD = `# 技术文档
 
@@ -129,6 +132,9 @@ interface ReadingProgress {
 /* ─── 基础排版恢复（抵消 Tailwind Preflight reset） ─── */
 const BASE_PREVIEW_CSS = `
   .md-preview { font-family: 'PingFang SC','Microsoft YaHei',sans-serif; line-height: 1.7; color: #333; padding: 28px 32px 48px; box-sizing: border-box; }
+  @media (max-width: 1023.98px) {
+    .md-preview { padding: 18px 16px 48px; }
+  }
   .md-preview h1 { font-size: 2em; font-weight: bold; margin: 0.4em 0 0.6em; letter-spacing: -0.02em; }
   .md-preview h2 { font-size: 1.45em; font-weight: bold; margin: 1.6em 0 0.7em; padding-bottom: 0.35em; border-bottom: 1px solid rgba(0,0,0,.08); }
   .md-preview h3 { font-size: 1.2em; font-weight: bold; margin: 1.4em 0 0.55em; padding-left: 0.55em; border-left: 3px solid rgba(79,70,229,.45); }
@@ -351,6 +357,7 @@ const STORAGE_KEY_MD = 'md-reader:content'
 const STORAGE_KEY_STYLE = 'md-reader:style'
 const STORAGE_KEY_EDITOR_WIDTH = 'md-reader:editor-width'
 const STORAGE_KEY_READING_PROGRESS = 'md-reader:reading-progress'
+const STORAGE_KEY_READ_MODE = 'md-reader:read-mode'
 const DEFAULT_EDITOR_WIDTH = 36
 const MIN_EDITOR_WIDTH = 24
 const MAX_EDITOR_WIDTH = 55
@@ -394,6 +401,13 @@ function loadReadingProgressFromStorage(): ReadingProgress | null {
     }
   } catch { /* ignore */ }
   return null
+}
+
+function loadReadMode(): boolean {
+  try {
+    return localStorage.getItem(STORAGE_KEY_READ_MODE) === 'true'
+  } catch { /* ignore */ }
+  return false
 }
 
 function getScrollRatio(element: HTMLElement): number {
@@ -824,7 +838,7 @@ export function MarkdownReaderTool() {
   const [html, setHtml] = useState('')
 
   /* 分享 / 阅读模式（即时链接 c= 或 Gist） */
-  const [readMode, setReadMode] = useState(() => INITIAL_IS_SHARED)
+  const [readMode, setReadMode] = useState(() => INITIAL_IS_SHARED || loadReadMode())
   const [gistLoading, setGistLoading] = useState(() => INITIAL_IS_SHARED)
   const [gistError, setGistError] = useState('')
   const [shareCreating, setShareCreating] = useState(false)
@@ -854,7 +868,10 @@ export function MarkdownReaderTool() {
   const [mermaidReady, setMermaidReady] = useState(false)
   const [exporting, setExporting] = useState(false)
 
-  const [tocOpen, setTocOpen] = useState(true)
+  const [tocOpen, setTocOpen] = useState(() => !window.matchMedia(MOBILE_QUERY).matches)
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches)
+  /* 手机端单栏视图：编辑 / 预览二选一（桌面端无意义） */
+  const [mobileView, setMobileView] = useState<'edit' | 'preview'>(() => (INITIAL_IS_SHARED ? 'preview' : 'edit'))
   const [syncScroll, setSyncScroll] = useState(true)
   const [activeHeadingId, setActiveHeadingId] = useState<string>('')
   const [readingProgressRatio, setReadingProgressRatio] = useState(0)
@@ -871,6 +888,46 @@ export function MarkdownReaderTool() {
   const readingProgressSaveTimerRef = useRef<number | null>(null)
   const readingProgressRestoredRef = useRef(false)
 
+
+  /* 手机端判定：跟随 CSS 断点，窗口跨断点时自动收放 */
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_QUERY)
+    const onChange = (e: MediaQueryListEvent) => {
+      setIsMobile(e.matches)
+      if (!e.matches) setMobileView('preview')
+    }
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  /* 预览不可见时（手机端处于编辑视图）不渲染图表、不恢复滚动位置 */
+  const previewActive = isMobile ? mobileView === 'preview' : true
+  const previewMounted = !readMode || previewActive
+
+  /* 手机端视图切换：隐藏的一方保持挂载（display:none），滚动位置与图表不重算；
+     切到预览时恢复阅读进度由 restore effect（依赖 previewMounted）负责 */
+  const selectMobileView = useCallback((view: 'edit' | 'preview') => {
+    setMobileView(view)
+    if (view === 'preview') {
+      setTocOpen(false)
+    } else {
+      /* 切回编辑时聚焦编辑器；调用方可能正处在合成事件中，延迟到下一帧 */
+      requestAnimationFrame(() => textareaRef.current?.focus())
+    }
+  }, [])
+
+  /* 从 URL 分享链接进入时默认进入阅读模式 */
+  useEffect(() => {
+    if (INITIAL_IS_SHARED) setReadMode(true)
+  }, [])
+
+  /* 阅读模式偏好持久化（阅读器专用，不影响站内全局主题） */
+  useEffect(() => {
+    if (INITIAL_IS_SHARED) return
+    try {
+      localStorage.setItem(STORAGE_KEY_READ_MODE, String(readMode))
+    } catch { /* ignore */ }
+  }, [readMode])
 
   /* 自动保存到 localStorage（防抖 500ms）；阅读模式（查看他人分享）下不保存，避免覆盖本机草稿 */
   const saveTimerRef = useRef<number | null>(null)
@@ -989,8 +1046,9 @@ export function MarkdownReaderTool() {
     }
   }, [md, ready])
 
-  /* 渲染 Mermaid 图表 */
+  /* 渲染 Mermaid 图表（手机端预览不可见时跳过，避免白算） */
   useEffect(() => {
+    if (!previewMounted) return
     if (!ready || !mermaidReady || !html || !window.mermaid) return
 
     window.mermaid.initialize({
@@ -1016,7 +1074,7 @@ export function MarkdownReaderTool() {
     }, 0)
 
     return () => window.clearTimeout(timer)
-  }, [html, mermaidReady, ready, style])
+  }, [html, mermaidReady, ready, style, previewMounted])
 
   /* 代码块「复制」：span[role=button]，避免放行 <button>（sanitize 禁表单控件） */
   useEffect(() => {
@@ -1083,8 +1141,9 @@ export function MarkdownReaderTool() {
     return () => root.removeEventListener('click', onClick)
   }, [html])
 
-  /* 渲染 PlantUML / Graphviz 图表 */
+  /* 渲染 PlantUML / Graphviz 图表（手机端预览不可见时跳过，避免白打网络） */
   useEffect(() => {
+    if (!previewMounted) return
     if (!ready || !html) return
 
     const controller = new AbortController()
@@ -1148,7 +1207,7 @@ export function MarkdownReaderTool() {
       controller.abort()
       objectUrls.forEach((url) => URL.revokeObjectURL(url))
     }
-  }, [html, ready, style])
+  }, [html, ready, style, previewMounted])
 
   /* 从 html 中提取 TOC 项 */
   const tocItems: TocItem[] = useMemo(() => {
@@ -1206,9 +1265,10 @@ export function MarkdownReaderTool() {
 
   useEffect(() => {
     if (!ready || !html || readingProgressRestoredRef.current) return
+    if (!previewMounted) return
     const frame = window.requestAnimationFrame(restoreReadingProgress)
     return () => window.cancelAnimationFrame(frame)
-  }, [html, ready, restoreReadingProgress])
+  }, [html, ready, previewMounted, restoreReadingProgress])
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -1336,8 +1396,9 @@ export function MarkdownReaderTool() {
     return () => container.removeEventListener('scroll', handleScroll)
   }, [saveReadingProgress, syncPreviewToEditor, tocItems])
 
-  /* 点击 TOC / 决策点跳转 */
+  /* 点击 TOC / 决策点跳转（手机端先切到预览视图再跳，否则目标不可见） */
   const scrollToHeading = useCallback((id: string) => {
+    if (isMobile) selectMobileView('preview')
     const container = previewWrapRef.current
     if (!container) return
     // CSS.escape 避免 id 含特殊字符时 querySelector 炸掉
@@ -1346,7 +1407,7 @@ export function MarkdownReaderTool() {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' })
       setActiveHeadingId(id)
     }
-  }, [])
+  }, [isMobile, selectMobileView])
 
   /* 辅助编辑 */
   const wrapSelection = useCallback((before: string, after: string) => {
@@ -1700,10 +1761,11 @@ export function MarkdownReaderTool() {
         >
           {exporting ? '导出中...' : '导出图片'}
         </button>
+        {/* 导出全部页面为多文件下载，手机端体验差，隐藏 */}
         <button
           onClick={exportAllScreens}
           disabled={exporting}
-          className="px-3 py-1.5 text-sm font-medium bg-emerald-500 text-white rounded hover:bg-emerald-600 transition-colors disabled:opacity-50"
+          className="hidden lg:inline-flex px-3 py-1.5 text-sm font-medium bg-emerald-500 text-white rounded hover:bg-emerald-600 transition-colors disabled:opacity-50"
         >
           导出全部页面
         </button>
@@ -1719,17 +1781,18 @@ export function MarkdownReaderTool() {
         </button>
         <button
           onClick={() => setReadMode((v) => !v)}
-          className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${readMode ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+          className={`hidden lg:inline-flex px-3 py-1.5 text-sm font-medium rounded transition-colors ${readMode ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
           title="阅读模式下隐藏编辑器，预览铺满整个页面"
         >
           {readMode ? '✏️ 编辑文档' : '👁️ 阅读模式'}
         </button>
 
-        <div className="w-px h-6 bg-gray-300 mx-1" />
+        <div className="hidden lg:block w-px h-6 bg-gray-300 mx-1" />
 
         <button
           onClick={() => setTocOpen(!tocOpen)}
           className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${tocOpen ? 'bg-indigo-500 text-white hover:bg-indigo-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+          title={isMobile ? '目录抽屉' : '目录侧栏'}
         >
           📑 目录
         </button>
@@ -1743,7 +1806,7 @@ export function MarkdownReaderTool() {
         </button>
         <button
           onClick={() => setSyncScroll(!syncScroll)}
-          className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${syncScroll ? 'bg-rose-500 text-white hover:bg-rose-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+          className={`hidden lg:inline-flex px-3 py-1.5 text-sm font-medium rounded transition-colors ${syncScroll ? 'bg-rose-500 text-white hover:bg-rose-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
           title="编辑器与预览区双向滚动同步"
         >
           📍 同步滚动
@@ -1777,17 +1840,38 @@ export function MarkdownReaderTool() {
         </div>
       </div>
 
-      {/* 编辑器 + 预览双栏（撑满剩余高度） */}
+      {/* 手机端：底部视图切换条（编辑 / 预览单栏独占） */}
+      <div className="lg:hidden flex border-b border-gray-200 bg-gray-100 shrink-0">
+        <button
+          type="button"
+          onClick={() => selectMobileView('edit')}
+          className={`flex-1 py-2.5 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors ${mobileView === 'edit' ? 'bg-white text-indigo-600 shadow-inner' : 'text-gray-500'}`}
+        >
+          ✏️ 编辑
+        </button>
+        <button
+          type="button"
+          onClick={() => selectMobileView('preview')}
+          className={`flex-1 py-2.5 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors ${mobileView === 'preview' ? 'bg-white text-indigo-600 shadow-inner' : 'text-gray-500'}`}
+        >
+          👁️ 预览
+        </button>
+      </div>
+
+      {/* 编辑器 + 预览双栏（手机端单栏独占；两栏保持挂载，切换不丢滚动位置、不重渲染图表） */}
       <div ref={layoutRef} className="flex flex-col lg:flex-row flex-1 min-h-0">
-        {/* 编辑器（阅读模式下隐藏） */}
+        {/* 编辑器（阅读模式 / 手机端预览视图下隐藏，但不卸载） */}
         {!readMode && (
-          <div className="min-w-0 min-h-0" style={{ flex: `0 0 ${editorWidth}%` }}>
+          <div
+            className={`min-w-0 min-h-0 ${isMobile && mobileView !== 'edit' ? 'hidden' : ''}`}
+            style={isMobile ? { flex: '1 1 0%' } : { flex: `0 0 ${editorWidth}%` }}
+          >
             <textarea
               ref={textareaRef}
               value={md}
               onChange={(e) => setMd(e.target.value)}
               onScroll={syncEditorToPreview}
-              className="w-full h-full resize-none overscroll-contain p-4 text-sm leading-relaxed border-r border-gray-200 bg-white focus:outline-none font-mono"
+              className="w-full h-full resize-none overscroll-contain p-4 text-base lg:text-sm leading-relaxed border-r border-gray-200 bg-white focus:outline-none font-mono"
               placeholder="在此输入 Markdown..."
             />
           </div>
@@ -1809,10 +1893,10 @@ export function MarkdownReaderTool() {
         )}
 
         {/* 预览 + TOC */}
-        <div className="flex-1 min-w-0 min-h-0 flex">
+        <div className={`flex-1 min-w-0 min-h-0 flex ${isMobile && mobileView !== 'preview' ? 'hidden' : ''}`}>
 
-          {/* TOC 侧栏 */}
-          {tocOpen && (tocItems.length > 0 || decisionItems.length > 0) && (
+          {/* TOC 侧栏（桌面） */}
+          {tocOpen && !isMobile && (tocItems.length > 0 || decisionItems.length > 0) && (
             <div className="toc-panel w-48 shrink-0 overscroll-contain border-r border-gray-200 bg-gray-50/80 overflow-y-auto p-3">
               {tocItems.length > 0 && (
                 <>
@@ -1880,6 +1964,61 @@ export function MarkdownReaderTool() {
           </div>
         </div>
       </div>
+
+      {/* 手机端：TOC 抽屉浮层 */}
+      {isMobile && tocOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-label="目录">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setTocOpen(false)} />
+          <div className="absolute left-0 top-0 bottom-0 w-72 max-w-[80%] bg-white shadow-2xl overflow-y-auto overscroll-contain">
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 shrink-0">
+              <span className="text-sm font-bold text-gray-800">📑 目录导航</span>
+              <button
+                type="button"
+                onClick={() => setTocOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+                aria-label="关闭目录"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-3">
+              {tocItems.length > 0 && (
+                <>
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">目录导航</div>
+                  {tocItems.map(item => (
+                    <div
+                      key={item.id}
+                      className={`toc-item ${activeHeadingId === item.id ? 'active' : ''}`}
+                      style={{ paddingLeft: `${(item.level - 1) * 12 + 8}px` }}
+                      onClick={() => scrollToHeading(item.id)}
+                      title={item.text}
+                    >
+                      {item.text}
+                    </div>
+                  ))}
+                </>
+              )}
+              {decisionItems.length > 0 && (
+                <>
+                  <div className="toc-section-title">待决策 · {decisionItems.length}</div>
+                  {decisionItems.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className={`toc-item toc-decision ${activeHeadingId === item.id ? 'active' : ''}`}
+                      onClick={() => scrollToHeading(item.id)}
+                      title={item.text}
+                    >
+                      {index + 1}. {item.text}
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 增强语法说明 */}
       {syntaxGuideOpen && (
