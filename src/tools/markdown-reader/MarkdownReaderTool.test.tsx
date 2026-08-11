@@ -10,8 +10,6 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MarkdownReaderTool } from './MarkdownReaderTool'
 
-const MOBILE_QUERY = '(max-width: 1023.98px)'
-
 function mockMatchMedia(matches: boolean) {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
     matches,
