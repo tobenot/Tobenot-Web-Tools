@@ -183,6 +183,17 @@ export const tools: ToolDef[] = [
     component: lazyTool(() => import('../tools/secure-archive/SecureArchiveTool'), 'SecureArchiveTool')
   },
   {
+    id: 'archive-reader',
+    title: '文档集阅读器',
+    description: '上传 .zip 压缩包，浏览器内解压并浏览其中全部 Markdown 文档（含子目录）',
+    emoji: '🗜️',
+    version: 'v0.1',
+    category: 'utility',
+    href: '/archive-reader',
+    tags: ['压缩包', '解压', 'Markdown', '文档'],
+    component: lazyTool(() => import('../tools/archive-reader/ArchiveReaderTool'), 'ArchiveReaderTool')
+  },
+  {
     id: 'wormhole',
     title: 'Wormhole 文件分享',
     description: '端到端加密的临时文件传输，链接自动过期，最高支持 10 GB',
@@ -234,6 +245,16 @@ export function isKnownRoute(path: string): boolean {
 }
 
 export const globalChangelog: ChangelogEntry[] = [
+  {
+    date: '2026-08-12',
+    title: '新增文档集阅读器',
+    notes: [
+      '上传 .zip 压缩包，浏览器内解压并浏览其中全部 Markdown 文档（含子目录），数据不出浏览器',
+      '左侧可折叠文件树，支持相对链接与图片引用自动解析：图片直接显示、指向其他 md 的链接可点击跳转',
+      '复用 Markdown 阅读器的渲染管线（Callout / 决策面板 / Mermaid / 代码高亮等）',
+      '安全防护：解压炸弹（超 50 万条目或 100MB）与路径穿越（../）直接拒绝'
+    ]
+  },
   {
     date: '2026-08-11',
     title: '新增安全压缩脚本生成工具',

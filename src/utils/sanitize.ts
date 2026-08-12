@@ -56,11 +56,16 @@ const ENRICH_ATTRS = ['data-callout', 'data-lang', 'data-decision']
  * 重要：调用时机必须在所有字符串级后处理（如为标题注入 id）之后。
  * 那些 replace 会把捕获到的原始属性串原样搬回输出，若先净化再 replace，
  * 已被移除的危险属性可能被重新引入。
+ *
+ * blob: 协议放行说明：文档集阅读器把压缩包内图片转成 blob URL 后嵌入，
+ * DOMPurify 默认 URI 白名单不含 blob:（会静默移除 src）。这里仅放行 blob:，
+ * 不放开其他自定义协议。
  */
 export function sanitizeMarkdownHtml(html: string): string {
   return DOMPurify.sanitize(html, {
     ADD_TAGS: SVG_TAGS,
     ADD_ATTR: [...SVG_ATTRS, ...DIAGRAM_ATTRS, ...ENRICH_ATTRS],
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|blob):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
     /*
      * 禁 form 系与 style：
      * - form/formaction 是提交型数据外发面
