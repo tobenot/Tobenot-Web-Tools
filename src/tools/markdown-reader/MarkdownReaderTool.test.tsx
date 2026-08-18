@@ -90,3 +90,73 @@ describe('MarkdownReaderTool 手机端视图切换', () => {
     act(() => root.unmount())
   })
 })
+
+describe('MarkdownReaderTool 文档历史', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  function renderDesktop() {
+    mockMatchMedia(false)
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const root = createRoot(container)
+    return { container, root }
+  }
+
+  function setTextarea(container: HTMLElement, value: string) {
+    const ta = container.querySelector('textarea')!
+    // React 受控组件用原生 setter 绕过 value tracker，onChange 才会触发
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!
+    act(() => {
+      setter.call(ta, value)
+      ta.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+  }
+
+  function historySelect(container: HTMLElement): HTMLSelectElement | null {
+    return Array.from(container.querySelectorAll('select')).find((s) =>
+      s.closest('label')?.textContent?.includes('文档历史'),
+    ) ?? null
+  }
+
+  function historyOptionCount(container: HTMLElement): number {
+    const sel = historySelect(container)
+    return sel ? sel.querySelectorAll('option').length : 0
+  }
+
+  it('迁移：旧单槽草稿自动成为当前文档', async () => {
+    localStorage.setItem('md-reader:content', '# 旧草稿')
+    const { container, root } = renderDesktop()
+    await act(async () => {
+      root.render(<MarkdownReaderTool />)
+    })
+    expect((container.querySelector('textarea') as HTMLTextAreaElement).value).toBe('# 旧草稿')
+    expect(historyOptionCount(container)).toBe(1) // 只有「当前文档」
+    act(() => root.unmount())
+  })
+
+  it('粘贴新内容后旧内容存入历史，可切回', async () => {
+    const { container, root } = renderDesktop()
+    await act(async () => {
+      root.render(<MarkdownReaderTool />)
+    })
+    // 粘贴一段新内容（onPaste 快照旧内容，input 更新内容）
+    const ta = container.querySelector('textarea')!
+    act(() => {
+      ta.dispatchEvent(new Event('paste', { bubbles: true }))
+    })
+    setTextarea(container, '# 新文档')
+    expect(historyOptionCount(container)).toBe(2)
+
+    // 切回历史项
+    const sel = historySelect(container)!
+    act(() => {
+      sel.value = sel.querySelectorAll('option')[1].value
+      sel.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    expect((container.querySelector('textarea') as HTMLTextAreaElement).value).not.toBe('# 新文档')
+    expect(historyOptionCount(container)).toBe(2)
+    act(() => root.unmount())
+  })
+})

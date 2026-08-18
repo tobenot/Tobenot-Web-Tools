@@ -353,7 +353,14 @@ const STYLE_CSS: Record<StyleKey, string> = {
 }
 
 /* ─── localStorage 持久化 ─── */
-const STORAGE_KEY_MD = 'md-reader:content'
+/*
+ * 多文档历史：history[0] 恒为「当前文档」（随编辑实时同步），
+ * history[1..] 为历史快照，按最近使用排序。粘贴新内容、切换历史项
+ * 时旧内容自动沉底，未保存的编辑不丢。
+ */
+const STORAGE_KEY_HISTORY = 'md-reader:history'
+const LEGACY_STORAGE_KEY_MD = 'md-reader:content'
+const MAX_MD_HISTORY = 20
 const STORAGE_KEY_STYLE = 'md-reader:style'
 const STORAGE_KEY_EDITOR_WIDTH = 'md-reader:editor-width'
 const STORAGE_KEY_READING_PROGRESS = 'md-reader:reading-progress'
@@ -368,6 +375,55 @@ function loadFromStorage<T>(key: string, fallback: T): T {
     if (raw !== null) return raw as unknown as T
   } catch { /* 无痕模式或存储不可用 */ }
   return fallback
+}
+
+interface MdDocRecord {
+  /** 首次创建/归档时刻；切换历史项不刷新 */
+  createdAt: string
+  /** 最近一次粘贴或切换到该文档的时刻 */
+  updatedAt: string
+  /** 字符数，仅作列表展示 */
+  size: number
+  content: string
+}
+
+function loadMdHistory(): MdDocRecord[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_HISTORY)
+    if (raw !== null) {
+      const parsed = JSON.parse(raw) as MdDocRecord[]
+      if (Array.isArray(parsed)) return parsed
+    }
+  } catch { /* ignore */ }
+  // 迁移：旧单槽草稿自动升级为「当前文档」
+  try {
+    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY_MD)
+    if (legacy !== null) {
+      const now = new Date().toISOString()
+      return [{ createdAt: now, updatedAt: now, size: legacy.length, content: legacy }]
+    }
+  } catch { /* ignore */ }
+  return []
+}
+
+function saveMdHistory(history: MdDocRecord[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history))
+  } catch { /* quota exceeded or unavailable */ }
+}
+
+function makeRecord(content: string, createdAt?: string): MdDocRecord {
+  const now = new Date().toISOString()
+  return { createdAt: createdAt ?? now, updatedAt: now, size: content.length, content }
+}
+
+function formatHistoryTime(iso: string): string {
+  if (!iso) return ''
+  try {
+    return new Date(iso).toLocaleString('zh-CN', { hour12: false })
+  } catch {
+    return iso
+  }
 }
 
 function clampEditorWidth(value: number): number {
@@ -833,7 +889,9 @@ purgeLegacyPersistedToken()
 
 
 export function MarkdownReaderTool() {
-  const [md, setMd] = useState(() => loadFromStorage(STORAGE_KEY_MD, DEFAULT_MD))
+  const [mdHistory, setMdHistory] = useState<MdDocRecord[]>(loadMdHistory)
+  const [currentDoc, setCurrentDoc] = useState<MdDocRecord | null>(() => loadMdHistory()[0] ?? null)
+  const [md, setMd] = useState<string>(() => loadMdHistory()[0]?.content ?? DEFAULT_MD)
   const [style, setStyle] = useState<StyleKey>(() => INITIAL_SHARED_STYLE ?? loadFromStorage<StyleKey>(STORAGE_KEY_STYLE, 'business'))
   const [html, setHtml] = useState('')
 
@@ -864,6 +922,7 @@ export function MarkdownReaderTool() {
   const [copiedGistField, setCopiedGistField] = useState('')
   const [generatedShareUrl, setGeneratedShareUrl] = useState('')
   const [shareLinkCopied, setShareLinkCopied] = useState(false)
+  const [clearHistoryOpen, setClearHistoryOpen] = useState(false)
   const [ready, setReady] = useState(false)
   const [mermaidReady, setMermaidReady] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -929,20 +988,19 @@ export function MarkdownReaderTool() {
     } catch { /* ignore */ }
   }, [readMode])
 
-  /* 自动保存到 localStorage（防抖 500ms）；阅读模式（查看他人分享）下不保存，避免覆盖本机草稿 */
+  /* 自动保存到 localStorage（防抖 500ms）：编辑中的内容同步进 history[0]；
+     阅读模式（查看他人分享）下不触碰 history，避免覆盖本机草稿 */
   const saveTimerRef = useRef<number | null>(null)
   useEffect(() => {
     if (readMode) return
     if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
     saveTimerRef.current = window.setTimeout(() => {
-      try {
-        localStorage.setItem(STORAGE_KEY_MD, md)
-      } catch { /* quota exceeded or unavailable */ }
+      saveMdHistory(mdHistory.map((item, index) => (index === 0 ? makeRecord(md, item.createdAt) : item)))
     }, 500)
     return () => {
       if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
     }
-  }, [md, readMode])
+  }, [mdHistory, md, readMode])
 
   /* 通过即时链接（c=）打开时，解压正文 */
   useEffect(() => {
@@ -958,6 +1016,10 @@ export function MarkdownReaderTool() {
           throw new Error('链接内容无法解码，可能已损坏或被分享渠道截断')
         }
         setMd(content)
+        setMdHistory((prev) => {
+          const cur = prev[0] ?? makeRecord('')
+          return [makeRecord(content, cur.createdAt), ...prev.slice(1)].slice(0, MAX_MD_HISTORY)
+        })
       })
       .catch((error: unknown) => {
         if (cancelled) return
@@ -979,6 +1041,10 @@ export function MarkdownReaderTool() {
       .then((content) => {
         if (cancelled) return
         setMd(content)
+        setMdHistory((prev) => {
+          const cur = prev[0] ?? makeRecord('')
+          return [makeRecord(content, cur.createdAt), ...prev.slice(1)].slice(0, MAX_MD_HISTORY)
+        })
       })
       .catch((error: unknown) => {
         if (cancelled) return
@@ -1467,6 +1533,56 @@ export function MarkdownReaderTool() {
   }, [])
 
   /* 分享 / Gist 管理弹窗 */
+  /* 粘贴新内容：把旧内容快照进历史（onPaste 触发时 state 仍是旧值）。
+     快照进 [1..]，[0] 保持当前文档，随后 input 同步 effect 会把 [0] 更新为新值 */
+  const handlePaste = useCallback(() => {
+    if (!md.trim()) return
+    setMdHistory((prev) => {
+      const cur = prev[0] ?? makeRecord('')
+      return [cur, makeRecord(md, cur.createdAt), ...prev.slice(1)].slice(0, MAX_MD_HISTORY)
+    })
+  }, [md])
+
+  /* 编辑中的内容同步进 history[0]（state 与 localStorage 一致），[1..] 历史不变 */
+  useEffect(() => {
+    setMdHistory((prev) => {
+      const cur = prev[0] ?? makeRecord('')
+      if (cur.content === md) return prev
+      return [{ ...cur, content: md, size: md.length, updatedAt: new Date().toISOString() }, ...prev.slice(1)]
+    })
+  }, [md])
+
+  /* 切换历史文档：当前文档沉底（未保存编辑不丢），选中项浮到顶部 */
+  const selectHistoryDoc = useCallback((record: MdDocRecord) => {
+    setMdHistory((prev) => {
+      const cur = prev[0] ?? makeRecord('')
+      if (cur.content === record.content) return prev
+      const rest = prev.filter((item) => item !== record)
+      /* 当前编辑内容若已存在于历史（如刚粘贴的快照），不再重复沉底 */
+      const alreadyArchived = rest.some((item) => item.content === md)
+      const archived = alreadyArchived ? rest : [makeRecord(md, cur.createdAt), ...rest]
+      const updated = { ...record, updatedAt: new Date().toISOString() }
+      return [updated, ...archived].slice(0, MAX_MD_HISTORY)
+    })
+    setCurrentDoc(record)
+    setMd(record.content)
+  }, [md])
+
+  /* 清空当前编辑器，内容沉底进历史 */
+  const clearEditor = useCallback(() => {
+    if (!md.trim()) return
+    setMdHistory((prev) => {
+      const cur = prev[0] ?? makeRecord('')
+      /* 先归档再置空：防抖保存会在 history[0] 上同步最新 md，
+         若只置空 md 不归档，文档会被空串覆盖丢失 */
+      const alreadyArchived = prev.slice(1).some((item) => item.content === md)
+      const archived = alreadyArchived ? prev.slice(1) : [makeRecord(md, cur.createdAt), ...prev.slice(1)]
+      return [makeRecord(''), ...archived].slice(0, MAX_MD_HISTORY)
+    })
+    setCurrentDoc(makeRecord(''))
+    setMd('')
+  }, [md])
+
   const openGistPanel = useCallback((tab: 'instant' | 'share' | 'manage') => {
     const saved = loadGistToken()
     setGistToken(saved)
@@ -1826,6 +1942,49 @@ export function MarkdownReaderTool() {
           <span className="w-9 text-right text-gray-600">{Math.round(editorWidth)}%</span>
         </label>
 
+        <div className="w-px h-6 bg-gray-300 mx-1" />
+
+        <label className="flex items-center gap-1.5 text-xs text-gray-600" title="粘贴新内容或切换文档时，旧内容自动存入历史">
+          <span>📚</span>
+          <span className="hidden sm:inline">文档历史</span>
+          <select
+            value={currentDoc ? `${currentDoc.createdAt}:${currentDoc.updatedAt}` : ''}
+            onChange={(e) => {
+              const record = mdHistory.find((item) => `${item.createdAt}:${item.updatedAt}` === e.target.value)
+              if (record) selectHistoryDoc(record)
+            }}
+            className="px-2 py-1.5 text-sm border border-gray-300 rounded bg-white text-gray-700 focus:border-indigo-400 focus:outline-none max-w-[11rem]"
+          >
+            <option value="">当前文档</option>
+            {mdHistory.slice(1).map((record) => (
+              <option key={`${record.createdAt}:${record.updatedAt}`} value={`${record.createdAt}:${record.updatedAt}`}>
+                {formatHistoryTime(record.updatedAt)} · {record.size} 字符
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          onClick={() => {
+            /* 清空当前内容，留作新文档草稿 */
+            clearEditor()
+          }}
+          disabled={!md.trim()}
+          className="px-3 py-1.5 text-sm font-medium rounded transition-colors bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-40"
+          title="清空编辑器，当前内容存入历史"
+        >
+          🧹 新建空白
+        </button>
+        {mdHistory.length > 1 && (
+          <button
+            type="button"
+            onClick={() => setClearHistoryOpen(true)}
+            className="px-3 py-1.5 text-sm font-medium rounded transition-colors bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 hover:text-rose-600"
+            title="清空全部文档历史（当前文档保留）"
+          >
+            🗑️ 清空历史
+          </button>
+        )}
+
         <div className="ml-auto">
 
           <select
@@ -1870,6 +2029,7 @@ export function MarkdownReaderTool() {
               ref={textareaRef}
               value={md}
               onChange={(e) => setMd(e.target.value)}
+              onPaste={handlePaste}
               onScroll={syncEditorToPreview}
               className="w-full h-full resize-none overscroll-contain p-4 text-base lg:text-sm leading-relaxed border-r border-gray-200 bg-white focus:outline-none font-mono"
               placeholder="在此输入 Markdown..."
@@ -2096,6 +2256,36 @@ export function MarkdownReaderTool() {
                   </div>
                 </section>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 清空文档历史确认 */}
+      {clearHistoryOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => setClearHistoryOpen(false)}>
+          <div className="w-full max-w-sm bg-white rounded-xl shadow-2xl p-6 border border-gray-100" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-900 mb-2">清空文档历史？</h3>
+            <p className="text-xs text-gray-600 leading-relaxed mb-5">
+              将删除全部 {mdHistory.length - 1} 条历史文档。当前文档及其编辑内容保留。此操作不可撤销。
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setClearHistoryOpen(false)}
+                className="px-4 py-2 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  setMdHistory((prev) => [prev[0]].filter((item): item is MdDocRecord => Boolean(item)))
+                  setCurrentDoc((prev) => (prev ? makeRecord(prev.content, prev.createdAt) : makeRecord('')))
+                  setClearHistoryOpen(false)
+                }}
+                className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-md transition-colors"
+              >
+                确认清空
+              </button>
             </div>
           </div>
         </div>
