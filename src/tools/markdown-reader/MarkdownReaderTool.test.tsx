@@ -114,15 +114,16 @@ describe('MarkdownReaderTool 文档历史', () => {
     })
   }
 
-  function historySelect(container: HTMLElement): HTMLSelectElement | null {
-    return Array.from(container.querySelectorAll('select')).find((s) =>
-      s.closest('label')?.textContent?.includes('文档历史'),
-    ) ?? null
+  /** 点工具栏「📚 历史」打开历史弹窗 */
+  function openHistory(container: HTMLElement) {
+    const btn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('历史'))!
+    act(() => {
+      btn.click()
+    })
   }
 
-  function historyOptionCount(container: HTMLElement): number {
-    const sel = historySelect(container)
-    return sel ? sel.querySelectorAll('option').length : 0
+  function historyRowCount(container: HTMLElement): number {
+    return container.querySelectorAll('button.history-item').length
   }
 
   it('迁移：旧单槽草稿自动成为当前文档', async () => {
@@ -132,7 +133,8 @@ describe('MarkdownReaderTool 文档历史', () => {
       root.render(<MarkdownReaderTool />)
     })
     expect((container.querySelector('textarea') as HTMLTextAreaElement).value).toBe('# 旧草稿')
-    expect(historyOptionCount(container)).toBe(1) // 只有「当前文档」
+    openHistory(container)
+    expect(historyRowCount(container)).toBe(0) // 历史为空，只有当前文档
     act(() => root.unmount())
   })
 
@@ -147,16 +149,17 @@ describe('MarkdownReaderTool 文档历史', () => {
       ta.dispatchEvent(new Event('paste', { bubbles: true }))
     })
     setTextarea(container, '# 新文档')
-    expect(historyOptionCount(container)).toBe(2)
+    openHistory(container)
+    expect(historyRowCount(container)).toBe(1)
 
-    // 切回历史项
-    const sel = historySelect(container)!
+    // 切回历史项（列表第一行 = 旧内容）
+    const rows = Array.from(container.querySelectorAll<HTMLButtonElement>('button.history-item'))
     act(() => {
-      sel.value = sel.querySelectorAll('option')[1].value
-      sel.dispatchEvent(new Event('change', { bubbles: true }))
+      rows[0].click()
     })
     expect((container.querySelector('textarea') as HTMLTextAreaElement).value).not.toBe('# 新文档')
-    expect(historyOptionCount(container)).toBe(2)
+    openHistory(container)
+    expect(historyRowCount(container)).toBe(1)
     act(() => root.unmount())
   })
 })

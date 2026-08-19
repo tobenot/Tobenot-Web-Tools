@@ -57,6 +57,13 @@ const STYLE_OPTIONS: { key: StyleKey; label: string }[] = [
 /* 手机端判定：与 Tailwind 的 lg（min-width: 1024px）严格对齐 */
 const MOBILE_QUERY = '(max-width: 1023.98px)'
 
+/* 工具栏统一样式：灰底为默认，彩色只留主按钮与开关激活态 */
+const BTN = 'px-3 py-1.5 text-sm font-medium rounded transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200'
+const BTN_ACTIVE = 'px-3 py-1.5 text-sm font-medium rounded transition-colors bg-indigo-500 text-white hover:bg-indigo-600'
+const BTN_PRIMARY = 'px-3 py-1.5 text-sm font-medium rounded transition-colors bg-sky-500 text-white hover:bg-sky-600 shadow-sm'
+const BTN_MENU = 'w-full flex items-center gap-1.5 px-2.5 py-2 text-sm text-gray-700 rounded-md hover:bg-gray-100 disabled:opacity-50'
+const BTN_MENU_ACTIVE = 'w-full flex items-center gap-1.5 px-2.5 py-2 text-sm rounded-md bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+
 /* ─── 默认内容 ─── */
 const DEFAULT_MD = `# 技术文档
 
@@ -444,6 +451,17 @@ function formatHistoryTime(iso: string): string {
   } catch {
     return iso
   }
+}
+
+/* 历史条目标题：取首个非空行的纯文本（去 Markdown 符号），最多 40 字 */
+function historyTitle(content: string): string {
+  const line = content.split('\n').find((l) => l.trim())
+  if (!line) return '（空文档）'
+  const text = line
+    .replace(/^#{1,6}\s+|^>\s?|^[-*+]\s+|^```\w*\s*|^\d+\.\s+/g, '')
+    .replace(/[*_`]/g, '')
+    .trim()
+  return text.slice(0, 40) || '（空文档）'
 }
 
 function clampEditorWidth(value: number): number {
@@ -943,6 +961,8 @@ export function MarkdownReaderTool() {
   const [generatedShareUrl, setGeneratedShareUrl] = useState('')
   const [shareLinkCopied, setShareLinkCopied] = useState(false)
   const [clearHistoryOpen, setClearHistoryOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false)
   const [ready, setReady] = useState(false)
   const [mermaidReady, setMermaidReady] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -1874,145 +1894,121 @@ export function MarkdownReaderTool() {
       {/* 样式注入 */}
       <style>{BASE_PREVIEW_CSS + '\n' + Object.values(STYLE_CSS).join('\n') + '\n' + CODE_CHROME_OVERRIDE_CSS}</style>
 
-      {/* 工具栏 */}
-      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-gray-200 bg-white shrink-0">
-        <button onClick={() => wrapSelection('**', '**')} className="px-3 py-1.5 text-sm font-medium bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors">加粗</button>
-        <button onClick={() => wrapSelection('*', '*')} className="px-3 py-1.5 text-sm font-medium bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors">斜体</button>
-        <button onClick={() => insertAtLineStart('## ')} className="px-3 py-1.5 text-sm font-medium bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors">标题</button>
-        <button onClick={() => wrapSelection('`', '`')} className="px-3 py-1.5 text-sm font-medium bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors">代码</button>
-        <button onClick={() => wrapSelection('[', '](链接地址)')} className="px-3 py-1.5 text-sm font-medium bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors">链接</button>
-        <button onClick={() => insertAtLineStart('> ')} className="px-3 py-1.5 text-sm font-medium bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors">引用</button>
-        <button onClick={() => insertAtLineStart('- ')} className="px-3 py-1.5 text-sm font-medium bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors">列表</button>
-
-        <div className="w-px h-6 bg-gray-300 mx-1" />
-
-        <button
-          onClick={exportAsImage}
-          disabled={exporting}
-          className="px-3 py-1.5 text-sm font-medium bg-emerald-500 text-white rounded hover:bg-emerald-600 transition-colors disabled:opacity-50"
-        >
-          {exporting ? '导出中...' : '导出图片'}
-        </button>
-        {/* 导出全部页面为多文件下载，手机端体验差，隐藏 */}
-        <button
-          onClick={exportAllScreens}
-          disabled={exporting}
-          className="hidden lg:inline-flex px-3 py-1.5 text-sm font-medium bg-emerald-500 text-white rounded hover:bg-emerald-600 transition-colors disabled:opacity-50"
-        >
-          导出全部页面
-        </button>
-
-        <div className="w-px h-6 bg-gray-300 mx-1" />
-
-        <button
-          onClick={() => openGistPanel('instant')}
-          className="px-3 py-1.5 text-sm font-medium rounded transition-colors bg-sky-500 text-white hover:bg-sky-600 shadow-sm"
-          title="生成即时链接（正文进 URL）或查看任意 HTML 嵌入指南；也可改用 Gist 分享大文档"
-        >
-          🔗 分享与嵌入
-        </button>
-        <button
-          onClick={() => setReadMode((v) => !v)}
-          className={`hidden lg:inline-flex px-3 py-1.5 text-sm font-medium rounded transition-colors ${readMode ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-          title="阅读模式下隐藏编辑器，预览铺满整个页面"
-        >
-          {readMode ? '✏️ 编辑文档' : '👁️ 阅读模式'}
-        </button>
-
-        <div className="hidden lg:block w-px h-6 bg-gray-300 mx-1" />
-
-        <button
-          onClick={() => setTocOpen(!tocOpen)}
-          className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${tocOpen ? 'bg-indigo-500 text-white hover:bg-indigo-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-          title={isMobile ? '目录抽屉' : '目录侧栏'}
-        >
-          📑 目录
-        </button>
-        <button
-          type="button"
-          onClick={() => setSyntaxGuideOpen(true)}
-          className="px-3 py-1.5 text-sm font-medium rounded transition-colors bg-violet-500 text-white hover:bg-violet-600"
-          title="查看本阅读器增强语法：Callout、决策面板、图表等"
-        >
-          语法说明
-        </button>
-        <button
-          onClick={() => setSyncScroll(!syncScroll)}
-          className={`hidden lg:inline-flex px-3 py-1.5 text-sm font-medium rounded transition-colors ${syncScroll ? 'bg-rose-500 text-white hover:bg-rose-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-          title="编辑器与预览区双向滚动同步"
-        >
-          📍 同步滚动
-        </button>
-
-        <label className="hidden lg:flex items-center gap-2 px-2 text-xs text-gray-500">
-          左栏
-          <input
-            type="range"
-            min={MIN_EDITOR_WIDTH}
-            max={MAX_EDITOR_WIDTH}
-            value={editorWidth}
-            onChange={(e) => setEditorWidth(clampEditorWidth(Number(e.target.value)))}
-            className="w-24 accent-indigo-500"
-            title="调整编辑区宽度"
-          />
-          <span className="w-9 text-right text-gray-600">{Math.round(editorWidth)}%</span>
-        </label>
-
-        <div className="w-px h-6 bg-gray-300 mx-1" />
-
-        <label className="flex items-center gap-1.5 text-xs text-gray-600" title="粘贴新内容或切换文档时，旧内容自动存入历史">
-          <span>📚</span>
-          <span className="hidden sm:inline">文档历史</span>
-          <select
-            value={currentDoc ? `${currentDoc.createdAt}:${currentDoc.updatedAt}` : ''}
-            onChange={(e) => {
-              const record = mdHistory.find((item) => `${item.createdAt}:${item.updatedAt}` === e.target.value)
-              if (record) selectHistoryDoc(record)
-            }}
-            className="px-2 py-1.5 text-sm border border-gray-300 rounded bg-white text-gray-700 focus:border-indigo-400 focus:outline-none max-w-[11rem]"
-          >
-            <option value="">当前文档</option>
-            {mdHistory.map((record) => (
-              <option key={`${record.createdAt}:${record.updatedAt}`} value={`${record.createdAt}:${record.updatedAt}`}>
-                {formatHistoryTime(record.updatedAt)} · {record.size} 字符
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          onClick={() => {
-            /* 清空当前内容，留作新文档草稿 */
-            clearEditor()
-          }}
-          disabled={!md.trim()}
-          className="px-3 py-1.5 text-sm font-medium rounded transition-colors bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-40"
-          title="清空编辑器，当前内容存入历史"
-        >
-          🧹 新建空白
-        </button>
-        {mdHistory.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setClearHistoryOpen(true)}
-            className="px-3 py-1.5 text-sm font-medium rounded transition-colors bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 hover:text-rose-600"
-            title="清空全部文档历史（当前文档保留）"
-          >
-            🗑️ 清空历史
-          </button>
+      {/* 工具栏：灰底统一，彩色只留「分享」主按钮与开关激活态；低频率操作收进 ⋯ 菜单 */}
+      <div className="flex flex-wrap items-center gap-1 px-4 py-2.5 border-b border-gray-200 bg-white shrink-0">
+        {/* 格式组（阅读模式下无意义，隐藏） */}
+        {!readMode && (
+          <>
+            <div className="flex flex-wrap items-center gap-1">
+              <button onClick={() => wrapSelection('**', '**')} className={BTN}>加粗</button>
+              <button onClick={() => wrapSelection('*', '*')} className={BTN}>斜体</button>
+              <button onClick={() => insertAtLineStart('## ')} className={BTN}>标题</button>
+              <button onClick={() => wrapSelection('`', '`')} className={BTN}>代码</button>
+              <button onClick={() => wrapSelection('[', '](链接地址)')} className={BTN}>链接</button>
+              <button onClick={() => insertAtLineStart('> ')} className={BTN}>引用</button>
+              <button onClick={() => insertAtLineStart('- ')} className={BTN}>列表</button>
+            </div>
+            <div className="w-px h-6 bg-gray-300 mx-1.5" />
+          </>
         )}
 
-        <div className="ml-auto">
+        {/* 文档组 */}
+        <div className="flex flex-wrap items-center gap-1">
+          <button onClick={() => setHistoryOpen(true)} className={BTN} title="翻阅已归档的历史文档">
+            📚 历史
+            {mdHistory.length > 0 && <span className="ml-1 text-[10px] font-bold text-gray-500">{mdHistory.length}</span>}
+          </button>
+          <button onClick={clearEditor} disabled={!md.trim()} className={`${BTN} disabled:opacity-40`} title="清空编辑器，当前内容存入历史">
+            🧹 新建空白
+          </button>
+        </div>
+        <div className="w-px h-6 bg-gray-300 mx-1.5" />
 
+        {/* 视图组 */}
+        <div className="flex flex-wrap items-center gap-1">
+          <button onClick={() => setTocOpen(!tocOpen)} className={tocOpen ? BTN_ACTIVE : BTN} title={isMobile ? '目录抽屉' : '目录侧栏'}>
+            📑 目录
+          </button>
+          <button onClick={() => setSyntaxGuideOpen(true)} className={BTN} title="查看本阅读器增强语法：Callout、决策面板、图表等">
+            语法说明
+          </button>
+          <button onClick={() => setReadMode((v) => !v)} className={`hidden lg:inline-flex ${readMode ? BTN_ACTIVE : BTN}`} title="阅读模式下隐藏编辑器，预览铺满整个页面">
+            {readMode ? '✏️ 编辑文档' : '👁️ 阅读模式'}
+          </button>
+        </div>
+
+        {/* 右侧：主操作 + 风格 + 更多 */}
+        <div className="ml-auto flex flex-wrap items-center gap-1">
+          <button onClick={() => openGistPanel('instant')} className={BTN_PRIMARY} title="生成即时链接（正文进 URL）或查看任意 HTML 嵌入指南；也可改用 Gist 分享大文档">
+            🔗 分享与嵌入
+          </button>
           <select
             value={style}
             onChange={(e) => setStyle(e.target.value as StyleKey)}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded bg-white text-gray-700 focus:border-indigo-400 focus:outline-none"
+            className="px-2.5 py-1.5 text-sm border border-gray-300 rounded bg-white text-gray-700 focus:border-indigo-400 focus:outline-none"
+            title="阅读器排版风格"
           >
             {STYLE_OPTIONS.map(opt => (
               <option key={opt.key} value={opt.key}>{opt.label}</option>
             ))}
           </select>
+
+          {/* ⋯ 更多：导出 / 同步滚动 / 左栏宽度（低频率操作） */}
+          <div className="relative">
+            <button
+              onClick={() => setMoreMenuOpen((v) => !v)}
+              className={moreMenuOpen ? BTN_ACTIVE : BTN}
+              title="更多操作（导出、同步滚动、栏宽）"
+              aria-expanded={moreMenuOpen}
+            >
+              ⋯
+            </button>
+            {moreMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setMoreMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-1.5 z-40 w-60 rounded-lg border border-gray-200 bg-white shadow-xl p-1.5 space-y-0.5">
+                  <button
+                    onClick={() => { setMoreMenuOpen(false); void exportAsImage() }}
+                    disabled={exporting}
+                    className={BTN_MENU}
+                  >
+                    {exporting ? '导出中...' : '🖼 导出图片'}
+                  </button>
+                  <button
+                    onClick={() => { setMoreMenuOpen(false); void exportAllScreens() }}
+                    disabled={exporting}
+                    className={`hidden lg:flex ${BTN_MENU}`}
+                    title="导出全部页面为多文件下载（手机端不可用）"
+                  >
+                    导出全部页面
+                  </button>
+                  <div className="my-1 h-px bg-gray-100" />
+                  <button
+                    onClick={() => setSyncScroll(!syncScroll)}
+                    className={`hidden lg:flex ${syncScroll ? BTN_MENU_ACTIVE : BTN_MENU}`}
+                    title="编辑器与预览区双向滚动同步"
+                  >
+                    📍 同步滚动{syncScroll ? '（开）' : '（关）'}
+                  </button>
+                  <div className="hidden lg:flex items-center gap-2 px-2.5 py-2 text-xs text-gray-500">
+                    左栏
+                    <input
+                      type="range"
+                      min={MIN_EDITOR_WIDTH}
+                      max={MAX_EDITOR_WIDTH}
+                      value={editorWidth}
+                      onChange={(e) => setEditorWidth(clampEditorWidth(Number(e.target.value)))}
+                      className="w-24 accent-indigo-500"
+                      title="调整编辑区宽度"
+                    />
+                    <span className="w-9 text-right text-gray-600">{Math.round(editorWidth)}%</span>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
+
       </div>
 
       {/* 手机端：底部视图切换条（编辑 / 预览单栏独占） */}
@@ -2301,6 +2297,72 @@ export function MarkdownReaderTool() {
               >
                 确认清空
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 历史文档列表弹窗 */}
+      {historyOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => setHistoryOpen(false)}>
+          <div className="w-full max-w-md bg-white rounded-xl shadow-2xl border border-gray-100 flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5 shrink-0">
+              <h3 className="text-base font-bold text-gray-900">📚 文档历史</h3>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+                title="关闭"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+              {mdHistory.length === 0 ? (
+                <div className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded px-3 py-6 text-center">
+                  ⏳ 暂无历史文档。粘贴新内容、切换文档或新建时，旧内容会自动归档到这里。
+                </div>
+              ) : (
+                mdHistory.map((record) => (
+                  <button
+                    key={`${record.createdAt}:${record.updatedAt}`}
+                    type="button"
+                    onClick={() => { selectHistoryDoc(record); setHistoryOpen(false) }}
+                    className="history-item w-full text-left rounded-lg border border-gray-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/40 p-3 transition-colors"
+                    title="打开这篇文档"
+                  >
+                    <div className="text-sm font-semibold text-gray-800 truncate">{historyTitle(record.content)}</div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      {formatHistoryTime(record.updatedAt)} · {record.size} 字符
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+
+            <div className="flex justify-between items-center gap-2 border-t border-gray-100 px-5 py-3 shrink-0">
+              <button
+                type="button"
+                onClick={clearEditor}
+                disabled={!md.trim()}
+                className="px-3 py-1.5 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors disabled:opacity-40"
+                title="清空编辑器，当前内容存入历史"
+              >
+                🧹 新建空白
+              </button>
+              {mdHistory.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => { setHistoryOpen(false); setClearHistoryOpen(true) }}
+                  className="px-3 py-1.5 text-xs font-semibold bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 hover:text-rose-600 rounded-md transition-colors"
+                  title="清空全部文档历史（当前文档保留）"
+                >
+                  🗑️ 清空历史
+                </button>
+              )}
             </div>
           </div>
         </div>
