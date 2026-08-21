@@ -138,6 +138,15 @@ describe('MarkdownReaderTool 文档历史', () => {
     act(() => root.unmount())
   })
 
+  /** 派发带剪贴板内容的 paste 事件（jsdom 不提供 clipboardData，手动补） */
+  function pasteText(ta: HTMLTextAreaElement, text: string) {
+    act(() => {
+      const ev = new Event('paste', { bubbles: true }) as Event & { clipboardData: { getData: (t: string) => string } }
+      ev.clipboardData = { getData: () => text }
+      ta.dispatchEvent(ev)
+    })
+  }
+
   it('粘贴新内容后旧内容存入历史，可切回', async () => {
     const { container, root } = renderDesktop()
     await act(async () => {
@@ -145,9 +154,8 @@ describe('MarkdownReaderTool 文档历史', () => {
     })
     // 粘贴一段新内容（onPaste 快照旧内容，input 更新内容）
     const ta = container.querySelector('textarea')!
-    act(() => {
-      ta.dispatchEvent(new Event('paste', { bubbles: true }))
-    })
+    ta.select() // 全选后粘贴 = 替换整篇，旧内容归档
+    pasteText(ta, '# 新文档')
     setTextarea(container, '# 新文档')
     openHistory(container)
     expect(historyRowCount(container)).toBe(1)
@@ -160,6 +168,20 @@ describe('MarkdownReaderTool 文档历史', () => {
     expect((container.querySelector('textarea') as HTMLTextAreaElement).value).not.toBe('# 新文档')
     openHistory(container)
     expect(historyRowCount(container)).toBe(1)
+    act(() => root.unmount())
+  })
+
+  it('小幅粘贴（光标插入）不新建历史', async () => {
+    const { container, root } = renderDesktop()
+    await act(async () => {
+      root.render(<MarkdownReaderTool />)
+    })
+    const ta = container.querySelector('textarea')!
+    // 光标在末尾追加一小段，未全选
+    ta.setSelectionRange(ta.value.length, ta.value.length)
+    pasteText(ta, '追加一句话')
+    openHistory(container)
+    expect(historyRowCount(container)).toBe(0)
     act(() => root.unmount())
   })
 })

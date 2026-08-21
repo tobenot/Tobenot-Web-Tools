@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
+import type { ClipboardEvent as ReactClipboardEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { getRouteLocation } from '../../utils/hash'
 import { CDN, loadScript } from '../../utils/loadScript'
 import { sanitizeMarkdownHtml } from '../../utils/sanitize'
@@ -1590,8 +1590,19 @@ export function MarkdownReaderTool() {
   }, [])
 
   /* 分享 / Gist 管理弹窗 */
-  /* 粘贴新内容：把当前文档归档进历史，随后 input 更新 md 成为新文档 */
-  const handlePaste = useCallback(() => {
+  /* 粘贴新内容：
+     两种手势视为「换了新文档」，把当前文档归档进历史：
+     1. 全选后粘贴（整篇被替换的典型手势）
+     2. 粘贴片段比现有文档更长（整篇新文档覆盖，兜底）
+     其余小幅度补充/修正只更新当前文档，不新建历史。 */
+  const handlePaste = useCallback((e: ReactClipboardEvent<HTMLTextAreaElement>) => {
+    const ta = textareaRef.current
+    const text = e.clipboardData?.getData('text') ?? ''
+    if (!ta || !text) return
+    const allSelected = ta.selectionStart === 0 && ta.selectionEnd === md.length
+    const replacesWholeDoc = text.trim().length >= md.length
+    if (!allSelected && !replacesWholeDoc) return
+
     if (!md.trim()) return
     const doc = currentDoc ?? makeRecord(md)
     setMdHistory((prev) => [doc, ...prev.filter((item) => item.content !== md)].slice(0, MAX_MD_HISTORY))
