@@ -1,0 +1,7 @@
+{
+  "title": "批量比例裁剪",
+  "description": "批量按宽高比与像素边距裁剪图片，支持格式选择、质量调节与 ZIP 打包下载",
+  "version": "1.0.0",
+  "updatedAt": "2026-08-22",
+  "tags": ["image", "crop", "batch", "zip"]
+}

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f7f7f8" />
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0%200%2064%2064'%3E%3Crect width='64' height='64' rx='14' fill='%2316a34a'/%3E%3Ctext x='32' y='44' text-anchor='middle' font-family='Arial%2C Helvetica%2C sans-serif' font-size='32' font-weight='800' fill='%23fff'%3E%E5%AD%97%3C/text%3E%3C/svg%3E" />
+  <title>字数统计 | Mecha Tools</title>
+  <link rel="stylesheet" href="/src/index.css" />
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Microsoft YaHei', Arial, sans-serif; }
+    textarea { width: 100%; height: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; resize: vertical; font-size: 16px; }
+    .buttons { display: flex; justify-content: space-between; margin-bottom: 20px; gap: 10px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
+    .stat-card { background-color: #f9f9f9; border-radius: 5px; padding: 15px; text-align: center; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); }
+    .stat-value { font-size: 24px; font-weight: bold; color: #16a34a; margin: 5px 0; }
+    .stat-label { font-size: 14px; color: #666; }
+
+    @media (max-width: 600px) {
+      .buttons { flex-direction: column; }
+      .buttons button { width: 100%; }
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-mech-bg text-mech-text antialiased">
+  <main class="max-w-3xl mx-auto px-4 py-8 space-y-6">
+    <header class="sticky top-0 z-30 border-b border-mech-edge/70 backdrop-blur bg-mech-bg/70 -mx-4 px-4 py-3">
+      <div class="flex items-center justify-between">
+        <a class="font-semibold tracking-wider hover:text-black" href="/">Mecha Tools</a>
+        <a class="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors" href="/">返回首页</a>
+      </div>
+    </header>
+
+    <section class="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle p-6 space-y-5">
+      <h1 class="text-xl font-semibold tracking-wide">文本字数统计工具</h1>
+
+      <div class="input-area">
+        <textarea id="textInput" placeholder="请在此输入或粘贴要统计的文本..."></textarea>
+      </div>
+
+      <div class="buttons">
+        <button id="countBtn" class="px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 text-white transition-colors">统计字数</button>
+        <button id="clearBtn" class="px-4 py-2 rounded-md bg-red-500 hover:bg-red-600 text-white transition-colors">清空文本</button>
+      </div>
+
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-label">总字符数</div>
+          <div class="stat-value" id="totalChars">0</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">中文字数</div>
+          <div class="stat-value" id="chineseChars">0</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">英文单词数</div>
+          <div class="stat-value" id="englishWords">0</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">英文字母数</div>
+          <div class="stat-value" id="englishChars">0</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">数字字符数</div>
+          <div class="stat-value" id="numberChars">0</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">标点符号数</div>
+          <div class="stat-value" id="punctuationChars">0</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const textInput = document.getElementById('textInput');
+      const countBtn = document.getElementById('countBtn');
+      const clearBtn = document.getElementById('clearBtn');
+
+      // 统计结果显示元素
+      const totalChars = document.getElementById('totalChars');
+      const chineseChars = document.getElementById('chineseChars');
+      const englishWords = document.getElementById('englishWords');
+      const englishChars = document.getElementById('englishChars');
+      const numberChars = document.getElementById('numberChars');
+      const punctuationChars = document.getElementById('punctuationChars');
+
+      // 统计按钮点击事件
+      countBtn.addEventListener('click', function () {
+        const text = textInput.value;
+
+        // 总字符数
+        totalChars.textContent = text.length;
+
+        // 中文字数 (使用Unicode范围匹配中文字符)
+        const chinesePattern = /[\u4e00-\u9fa5]/g;
+        const chineseMatches = text.match(chinesePattern);
+        chineseChars.textContent = chineseMatches ? chineseMatches.length : 0;
+
+        // 英文单词数 (使用空格、标点等分隔英文单词)
+        const wordsPattern = /[a-zA-Z]+/g;
+        const wordsMatches = text.match(wordsPattern);
+        englishWords.textContent = wordsMatches ? wordsMatches.length : 0;
+
+        // 英文字母数
+        const englishPattern = /[a-zA-Z]/g;
+        const englishMatches = text.match(englishPattern);
+        englishChars.textContent = englishMatches ? englishMatches.length : 0;
+
+        // 数字字符数
+        const numberPattern = /[0-9]/g;
+        const numberMatches = text.match(numberPattern);
+        numberChars.textContent = numberMatches ? numberMatches.length : 0;
+
+        // 标点符号数 (包括中英文标点)
+        const punctuationPattern = /[!"#$%&'()*+,-./:;<=>?@[\\\]^_`{|}~，。、；：？！…—·「」『』（）【】《》""'']/g;
+        const punctuationMatches = text.match(punctuationPattern);
+        punctuationChars.textContent = punctuationMatches ? punctuationMatches.length : 0;
+      });
+
+      // 清空按钮点击事件
+      clearBtn.addEventListener('click', function () {
+        textInput.value = '';
+        totalChars.textContent = '0';
+        chineseChars.textContent = '0';
+        englishWords.textContent = '0';
+        englishChars.textContent = '0';
+        numberChars.textContent = '0';
+        punctuationChars.textContent = '0';
+      });
+
+      // 文本输入实时统计（可选功能）
+      textInput.addEventListener('input', function () {
+        // 如果想要实时统计，可以在这里调用统计函数
+        // 为了性能考虑，这里没有实现实时统计
+      });
+    });
+  </script>
+</body>
+
+</html>
