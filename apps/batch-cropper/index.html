@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f7f7f8" />
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0%200%2064%2064'%3E%3Crect width='64' height='64' rx='14' fill='%232563eb'/%3E%3Cpath d='M20%208v36h36M8%2020h36v36' stroke='%23fff' stroke-width='5' fill='none'/%3E%3C/svg%3E" />
+  <title>批量比例裁剪 | Mecha Tools</title>
+  <link rel="stylesheet" href="/src/index.css" />
+  <style>
+    * { box-sizing: border-box; }
+    label { font-weight: bold; margin-right: 5px; display: inline-block; }
+    .input-group {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+      background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;
+      padding: 12px; margin-bottom: 14px;
+    }
+    input[type="number"], input[type="file"], button, select {
+      padding: 8px 10px; border-radius: 6px; border: 1px solid #ccc; vertical-align: middle;
+    }
+    input[type="number"] { width: 70px; }
+    button { cursor: pointer; transition: background-color 0.2s ease; }
+    button:disabled { background-color: #bdc3c7; cursor: not-allowed; color: #fff; }
+    .preset-button { background-color: #95a5a6; color: #fff; border: none; min-width: 50px; }
+    .preset-button:hover { background-color: #7f8c8d; }
+
+    #processButton { background-color: #2563eb; color: white; border: none; font-weight: bold; }
+    #processButton:hover:not(:disabled) { background-color: #1d4ed8; }
+    #downloadZipButton { background-color: #16a34a; color: white; border: none; font-weight: bold; }
+    #downloadZipButton:hover:not(:disabled) { background-color: #15803d; }
+
+    .previews-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; margin-top: 10px; }
+    .image-item { border: 1px solid #ddd; padding: 8px; border-radius: 5px; text-align: center; background: #fff; }
+    .image-item img { max-width: 100%; height: auto; border-radius: 3px; }
+    .image-item span { display: block; font-size: 12px; word-break: break-all; margin: 6px 0; color: #555; }
+    .image-item a { color: #2563eb; text-decoration: none; font-size: 13px; }
+    .image-item a:hover { text-decoration: underline; }
+
+    .status-message { padding: 10px; border-radius: 5px; margin-top: 10px; }
+    .processing { background-color: #eafaf1; color: #27ae60; }
+    .error-message {
+      color: #c0392b; font-style: italic; margin-top: 5px;
+      background-color: #f9eaea; padding: 5px 10px; border-radius: 3px;
+      display: block; margin-bottom: 10px;
+    }
+    #zipProgress { margin-top: 10px; font-style: italic; color: #3498db; }
+  </style>
+</head>
+
+<body class="min-h-screen bg-mech-bg text-mech-text antialiased">
+  <main class="max-w-4xl mx-auto px-4 py-8 space-y-6">
+    <header class="sticky top-0 z-30 border-b border-mech-edge/70 backdrop-blur bg-mech-bg/70 -mx-4 px-4 py-3">
+      <div class="flex items-center justify-between">
+        <a class="font-semibold tracking-wider hover:text-black" href="/">Mecha Tools</a>
+        <a class="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors" href="/">返回首页</a>
+      </div>
+    </header>
+
+    <section class="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle p-6 space-y-5">
+      <div>
+        <h1 class="text-xl font-semibold tracking-wide">批量图片比例裁剪器</h1>
+        <p class="text-mech-muted mt-2">选择多个图片文件，设置裁剪参数，程序将对每张图片进行裁剪。您可以单独下载每张图片，或将所有结果打包下载为ZIP文件。</p>
+      </div>
+
+      <div>
+        <div class="input-group">
+          <div>
+            <label for="aspectWidth">裁剪宽高比:</label>
+            <input type="number" id="aspectWidth" placeholder="宽" min="1" step="1"> :
+            <input type="number" id="aspectHeight" placeholder="高" min="1" step="1">
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="preset-button" data-w="16" data-h="9">16:9</button>
+            <button type="button" class="preset-button" data-w="4" data-h="3">4:3</button>
+            <button type="button" class="preset-button" data-w="1" data-h="1">1:1</button>
+            <button type="button" class="preset-button" data-w="9" data-h="16">9:16 (竖)</button>
+            <button type="button" class="preset-button" data-w="3" data-h="2">3:2</button>
+            <button type="button" class="preset-button" data-w="2" data-h="3">2:3 (竖)</button>
+            <button type="button" id="originalAspectRatioButton" class="preset-button">原图比例</button>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <div>
+            <label for="cropTopPixels">顶部裁剪像素:</label>
+            <input type="number" id="cropTopPixels" value="0" min="0" step="1" title="从图片顶部移除的像素行数">
+          </div>
+          <div>
+            <label for="cropBottomPixels">底部裁剪像素:</label>
+            <input type="number" id="cropBottomPixels" value="0" min="0" step="1" title="从图片底部移除的像素行数">
+          </div>
+          <div>
+            <label for="cropLeftPixels">左侧裁剪像素:</label>
+            <input type="number" id="cropLeftPixels" value="0" min="0" step="1" title="从图片左侧移除的像素列数">
+          </div>
+          <div>
+            <label for="cropRightPixels">右侧裁剪像素:</label>
+            <input type="number" id="cropRightPixels" value="0" min="0" step="1" title="从图片右侧移除的像素列数">
+          </div>
+          <div>
+            <button type="button" id="setDefaultPixelCropButton" class="preset-button">默认边框裁剪 (上64/下96/左0/右0)</button>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <div>
+            <label for="outputFormat">输出格式:</label>
+            <select id="outputFormat">
+              <option value="source">尽量与原图一致 (JPG/PNG)</option>
+              <option value="png">始终输出 PNG</option>
+              <option value="jpeg">始终输出 JPG</option>
+            </select>
+          </div>
+          <div>
+            <label for="jpegQuality">JPG质量 (0.1-1.0):</label>
+            <input type="number" id="jpegQuality" value="0.92" min="0.1" max="1.0" step="0.01" style="width: 70px;">
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-3">
+        <input type="file" id="imageFilesInput" multiple accept="image/png, image/jpeg, image/webp, image/gif, image/bmp">
+        <button id="processButton" class="px-4 py-2 rounded-md">处理选中图片</button>
+        <button id="downloadZipButton" class="px-4 py-2 rounded-md" style="display:none;">下载全部 (ZIP)</button>
+      </div>
+
+      <div id="outputArea">
+        <h2 class="text-lg font-semibold mb-2">处理结果预览:</h2>
+        <p id="processingStatus" class="status-message processing" style="display:none;">正在处理图片，请稍候...</p>
+        <p id="zipProgress" style="display:none;"></p>
+        <div id="previewsContainer" class="previews-container"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- CDN 依赖：版本与 SRI 已钉死（仓库约定），升级时需同步重算摘要 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+    integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"
+    integrity="sha512-Qlv6VSKh1gDKGoJbnyA5RMXYcvnpIqhO++MhIM2fStMcGT9i2T//tSwYFlcyoRRDcDZ+TYHpH8azBBCyhpSeqw=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const imageFilesInput = document.getElementById('imageFilesInput');
+      const processButton = document.getElementById('processButton');
+      const downloadZipButton = document.getElementById('downloadZipButton');
+      const previewsContainer = document.getElementById('previewsContainer');
+      const processingStatus = document.getElementById('processingStatus');
+      const zipProgress = document.getElementById('zipProgress');
+      const aspectWidthInput = document.getElementById('aspectWidth');
+      const aspectHeightInput = document.getElementById('aspectHeight');
+      const outputFormatSelect = document.getElementById('outputFormat');
+      const jpegQualityInput = document.getElementById('jpegQuality');
+      const cropTopPixelsInput = document.getElementById('cropTopPixels');
+      const cropBottomPixelsInput = document.getElementById('cropBottomPixels');
+      const cropLeftPixelsInput = document.getElementById('cropLeftPixels');
+      const cropRightPixelsInput = document.getElementById('cropRightPixels');
+      const setDefaultPixelCropButton = document.getElementById('setDefaultPixelCropButton');
+      const originalAspectRatioButton = document.getElementById('originalAspectRatioButton');
+
+      let processedFilesData = [];
+      let ratioString = 'original';
+      let targetAspectRatio = null;
+
+      // 宽高比预设按钮
+      document.querySelectorAll('.preset-button[data-w]').forEach(button => {
+        button.addEventListener('click', () => {
+          aspectWidthInput.value = button.dataset.w;
+          aspectHeightInput.value = button.dataset.h;
+        });
+      });
+
+      originalAspectRatioButton.addEventListener('click', () => {
+        aspectWidthInput.value = '';
+        aspectHeightInput.value = '';
+      });
+
+      setDefaultPixelCropButton.addEventListener('click', () => {
+        cropTopPixelsInput.value = '64';
+        cropBottomPixelsInput.value = '96';
+        cropLeftPixelsInput.value = '0';
+        cropRightPixelsInput.value = '0';
+      });
+
+      processButton.addEventListener('click', async () => {
+        const files = imageFilesInput.files;
+
+        if (!files || files.length === 0) {
+          alert("请先选择要处理的图片文件。");
+          return;
+        }
+
+        processedFilesData = [];
+        previewsContainer.innerHTML = '';
+
+        targetAspectRatio = null;
+        ratioString = 'original';
+
+        const aspectW_val = aspectWidthInput.value;
+        const aspectH_val = aspectHeightInput.value;
+
+        if (!(aspectW_val === '' && aspectH_val === '')) {
+          if (aspectW_val === '' || aspectH_val === '') {
+            alert("请完整输入宽和高来定义比例，或两者都留空以保持原图比例。");
+            return;
+          }
+          const aspectW = parseInt(aspectW_val);
+          const aspectH = parseInt(aspectH_val);
+          if (isNaN(aspectW) || isNaN(aspectH) || aspectW <= 0 || aspectH <= 0) {
+            alert("无效的宽高比。请输入正整数。");
+            return;
+          }
+          targetAspectRatio = aspectW / aspectH;
+          ratioString = `${aspectW}x${aspectH}`;
+        } else {
+          processingStatus.textContent = '正在准备处理图片...';
+        }
+
+        const cropTop = parseInt(cropTopPixelsInput.value) || 0;
+        const cropBottom = parseInt(cropBottomPixelsInput.value) || 0;
+        const cropLeft = parseInt(cropLeftPixelsInput.value) || 0;
+        const cropRight = parseInt(cropRightPixelsInput.value) || 0;
+        const outputFormat = outputFormatSelect.value;
+        const jpegQuality = parseFloat(jpegQualityInput.value) || 0.92;
+
+        processingStatus.style.display = 'block';
+        processingStatus.textContent = `正在准备处理 ${files.length} 张图片...`;
+        downloadZipButton.style.display = 'none';
+
+        processButton.disabled = true;
+        downloadZipButton.disabled = true;
+        imageFilesInput.disabled = true;
+
+        let successCount = 0;
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          processingStatus.textContent = `正在处理图片 ${i + 1} / ${files.length}: ${file.name}`;
+          if (!file.type.startsWith('image/')) {
+            displayError(`跳过非图片文件: ${file.name}`);
+            continue;
+          }
+
+          try {
+            const { imageDataUrl, outputFilename } = await cropImageToRatio(
+              file,
+              targetAspectRatio,
+              ratioString,
+              outputFormat,
+              jpegQuality,
+              cropTop,
+              cropBottom,
+              cropLeft,
+              cropRight
+            );
+            processedFilesData.push({ filename: outputFilename, dataUrl: imageDataUrl });
+            displayPreview(imageDataUrl, outputFilename);
+            successCount++;
+          } catch (error) {
+            displayError(`处理文件 ${file.name} 出错: ${error.message}`);
+            console.error(`Error processing ${file.name}:`, error);
+          }
+        }
+
+        processingStatus.textContent = `处理完成！成功处理 ${successCount} / ${files.length} 张图片。`;
+        setTimeout(() => { processingStatus.style.display = 'none'; }, 5000);
+
+        processButton.disabled = false;
+        imageFilesInput.disabled = false;
+        imageFilesInput.value = '';
+
+        if (processedFilesData.length > 0) {
+          downloadZipButton.style.display = 'inline-block';
+          downloadZipButton.disabled = false;
+          downloadZipButton.textContent = `下载全部 (${processedFilesData.length}) ZIP`;
+        }
+      });
+
+      downloadZipButton.addEventListener('click', async () => {
+        if (processedFilesData.length === 0) {
+          alert("没有已处理的文件可供下载。");
+          return;
+        }
+
+        downloadZipButton.textContent = '正在压缩...';
+        downloadZipButton.disabled = true;
+        processButton.disabled = true;
+        zipProgress.textContent = `开始压缩 ${processedFilesData.length} 个文件...`;
+        zipProgress.style.color = '#3498db';
+        zipProgress.style.display = 'block';
+
+        try {
+          if (typeof JSZip === 'undefined') {
+            throw new Error("JSZip library not loaded. Check browser console or adblockers.");
+          }
+          const zip = new JSZip();
+          let filesAddedToZip = 0;
+
+          for (let i = 0; i < processedFilesData.length; i++) {
+            const item = processedFilesData[i];
+            if (!item || !item.dataUrl || !item.filename) {
+              console.warn(`Skipping invalid processed data at index ${i}`);
+              continue;
+            }
+
+            try {
+              const parts = item.dataUrl.split(',');
+              if (parts.length < 2 || !parts[1]) {
+                throw new Error('Invalid data URL format for base64 extraction.');
+              }
+              const base64Data = parts[1];
+              zip.file(item.filename, base64Data, { base64: true });
+              filesAddedToZip++;
+            } catch (zipError) {
+              console.error(`Error adding file ${item.filename} to zip: ${zipError.message}`);
+              displayError(`添加文件 ${item.filename} 到ZIP时出错: ${zipError.message}`);
+              continue;
+            }
+
+            if ((i + 1) % 10 === 0 || i === processedFilesData.length - 1) {
+              zipProgress.textContent = `已添加 ${i + 1} / ${processedFilesData.length} 文件到压缩包...`;
+            }
+          }
+
+          if (filesAddedToZip === 0) {
+            throw new Error("没有文件成功添加到压缩包。可能是由于之前转换错误。");
+          }
+
+          zipProgress.textContent = '正在生成 ZIP 文件...';
+          if (typeof saveAs === 'undefined') {
+            throw new Error("FileSaver library not loaded. Check browser console or adblockers.");
+          }
+
+          const zipBlob = await zip.generateAsync(
+            { type: "blob" },
+            (metadata) => {
+              zipProgress.textContent = `压缩中: ${metadata.percent.toFixed(0)}%`;
+            }
+          );
+
+          const currentRatioStringForZip = (aspectWidthInput.value === '' && aspectHeightInput.value === '') ? "original" : `${aspectWidthInput.value}x${aspectHeightInput.value}`;
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
+          const zipFilename = `cropped_${currentRatioStringForZip}_${timestamp}.zip`;
+          saveAs(zipBlob, zipFilename);
+
+          zipProgress.textContent = `ZIP 文件 '${zipFilename}' 已生成并开始下载！`;
+          setTimeout(() => { zipProgress.style.display = 'none'; }, 5000);
+
+        } catch (error) {
+          console.error("创建 ZIP 文件出错:", error);
+          zipProgress.textContent = `创建 ZIP 文件失败: ${error.message}`;
+          zipProgress.style.color = '#c0392b';
+          alert(`创建 ZIP 文件失败: ${error.message}`);
+        } finally {
+          downloadZipButton.textContent = `下载全部 (${processedFilesData.length}) ZIP`;
+          downloadZipButton.disabled = false;
+          processButton.disabled = false;
+        }
+      });
+
+      function displayPreview(imageDataUrl, filename) {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'image-item';
+
+        const preview = document.createElement('img');
+        preview.src = imageDataUrl;
+        preview.alt = `Preview of ${filename}`;
+        preview.title = filename;
+        preview.loading = 'lazy';
+        itemDiv.appendChild(preview);
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = filename;
+        itemDiv.appendChild(nameSpan);
+
+        const downloadLink = document.createElement('a');
+        downloadLink.href = imageDataUrl;
+        downloadLink.download = filename;
+        downloadLink.textContent = '下载';
+        downloadLink.title = `下载 ${filename}`;
+        itemDiv.appendChild(downloadLink);
+
+        previewsContainer.appendChild(itemDiv);
+      }
+
+      function displayError(message) {
+        const errorMsg = document.createElement('p');
+        errorMsg.textContent = message;
+        errorMsg.className = 'error-message';
+        processingStatus.parentNode.insertBefore(errorMsg, processingStatus.nextSibling);
+      }
+
+      function removeErrors() {
+        processingStatus.parentNode.querySelectorAll('.error-message').forEach((el) => el.remove());
+      }
+
+      async function cropImageToRatio(file, targetAspectRatio, ratioStr, outputFormat = 'source', jpegQuality = 0.92, cropTopPixels = 0, cropBottomPixels = 0, cropLeftPixels = 0, cropRightPixels = 0) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+
+          reader.onload = (event) => {
+            if (!event.target || !event.target.result) {
+              return reject(new Error('FileReader did not return a result.'));
+            }
+            const img = new Image();
+            img.onload = () => {
+              try {
+                const imgOriginalWidth = img.width;
+                const imgOriginalHeight = img.height;
+
+                if (imgOriginalWidth === 0 || imgOriginalHeight === 0) {
+                  return reject(new Error('Image has zero dimensions.'));
+                }
+
+                if (cropTopPixels < 0 || cropBottomPixels < 0 || cropLeftPixels < 0 || cropRightPixels < 0) {
+                  return reject(new Error('裁剪像素值不能为负数。'));
+                }
+                if ((cropTopPixels + cropBottomPixels) >= imgOriginalHeight) {
+                  return reject(new Error(`顶部和底部裁剪的总和 (${cropTopPixels + cropBottomPixels}px) 大于或等于图片高度 (${imgOriginalHeight}px)。`));
+                }
+                if ((cropLeftPixels + cropRightPixels) >= imgOriginalWidth) {
+                  return reject(new Error(`左侧和右侧裁剪的总和 (${cropLeftPixels + cropRightPixels}px) 大于或等于图片宽度 (${imgOriginalWidth}px)。`));
+                }
+
+                const effectiveSourceX = cropLeftPixels;
+                const effectiveSourceY = cropTopPixels;
+                const effectiveWidthForAspectRatio = imgOriginalWidth - cropLeftPixels - cropRightPixels;
+                const effectiveHeightForAspectRatio = imgOriginalHeight - cropTopPixels - cropBottomPixels;
+
+                if (effectiveWidthForAspectRatio <= 0 || effectiveHeightForAspectRatio <= 0) {
+                  return reject(new Error('应用像素裁剪后图片尺寸无效。'));
+                }
+
+                let finalCropWidth = effectiveWidthForAspectRatio;
+                let finalCropHeight = effectiveHeightForAspectRatio;
+                let aspectCropXOffset = 0;
+                let aspectCropYOffset = 0;
+
+                if (targetAspectRatio !== null) {
+                  const currentEffectiveAspectRatio = effectiveWidthForAspectRatio / effectiveHeightForAspectRatio;
+                  if (Math.abs(currentEffectiveAspectRatio - targetAspectRatio) > 0.001) {
+                    if (currentEffectiveAspectRatio > targetAspectRatio) {
+                      finalCropWidth = effectiveHeightForAspectRatio * targetAspectRatio;
+                      aspectCropXOffset = (effectiveWidthForAspectRatio - finalCropWidth) / 2;
+                    } else {
+                      finalCropHeight = effectiveWidthForAspectRatio / targetAspectRatio;
+                      aspectCropYOffset = (effectiveHeightForAspectRatio - finalCropHeight) / 2;
+                    }
+                  }
+                }
+
+                finalCropWidth = Math.max(1, Math.round(finalCropWidth));
+                finalCropHeight = Math.max(1, Math.round(finalCropHeight));
+
+                const canvas = document.createElement('canvas');
+                canvas.width = finalCropWidth;
+                canvas.height = finalCropHeight;
+
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                  return reject(new Error('无法获取 Canvas Context。'));
+                }
+
+                ctx.drawImage(
+                  img,
+                  Math.round(effectiveSourceX + aspectCropXOffset), Math.round(effectiveSourceY + aspectCropYOffset),
+                  finalCropWidth, finalCropHeight,
+                  0, 0,
+                  canvas.width, canvas.height
+                );
+
+                const lastDotIndex = file.name.lastIndexOf('.');
+                let baseName = file.name;
+                let originalExtension = '';
+
+                if (lastDotIndex > 0 && lastDotIndex < file.name.length - 1) {
+                  baseName = file.name.substring(0, lastDotIndex);
+                  originalExtension = file.name.substring(lastDotIndex + 1).toLowerCase();
+                }
+
+                let outputMimeType = 'image/png';
+                let outputExtension = 'png';
+                let quality = undefined;
+
+                if (outputFormat === 'jpeg') {
+                  outputMimeType = 'image/jpeg';
+                  outputExtension = 'jpeg';
+                  quality = jpegQuality;
+                } else if (outputFormat === 'png') {
+                  outputMimeType = 'image/png';
+                  outputExtension = 'png';
+                } else {
+                  if (originalExtension === 'jpg' || originalExtension === 'jpeg') {
+                    outputMimeType = 'image/jpeg';
+                    outputExtension = 'jpeg';
+                    quality = jpegQuality;
+                  } else {
+                    outputMimeType = 'image/png';
+                    outputExtension = 'png';
+                  }
+                }
+                const outputFilename = `${baseName}_cropped_${ratioStr}.${outputExtension}`;
+                const imageDataUrl = quality !== undefined ? canvas.toDataURL(outputMimeType, quality) : canvas.toDataURL(outputMimeType);
+
+                if (!imageDataUrl || imageDataUrl === 'data:,') {
+                  throw new Error('Generated empty image data.');
+                }
+
+                resolve({ imageDataUrl, outputFilename });
+
+              } catch (error) {
+                console.error("Error during canvas processing:", error);
+                reject(new Error(`Canvas processing error: ${error.message}`));
+              }
+            };
+            img.onerror = () => {
+              reject(new Error('图片加载失败。文件可能已损坏或格式不受支持。'));
+            };
+            if (typeof event.target.result === 'string') {
+              img.src = event.target.result;
+            } else {
+              reject(new Error('FileReader result is not a string.'));
+            }
+          };
+          reader.onerror = () => {
+            reject(new Error('读取文件失败。'));
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      // 每次开始新一批处理前清掉上一批的错误提示
+      imageFilesInput.addEventListener('change', removeErrors);
+    });
+  </script>
+</body>
+
+</html>

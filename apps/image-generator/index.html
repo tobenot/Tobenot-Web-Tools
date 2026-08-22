@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f7f7f8" />
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0%200%2064%2064'%3E%3Crect width='64' height='64' rx='14' fill='%23007bff'/%3E%3Ccircle cx='26' cy='26' r='9' fill='%23ffd54d'/%3E%3Cpath d='M14 50c4-10 10-14 18-14s14 4 18 14z' fill='%23fff'/%3E%3C/svg%3E" />
+  <title>AI 图片生成 | Mecha Tools</title>
+  <link rel="stylesheet" href="/src/index.css" />
+  <style>
+    * { box-sizing: border-box; }
+    .controls { display: flex; flex-direction: column; gap: 15px; }
+    textarea {
+      width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #dee2e6;
+      font-size: 16px; min-height: 80px; resize: vertical;
+    }
+    .size-controls { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .size-controls .input-group { display: flex; align-items: center; gap: 5px; }
+    .size-controls label { font-weight: bold; }
+    .size-controls input[type="number"] { width: 70px; padding: 8px; border-radius: 4px; border: 1px solid #dee2e6; font-size: 14px; }
+
+    .preset-sizes { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+    .preset-sizes button {
+      background-color: #6c757d; color: white; border: none;
+      padding: 6px 12px; font-size: 12px; border-radius: 15px;
+      cursor: pointer; transition: background-color 0.3s ease;
+    }
+    .preset-sizes button:hover { background-color: #5a6268; }
+
+    .main-buttons { display: flex; gap: 12px; justify-content: center; }
+    .main-buttons button {
+      padding: 12px 25px; font-size: 16px; border: none;
+      border-radius: 6px; cursor: pointer; transition: all 0.3s ease; font-weight: bold;
+    }
+    #generateBtn { background-color: #007bff; color: white; }
+    #generateBtn:hover:not(:disabled) { background-color: #0056b3; }
+    #generateBtn:disabled { background-color: #a0c7ff; cursor: not-allowed; }
+    #downloadBtn { background-color: #28a745; color: white; }
+    #downloadBtn:hover { background-color: #1e7e34; }
+
+    #image-container {
+      margin-top: 20px; min-height: 300px; border: 2px dashed #ced4da;
+      border-radius: 8px; display: flex; justify-content: center; align-items: center; padding: 10px;
+    }
+    #result-image { max-width: 100%; max-height: 500px; border-radius: 4px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); display: none; }
+    #error-message { color: #dc3545; margin-top: 15px; font-weight: bold; }
+    .hidden { display: none !important; }
+
+    .loader {
+      border: 6px solid #f3f3f3; border-top: 6px solid #007bff;
+      border-radius: 50%; width: 50px; height: 50px;
+      animation: spin 1s linear infinite; display: none;
+    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+
+<body class="min-h-screen bg-mech-bg text-mech-text antialiased">
+  <main class="max-w-2xl mx-auto px-4 py-8 space-y-6">
+    <header class="sticky top-0 z-30 border-b border-mech-edge/70 backdrop-blur bg-mech-bg/70 -mx-4 px-4 py-3">
+      <div class="flex items-center justify-between">
+        <a class="font-semibold tracking-wider hover:text-black" href="/">Mecha Tools</a>
+        <a class="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors" href="/">返回首页</a>
+      </div>
+    </header>
+
+    <section class="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle p-6 space-y-5">
+      <div>
+        <h1 class="text-xl font-semibold tracking-wide">AI 图片生成器</h1>
+        <p class="text-mech-muted mt-2">输入你的创意提示词，选择合适的尺寸，让AI为你绘图！</p>
+      </div>
+
+      <div class="controls">
+        <textarea id="prompt-input"
+          placeholder="例如：A cute cat wearing a tiny wizard hat, fantasy art style (一只戴着小巫师帽的可爱猫咪，奇幻艺术风格)"></textarea>
+
+        <div class="size-controls">
+          <div class="input-group">
+            <label for="width-input">宽度:</label>
+            <input type="number" id="width-input" value="1024">
+          </div>
+          <div class="input-group">
+            <label for="height-input">高度:</label>
+            <input type="number" id="height-input" value="1024">
+          </div>
+        </div>
+
+        <div class="preset-sizes">
+          <button data-width="1024" data-height="1024">正方形 (1:1)</button>
+          <button data-width="768" data-height="1366">竖屏 (9:16)</button>
+          <button data-width="1366" data-height="768">横屏 (16:9)</button>
+        </div>
+
+        <div class="main-buttons">
+          <button id="generateBtn">生成图片</button>
+          <button id="downloadBtn" class="hidden">下载图片</button>
+        </div>
+      </div>
+
+      <div id="image-container">
+        <div class="loader" id="loader"></div>
+        <img id="result-image" alt="生成的图片">
+      </div>
+      <p id="error-message" class="hidden"></p>
+    </section>
+  </main>
+
+  <script>
+    // 端点原样迁移自桌面版工具（2025-06）；服务端如有变更后续再修
+    class ImageGenerator {
+      constructor() {
+        this.baseUrl = 'https://image.pollinations.ai';
+      }
+
+      generateImageUrl(prompt, width = 1024, height = 1024) {
+        // 生成随机种子
+        const seed = Math.floor(Math.random() * 1000000000) + 1;
+
+        // 构建URL
+        const imageUrl = `${this.baseUrl}/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&seed=${seed}&nologo=true&model=flux`;
+
+        // 记录生成信息到控制台
+        console.log(`生成图片 - ${new Date().toLocaleString()}`, {
+          prompt,
+          width,
+          height,
+          seed,
+          url: imageUrl
+        });
+
+        return imageUrl;
+      }
+    }
+
+    // --- 应用逻辑 ---
+
+    const generateBtn = document.getElementById('generateBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const promptInput = document.getElementById('prompt-input');
+    const widthInput = document.getElementById('width-input');
+    const heightInput = document.getElementById('height-input');
+    const resultImage = document.getElementById('result-image');
+    const loader = document.getElementById('loader');
+    const errorMessage = document.getElementById('error-message');
+    const presetButtons = document.querySelectorAll('.preset-sizes button');
+
+    const generator = new ImageGenerator();
+
+    // “生成图片”按钮的点击事件
+    generateBtn.addEventListener('click', () => {
+      const prompt = promptInput.value;
+      if (!prompt) {
+        showError('提示词不能为空！');
+        return;
+      }
+
+      const width = parseInt(widthInput.value, 10) || 1024;
+      const height = parseInt(heightInput.value, 10) || 1024;
+
+      // 重置UI状态
+      showError('');
+      generateBtn.disabled = true;
+      generateBtn.textContent = '生成中...';
+      loader.style.display = 'block';
+      resultImage.style.display = 'none';
+      downloadBtn.classList.add('hidden');
+
+      // 生成图片URL并设置给img标签
+      const imageUrl = generator.generateImageUrl(prompt, width, height);
+      resultImage.src = imageUrl;
+    });
+
+    // 图片加载成功时的处理
+    resultImage.onload = () => {
+      loader.style.display = 'none';
+      resultImage.style.display = 'block';
+      downloadBtn.classList.remove('hidden');
+      generateBtn.disabled = false;
+      generateBtn.textContent = '生成新图片';
+    };
+
+    // 图片加载失败时的处理
+    resultImage.onerror = () => {
+      showError('图片加载失败。可能是网络问题或API服务暂时不可用。');
+      loader.style.display = 'none';
+      generateBtn.disabled = false;
+      generateBtn.textContent = '重新生成';
+    };
+
+    // “下载图片”按钮的点击事件
+    downloadBtn.addEventListener('click', async () => {
+      try {
+        // 使用fetch获取图片数据，因为直接下载跨域图片会被浏览器阻止
+        const response = await fetch(resultImage.src);
+        if (!response.ok) {
+          throw new Error('网络响应不正常');
+        }
+        const blob = await response.blob();
+
+        // 创建一个临时的URL指向该Blob对象
+        const blobUrl = URL.createObjectURL(blob);
+
+        // 创建一个临时的a标签用于下载
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        // 从Prompt中提取一个合适的文件名
+        const filename = promptInput.value.trim().slice(0, 30).replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'generated_image';
+        link.download = `${filename}.png`;
+
+        // 触发点击，然后移除
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // 释放Blob URL占用的内存
+        URL.revokeObjectURL(blobUrl);
+
+      } catch (error) {
+        console.error('下载失败:', error);
+        // 如果fetch失败（通常是CORS策略），则提示用户手动下载
+        alert('自动下载失败！请右键点击图片，然后选择“图片另存为...”来手动保存。');
+      }
+    });
+
+    // 为预设尺寸按钮添加事件监听
+    presetButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const width = button.dataset.width;
+        const height = button.dataset.height;
+        widthInput.value = width;
+        heightInput.value = height;
+      });
+    });
+
+    // 显示错误信息的函数
+    function showError(message) {
+      errorMessage.textContent = message;
+      if (message) {
+        errorMessage.classList.remove('hidden');
+      } else {
+        errorMessage.classList.add('hidden');
+      }
+    }
+  </script>
+</body>
+
+</html>

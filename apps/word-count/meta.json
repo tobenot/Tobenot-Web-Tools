@@ -1,0 +1,7 @@
+{
+  "title": "字数统计",
+  "description": "统计文本的总字符数、中文字数、英文单词/字母数、数字与标点符号数",
+  "version": "1.0.0",
+  "updatedAt": "2026-08-22",
+  "tags": ["text", "word-count", "counter", "中文"]
+}
