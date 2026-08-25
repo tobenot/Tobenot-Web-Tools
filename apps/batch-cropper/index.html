@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#f7f7f8" />
   <link rel="icon" type="image/svg+xml"
     href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0%200%2064%2064'%3E%3Crect width='64' height='64' rx='14' fill='%232563eb'/%3E%3Cpath d='M20%208v36h36M8%2020h36v36' stroke='%23fff' stroke-width='5' fill='none'/%3E%3C/svg%3E" />
-  <title>批量比例裁剪 | Mecha Tools</title>
+  <title>批量区域裁剪 | Mecha Tools</title>
   <link rel="stylesheet" href="/src/index.css" />
   <style>
     * { box-sizing: border-box; }
@@ -46,6 +46,13 @@
       display: block; margin-bottom: 10px;
     }
     #zipProgress { margin-top: 10px; font-style: italic; color: #3498db; }
+
+    #cropStage { position: relative; max-width: 100%; user-select: none; cursor: crosshair; }
+    #cropGuide { max-width: 100%; display: block; pointer-events: none; }
+    #cropBox {
+      display: none; position: absolute; border: 2px solid #2563eb;
+      background: rgba(37, 99, 235, 0.18); pointer-events: none;
+    }
   </style>
 </head>
 
@@ -60,8 +67,28 @@
 
     <section class="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle p-6 space-y-5">
       <div>
-        <h1 class="text-xl font-semibold tracking-wide">批量图片比例裁剪器</h1>
-        <p class="text-mech-muted mt-2">选择多个图片文件，设置裁剪参数，程序将对每张图片进行裁剪。您可以单独下载每张图片，或将所有结果打包下载为ZIP文件。</p>
+        <h1 class="text-xl font-semibold tracking-wide">批量图片区域裁剪</h1>
+        <p class="text-mech-muted mt-2">选一批同尺寸图（例如视频逐帧），在其中一张上拖出要保留的区域，同一框套到全部。可单张下载或打 ZIP。</p>
+      </div>
+
+      <div class="input-group">
+        <input type="file" id="imageFilesInput" multiple accept="image/png, image/jpeg, image/webp, image/gif, image/bmp">
+      </div>
+
+      <div id="regionPicker" class="input-group" style="display:none; flex-direction:column; align-items:stretch;">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <strong>在预览图上拖选要保留的区域</strong>
+          <div class="flex items-center gap-2">
+            <button type="button" id="prevGuide" class="preset-button">上一张</button>
+            <span id="guideIndex" class="text-sm text-gray-500">1 / 1</span>
+            <button type="button" id="nextGuide" class="preset-button">下一张</button>
+          </div>
+        </div>
+        <span id="cropRectLabel" class="text-sm text-gray-500">未选择区域</span>
+        <div id="cropStage">
+          <img id="cropGuide" alt="裁剪参考图">
+          <div id="cropBox"></div>
+        </div>
       </div>
 
       <div>
@@ -121,7 +148,6 @@
       </div>
 
       <div class="flex flex-wrap items-center gap-3">
-        <input type="file" id="imageFilesInput" multiple accept="image/png, image/jpeg, image/webp, image/gif, image/bmp">
         <button id="processButton" class="px-4 py-2 rounded-md">处理选中图片</button>
         <button id="downloadZipButton" class="px-4 py-2 rounded-md" style="display:none;">下载全部 (ZIP)</button>
       </div>
@@ -161,10 +187,121 @@
       const cropRightPixelsInput = document.getElementById('cropRightPixels');
       const setDefaultPixelCropButton = document.getElementById('setDefaultPixelCropButton');
       const originalAspectRatioButton = document.getElementById('originalAspectRatioButton');
+      const regionPicker = document.getElementById('regionPicker');
+      const cropStage = document.getElementById('cropStage');
+      const cropGuide = document.getElementById('cropGuide');
+      const cropBox = document.getElementById('cropBox');
+      const cropRectLabel = document.getElementById('cropRectLabel');
+      const guideIndex = document.getElementById('guideIndex');
+      const prevGuide = document.getElementById('prevGuide');
+      const nextGuide = document.getElementById('nextGuide');
 
       let processedFilesData = [];
       let ratioString = 'original';
       let targetAspectRatio = null;
+      let guideFiles = [];
+      let guideIdx = 0;
+      let guideUrl = null;
+      let dragStart = null;
+
+      function revokeGuide() {
+        if (guideUrl) {
+          URL.revokeObjectURL(guideUrl);
+          guideUrl = null;
+        }
+      }
+
+      function loadGuide(i) {
+        if (!guideFiles.length) return;
+        guideIdx = (i + guideFiles.length) % guideFiles.length;
+        revokeGuide();
+        guideUrl = URL.createObjectURL(guideFiles[guideIdx]);
+        cropGuide.src = guideUrl;
+        guideIndex.textContent = `${guideIdx + 1} / ${guideFiles.length}`;
+      }
+
+      function readMargins() {
+        return {
+          left: parseInt(cropLeftPixelsInput.value) || 0,
+          top: parseInt(cropTopPixelsInput.value) || 0,
+          right: parseInt(cropRightPixelsInput.value) || 0,
+          bottom: parseInt(cropBottomPixelsInput.value) || 0,
+        };
+      }
+
+      function paintBox() {
+        const imgW = cropGuide.naturalWidth;
+        const imgH = cropGuide.naturalHeight;
+        if (!imgW || !cropGuide.clientWidth) {
+          cropBox.style.display = 'none';
+          return;
+        }
+        const m = readMargins();
+        const w = imgW - m.left - m.right;
+        const h = imgH - m.top - m.bottom;
+        if (w < 1 || h < 1) {
+          cropBox.style.display = 'none';
+          cropRectLabel.textContent = '区域无效';
+          return;
+        }
+        const sx = cropGuide.clientWidth / imgW;
+        const sy = cropGuide.clientHeight / imgH;
+        cropBox.style.display = 'block';
+        cropBox.style.left = m.left * sx + 'px';
+        cropBox.style.top = m.top * sy + 'px';
+        cropBox.style.width = w * sx + 'px';
+        cropBox.style.height = h * sy + 'px';
+        cropRectLabel.textContent = `${m.left},${m.top}  ${w}×${h}`;
+      }
+
+      function clientToImage(clientX, clientY) {
+        const r = cropGuide.getBoundingClientRect();
+        const x = (clientX - r.left) / r.width * cropGuide.naturalWidth;
+        const y = (clientY - r.top) / r.height * cropGuide.naturalHeight;
+        return {
+          x: Math.max(0, Math.min(cropGuide.naturalWidth, x)),
+          y: Math.max(0, Math.min(cropGuide.naturalHeight, y)),
+        };
+      }
+
+      function applyDragRect(a, b) {
+        if (Math.abs(b.x - a.x) < 2 && Math.abs(b.y - a.y) < 2) return;
+        const x = Math.round(Math.min(a.x, b.x));
+        const y = Math.round(Math.min(a.y, b.y));
+        const w = Math.max(1, Math.round(Math.abs(b.x - a.x)));
+        const h = Math.max(1, Math.round(Math.abs(b.y - a.y)));
+        cropLeftPixelsInput.value = String(x);
+        cropTopPixelsInput.value = String(y);
+        cropRightPixelsInput.value = String(Math.max(0, cropGuide.naturalWidth - x - w));
+        cropBottomPixelsInput.value = String(Math.max(0, cropGuide.naturalHeight - y - h));
+        aspectWidthInput.value = '';
+        aspectHeightInput.value = '';
+        paintBox();
+      }
+
+      cropGuide.addEventListener('load', paintBox);
+      window.addEventListener('resize', paintBox);
+      [cropTopPixelsInput, cropBottomPixelsInput, cropLeftPixelsInput, cropRightPixelsInput].forEach((el) => {
+        el.addEventListener('input', paintBox);
+      });
+      prevGuide.addEventListener('click', () => loadGuide(guideIdx - 1));
+      nextGuide.addEventListener('click', () => loadGuide(guideIdx + 1));
+
+      cropStage.addEventListener('pointerdown', (e) => {
+        if (!cropGuide.naturalWidth) return;
+        cropStage.setPointerCapture(e.pointerId);
+        dragStart = clientToImage(e.clientX, e.clientY);
+      });
+      cropStage.addEventListener('pointermove', (e) => {
+        if (!dragStart) return;
+        applyDragRect(dragStart, clientToImage(e.clientX, e.clientY));
+      });
+      cropStage.addEventListener('pointerup', (e) => {
+        if (!dragStart) return;
+        applyDragRect(dragStart, clientToImage(e.clientX, e.clientY));
+        dragStart = null;
+      });
+      cropStage.addEventListener('pointercancel', () => { dragStart = null; });
 
       // 宽高比预设按钮
       document.querySelectorAll('.preset-button[data-w]').forEach(button => {
@@ -184,6 +321,7 @@
         cropBottomPixelsInput.value = '96';
         cropLeftPixelsInput.value = '0';
         cropRightPixelsInput.value = '0';
+        paintBox();
       });
 
       processButton.addEventListener('click', async () => {
@@ -270,7 +408,6 @@
 
         processButton.disabled = false;
         imageFilesInput.disabled = false;
-        imageFilesInput.value = '';
 
         if (processedFilesData.length > 0) {
           downloadZipButton.style.display = 'inline-block';
@@ -532,8 +669,20 @@
         });
       }
 
-      // 每次开始新一批处理前清掉上一批的错误提示
-      imageFilesInput.addEventListener('change', removeErrors);
+      imageFilesInput.addEventListener('change', () => {
+        removeErrors();
+        revokeGuide();
+        guideFiles = Array.from(imageFilesInput.files || []).filter((f) => f.type.startsWith('image/'));
+        if (!guideFiles.length) {
+          regionPicker.style.display = 'none';
+          cropGuide.removeAttribute('src');
+          cropBox.style.display = 'none';
+          cropRectLabel.textContent = '未选择区域';
+          return;
+        }
+        regionPicker.style.display = 'flex';
+        loadGuide(0);
+      });
     });
   </script>
 </body>
