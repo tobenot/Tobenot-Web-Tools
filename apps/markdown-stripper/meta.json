@@ -3,5 +3,6 @@
   "description": "批量移除 Markdown 文本中的各种格式标记，如加粗、斜体、链接、图片等，提取纯文本。",
   "version": "1.0.0",
   "updatedAt": "2026-05-18",
-  "tags": ["markdown", "text", "cleaner"]
+  "tags": ["markdown", "text", "cleaner"],
+  "category": "doc"
 }

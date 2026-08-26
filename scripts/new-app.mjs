@@ -87,6 +87,7 @@ function createMetaJson(appDir, { title, description }) {
     version: '0.1.0',
     updatedAt: new Date().toISOString().slice(0, 10),
     tags: [],
+    category: 'other',
   }
   fs.writeFileSync(path.join(appDir, 'meta.json'), JSON.stringify(meta, null, 2), 'utf-8')
 }

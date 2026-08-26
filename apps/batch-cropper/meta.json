@@ -3,5 +3,6 @@
   "description": "在一张图上框选区域，批量裁到同一位置，适合视频逐帧对比；也可按比例/边距裁并打 ZIP",
   "version": "1.1.0",
   "updatedAt": "2026-08-25",
-  "tags": ["image", "crop", "batch", "zip", "video"]
+  "tags": ["image", "crop", "batch", "zip", "video"],
+  "category": "image"
 }

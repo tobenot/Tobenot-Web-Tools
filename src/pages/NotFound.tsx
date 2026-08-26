@@ -8,7 +8,7 @@ import { tools } from '../data/routes'
  * 用户无法判断是加载失败还是链接失效。
  */
 export function NotFound({ path }: { path: string }) {
-  const suggestions = tools.filter((t) => t.category === 'utility').slice(0, 6)
+  const suggestions = tools.filter((t) => t.component && !t.external).slice(0, 6)
 
   return (
     <div className="max-w-2xl mx-auto text-center py-16 space-y-8">

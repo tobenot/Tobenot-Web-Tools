@@ -1,3 +1,5 @@
+import { isToolCategory, type ToolCategory } from './catalog'
+
 export type HtmlAppMeta = {
   slug: string
   title: string
@@ -5,6 +7,7 @@ export type HtmlAppMeta = {
   version?: string
   updatedAt?: string
   tags?: string[]
+  category?: ToolCategory
   url?: string
 }
 
@@ -31,6 +34,7 @@ export function getHtmlApps(): HtmlAppMeta[] {
       version: raw.version || undefined,
       updatedAt: raw.updatedAt || undefined,
       tags: Array.isArray(raw.tags) ? raw.tags : undefined,
+      category: isToolCategory(raw.category) ? raw.category : 'other',
       url: `apps/${slug}/`,
     }
     apps.push(app)

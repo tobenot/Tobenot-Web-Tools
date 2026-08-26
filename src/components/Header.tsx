@@ -34,7 +34,6 @@ export function Header() {
         <nav className="ml-auto flex items-center gap-1">
           {[
             { href: '/', icon: '🏠', label: '首页' },
-            { href: '/calendar', icon: '🗓️', label: '日历' },
             { href: '/changelog', icon: '📝', label: '日志' },
             { href: '/about', icon: 'ℹ️', label: '关于' }
           ].map((item, index) => (
@@ -56,6 +55,19 @@ export function Header() {
               <span className="hidden sm:block text-sm">{item.label}</span>
             </a>
           ))}
+
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}
+            className="relative inline-flex items-center gap-2 px-3 py-2 border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium transition-all duration-200 hover:scale-105 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-mech"
+            title="搜索工具 (Ctrl+K)"
+          >
+            <span className="text-base">🔍</span>
+            <span className="hidden sm:block text-sm">搜索</span>
+            <kbd className="hidden md:inline-block ml-1 px-1.5 py-0.5 text-[10px] border border-gray-200 dark:border-gray-600 rounded text-gray-400 dark:text-gray-500 font-mono">
+              Ctrl+K
+            </kbd>
+          </button>
 
           {/* Theme toggle */}
           <button

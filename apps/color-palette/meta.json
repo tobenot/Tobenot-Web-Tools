@@ -3,5 +3,6 @@
   "description": "智能调色板生成工具，支持多种配色方案和颜色格式转换",
   "version": "1.0.0",
   "updatedAt": "2025-01-02",
-  "tags": ["design", "color", "palette", "generator"]
+  "tags": ["design", "color", "palette", "generator"],
+  "category": "image"
 }

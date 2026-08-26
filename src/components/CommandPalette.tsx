@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { tools, isKnownRoute } from '../data/routes'
 import { getHtmlApps } from '../data/apps'
+import { matchesToolQuery, type ToolCategory } from '../data/catalog'
 import { navigate as routeTo } from '../utils/hash'
 
 interface SearchItem {
@@ -9,6 +10,8 @@ interface SearchItem {
   description: string
   emoji: string
   href: string
+  tags?: string[]
+  category?: ToolCategory
 }
 
 export function CommandPalette() {
@@ -21,17 +24,12 @@ export function CommandPalette() {
   const allItems: SearchItem[] = (() => {
     const apps = getHtmlApps()
     return [
-      ...tools.map(t => ({ id: t.id, title: t.title, description: t.description, emoji: t.emoji, href: t.href })),
-      ...apps.map(a => ({ id: a.slug, title: a.title, description: a.description || '', emoji: '🧩', href: a.url || `apps/${a.slug}/` }))
+      ...tools.map(t => ({ id: t.id, title: t.title, description: t.description, emoji: t.emoji, href: t.href, tags: t.tags, category: t.category })),
+      ...apps.map(a => ({ id: a.slug, title: a.title, description: a.description || '', emoji: '🧩', href: a.url || `apps/${a.slug}/`, tags: a.tags, category: a.category }))
     ]
   })()
 
-  const filtered = query === ''
-    ? allItems
-    : allItems.filter(item =>
-        item.title.toLowerCase().includes(query.toLowerCase()) ||
-        item.description.toLowerCase().includes(query.toLowerCase())
-      )
+  const filtered = allItems.filter(item => matchesToolQuery(item, query))
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {

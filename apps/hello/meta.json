@@ -4,5 +4,6 @@
   "version": "0.1.0",
   "updatedAt": "2025-08-08",
   "tags": ["example", "starter"],
-  "hidden": true
+  "hidden": true,
+  "category": "other"
 }
