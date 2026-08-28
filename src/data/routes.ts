@@ -247,6 +247,13 @@ export function isKnownRoute(path: string): boolean {
 
 export const globalChangelog: ChangelogEntry[] = [
   {
+    date: '2026-08-28',
+    title: '新增语音合成工具',
+    notes: [
+      '把 simple-tts-js 的 Edge 在线语音合成收进独立页：选语言/音色、调音调语速，播放或下载 WebM',
+    ]
+  },
+  {
     date: '2026-08-26',
     title: '首页按用途分组',
     notes: [

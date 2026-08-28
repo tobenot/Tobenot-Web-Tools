@@ -59,6 +59,7 @@ CI：`tsc` → `lint` → `test` → `check` → `build`。
 | 大字展示板 | `#big-text` |
 | 字数统计 | `apps/word-count/` |
 | LLM Prompt 清洗 | `apps/llm-prompt-cleaner/` |
+| 语音合成 | `apps/simple-tts/` |
 
 ### 编码
 
