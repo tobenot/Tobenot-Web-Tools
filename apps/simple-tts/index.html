@@ -23,7 +23,7 @@
     <section class="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle p-6 space-y-5">
       <div>
         <h1 class="text-xl font-semibold tracking-wide">语音合成</h1>
-        <p class="text-mech-muted mt-2">走 Microsoft Edge 在线语音，需联网。合成结果可播放或下载为 WebM。</p>
+        <p class="text-mech-muted mt-2">用浏览器自带的 Web Speech API 朗读。Chrome / Edge 里不少中文音色走官方云端，打开即可用。音色因浏览器而异，无法导出音频文件。</p>
       </div>
 
       <label class="block text-sm font-medium">文本
@@ -39,46 +39,27 @@
         <label class="text-sm font-medium">音色
           <select id="voice" class="mt-1 w-full border border-mech-edge rounded-md px-2 py-2"></select>
         </label>
-        <label class="text-sm font-medium">音调 <span id="pitchVal" class="text-sky-700 font-normal">0</span>
-          <input id="pitch" type="range" min="-100" max="100" step="10" value="0" class="mt-1 w-full">
+        <label class="text-sm font-medium">音调 <span id="pitchVal" class="text-sky-700 font-normal">1</span>
+          <input id="pitch" type="range" min="0.5" max="2" step="0.1" value="1" class="mt-1 w-full">
         </label>
-        <label class="text-sm font-medium">语速 <span id="rateVal" class="text-sky-700 font-normal">0</span>
-          <input id="rate" type="range" min="-100" max="100" step="10" value="0" class="mt-1 w-full">
+        <label class="text-sm font-medium">语速 <span id="rateVal" class="text-sky-700 font-normal">1</span>
+          <input id="rate" type="range" min="0.5" max="2" step="0.1" value="1" class="mt-1 w-full">
         </label>
       </div>
 
       <div class="flex flex-wrap gap-2">
         <button id="playBtn" class="px-4 py-2 rounded-md bg-sky-600 hover:bg-sky-700 text-white disabled:opacity-50">播放</button>
-        <button id="downloadBtn" class="px-4 py-2 rounded-md border border-mech-edge bg-white hover:bg-neutral-50 disabled:opacity-50">下载 WebM</button>
+        <button id="pauseBtn" class="px-4 py-2 rounded-md border border-mech-edge bg-white hover:bg-neutral-50 disabled:opacity-50" disabled>暂停</button>
+        <button id="stopBtn" class="px-4 py-2 rounded-md border border-mech-edge bg-white hover:bg-neutral-50 disabled:opacity-50" disabled>停止</button>
       </div>
 
       <p id="status" class="text-sm text-mech-muted"></p>
-      <audio id="player" controls class="w-full hidden"></audio>
-
-      <details class="text-sm text-mech-muted">
-        <summary class="cursor-pointer font-medium text-mech-text">中文音色参考</summary>
-        <ul class="mt-2 space-y-1 list-disc pl-5">
-          <li>XiaoxiaoNeural / XiaoyiNeural：少女（后者更年幼）</li>
-          <li>YunxiNeural：少年（音调调到 -15 更自然）</li>
-          <li>YunxiaNeural：年轻女性</li>
-          <li>YunjianNeural：大叔；YunyangNeural：正式男声</li>
-        </ul>
-      </details>
-
-      <p class="text-xs text-mech-muted">
-        逻辑来自 <a class="text-sky-700 underline" href="https://github.com/tobenot/simple-tts-js" target="_blank" rel="noopener">simple-tts-js</a>，
-        改自 <a class="text-sky-700 underline" href="https://github.com/pansong291/ashe/blob/64e57ef33bba7125636050765a2326e7b280e6b8/html/tool/text-audio.html" target="_blank" rel="noopener">pansong291/ashe</a>。
-      </p>
     </section>
   </main>
 
   <script>
-    const TOKEN = '6A5AA1D4EAFF4E9FB37E23D68491D6F4'
-    const VOICES_URL = 'https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list?trustedclienttoken=' + TOKEN
-    const WS_URL = 'wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=' + TOKEN
-    // ponytail: Edge 在 2024 后要求 Sec-MS-GEC；403 时再对一下 SEC_MS_GEC_VERSION
-    const SEC_MS_GEC_VERSION = '1-143.0.3650.75'
-    const AUDIO_HEAD = new TextEncoder().encode('Path:audio\r\n').toString()
+    const MAX_CHUNK = 180
+    const PREFERRED_ZH = [/Google 普通话/, /Google 國語/, /Google.*Chinese/, /Xiaoxiao/, /Natural.*Chinese/, /Microsoft.*Chinese/]
 
     const textEl = document.getElementById('text')
     const langEl = document.getElementById('lang')
@@ -88,36 +69,20 @@
     const pitchVal = document.getElementById('pitchVal')
     const rateVal = document.getElementById('rateVal')
     const playBtn = document.getElementById('playBtn')
-    const downloadBtn = document.getElementById('downloadBtn')
+    const pauseBtn = document.getElementById('pauseBtn')
+    const stopBtn = document.getElementById('stopBtn')
     const statusEl = document.getElementById('status')
-    const player = document.getElementById('player')
 
-    const voicesByLang = {}
-    let lastKey = ''
-    let lastUrl = ''
+    const synth = window.speechSynthesis
+    const langNames = typeof Intl !== 'undefined' && Intl.DisplayNames
+      ? new Intl.DisplayNames(['zh-CN'], { type: 'language' })
+      : null
 
-    function signed(n) {
-      return Number(n) >= 0 ? '+' + n : String(n)
-    }
-
-    function escapeXml(s) {
-      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    }
-
-    function guid() {
-      let out = ''
-      for (let i = 0; i < 8; i++) out += (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1)
-      return out
-    }
-
-    async function secMsGec() {
-      const unix = BigInt(Math.floor(Date.now() / 1000))
-      let ticks = unix + 11644473600n
-      ticks -= ticks % 300n
-      const payload = (ticks * 10000000n).toString() + TOKEN
-      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload))
-      return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('').toUpperCase()
-    }
+    let allVoices = []
+    let speakGen = 0
+    let userPaused = false
+    let watchdog = 0
+    let selectedVoiceUri = ''
 
     function setStatus(msg, ok) {
       statusEl.textContent = msg
@@ -131,110 +96,168 @@
         o.textContent = label
         return o
       }))
-      if (selected != null) el.value = selected
+      if (selected != null && [...el.options].some((o) => o.value === selected)) el.value = selected
     }
 
-    function fillVoices() {
-      const list = voicesByLang[langEl.value] || []
-      fillSelect(voiceEl, list.map((v, i) => [String(i), v.ShortName]), '0')
-    }
-
-    function paramsKey() {
-      return JSON.stringify({
-        text: textEl.value.trim(),
-        lang: langEl.value,
-        voice: voiceEl.value,
-        pitch: pitchEl.value,
-        rate: rateEl.value,
-      })
-    }
-
-    async function getAudio(text, lang, voiceIndex, pitch, rate) {
-      const voices = voicesByLang[lang]
-      if (!voices || !voices[voiceIndex]) throw new Error('请先等待音色列表加载')
-      const voiceName = voices[voiceIndex].Name
-      const requestId = guid()
-      const bufferList = []
-      const gec = await secMsGec()
-      const wsUrl = WS_URL + '&ConnectionId=' + requestId + '&Sec-MS-GEC=' + gec + '&Sec-MS-GEC-Version=' + SEC_MS_GEC_VERSION
-
-      return new Promise((resolve, reject) => {
-        const ws = new WebSocket(wsUrl)
-        ws.addEventListener('open', () => {
-          ws.send(
-            `X-Timestamp:${new Date()}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n` +
-            `{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"true"},"outputFormat":"webm-24khz-16bit-mono-opus"}}}}`
-          )
-          ws.send(
-            `X-RequestId:${requestId}\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:${new Date()}\r\nPath:ssml\r\n\r\n` +
-            `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='https://www.w3.org/2001/mstts' xml:lang='${lang}'>` +
-            `<voice name='${voiceName}'><prosody pitch='${signed(pitch)}Hz' rate ='${signed(rate)}%' volume='+0%'>${escapeXml(text)}</prosody></voice></speak>`
-          )
-        })
-        ws.addEventListener('message', async ({ data }) => {
-          if (!(data instanceof Blob)) return
-          const view = new Uint8Array(await data.arrayBuffer())
-          const parts = view.toString().split(AUDIO_HEAD)
-          if (parts[1]) {
-            bufferList.push(...parts[1].split(',').slice(1).map((i) => +i))
-          }
-          if (view[0] === 0x00 && view[1] === 0x67 && view[2] === 0x58) ws.close(1000)
-        })
-        ws.addEventListener('error', () => {})
-        ws.addEventListener('close', (event) => {
-          if (event.code !== 1000) {
-            reject(new Error('语音服务连接失败（' + event.code + '）'))
-            return
-          }
-          if (!bufferList.length) {
-            reject(new Error('没有收到音频'))
-            return
-          }
-          resolve(URL.createObjectURL(new Blob([new Uint8Array(bufferList)], { type: 'audio/webm' })))
-        })
-      })
-    }
-
-    async function ensureAudio() {
-      const text = textEl.value.trim()
-      if (!text) throw new Error('请输入文字')
-      const key = paramsKey()
-      if (key === lastKey && lastUrl) return lastUrl
-      if (lastUrl) URL.revokeObjectURL(lastUrl)
-      lastUrl = await getAudio(text, langEl.value, Number(voiceEl.value), pitchEl.value, rateEl.value)
-      lastKey = key
-      return lastUrl
-    }
-
-    async function withBusy(fn) {
-      playBtn.disabled = downloadBtn.disabled = true
+    function langLabel(tag) {
       try {
-        await fn()
-      } catch (err) {
-        setStatus(err.message || String(err), false)
-      } finally {
-        playBtn.disabled = downloadBtn.disabled = false
+        return langNames ? langNames.of(tag) + ' (' + tag + ')' : tag
+      } catch {
+        return tag
       }
     }
 
-    playBtn.addEventListener('click', () => withBusy(async () => {
-      setStatus('合成中…')
-      const url = await ensureAudio()
-      player.src = url
-      player.classList.remove('hidden')
-      await player.play()
-      setStatus('')
-    }))
+    function voicesForLang(lang) {
+      return allVoices.filter((v) => v.lang === lang || v.lang.startsWith(lang + '-'))
+    }
 
-    downloadBtn.addEventListener('click', () => withBusy(async () => {
-      setStatus('合成中…')
-      const url = await ensureAudio()
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'audio_' + Date.now() + '.webm'
-      a.click()
-      setStatus('')
-    }))
+    function pickVoiceUri(list) {
+      if (selectedVoiceUri && list.some((v) => v.voiceURI === selectedVoiceUri)) return selectedVoiceUri
+      for (const re of PREFERRED_ZH) {
+        const hit = list.find((v) => re.test(v.name))
+        if (hit) return hit.voiceURI
+      }
+      const def = list.find((v) => v.default)
+      return (def || list[0] || {}).voiceURI || ''
+    }
+
+    function fillVoices() {
+      const list = voicesForLang(langEl.value)
+      const uri = pickVoiceUri(list)
+      fillSelect(
+        voiceEl,
+        list.map((v) => [v.voiceURI, v.name + (v.localService ? '' : ' · 云端')]),
+        uri,
+      )
+      selectedVoiceUri = voiceEl.value
+    }
+
+    function loadVoices() {
+      const list = synth.getVoices()
+      if (!list.length) return
+      allVoices = list
+      const langs = [...new Set(list.map((v) => v.lang))].sort((a, b) => a.localeCompare(b))
+      const lang = langs.includes('zh-CN') ? 'zh-CN' : (langs.find((l) => l.startsWith('zh')) || langs[0])
+      fillSelect(langEl, langs.map((l) => [l, langLabel(l)]), langEl.value && langs.includes(langEl.value) ? langEl.value : lang)
+      fillVoices()
+      setStatus('本机 ' + list.length + ' 个音色' + (list.some((v) => !v.localService) ? '（含云端）' : ''))
+    }
+
+    // ponytail: Chrome 单段约 15s 截断，按标点切开；超长再硬切
+    function chunkText(text, maxLen = MAX_CHUNK) {
+      const pieces = text.split(/([。！？.!?；;\n]+)/)
+      const chunks = []
+      let buf = ''
+      for (const p of pieces) {
+        if (!p) continue
+        if (buf.length + p.length > maxLen && buf) {
+          chunks.push(buf.trim())
+          buf = p
+        } else buf += p
+      }
+      if (buf.trim()) chunks.push(buf.trim())
+      return chunks.flatMap((c) => {
+        if (c.length <= maxLen) return [c]
+        const out = []
+        for (let i = 0; i < c.length; i += maxLen) out.push(c.slice(i, i + maxLen).trim())
+        return out.filter(Boolean)
+      })
+    }
+
+    function currentVoice() {
+      return allVoices.find((v) => v.voiceURI === voiceEl.value) || null
+    }
+
+    function setTransport(playing) {
+      pauseBtn.disabled = !playing
+      stopBtn.disabled = !playing
+      pauseBtn.textContent = userPaused ? '继续' : '暂停'
+    }
+
+    function stopWatchdog() {
+      if (watchdog) clearInterval(watchdog)
+      watchdog = 0
+    }
+
+    function startWatchdog() {
+      stopWatchdog()
+      // ponytail: Chrome 会把长朗读偷偷 pause，未点暂停时 resume
+      watchdog = setInterval(() => {
+        if (synth.speaking && !userPaused) synth.resume()
+      }, 8000)
+    }
+
+    function stopSpeak() {
+      speakGen += 1
+      userPaused = false
+      stopWatchdog()
+      synth.cancel()
+      setTransport(false)
+    }
+
+    function speakChunks(chunks, gen) {
+      let i = 0
+      function next() {
+        if (gen !== speakGen) return
+        if (i >= chunks.length) {
+          stopWatchdog()
+          setTransport(false)
+          setStatus('播放完成')
+          return
+        }
+        const u = new SpeechSynthesisUtterance(chunks[i++])
+        const voice = currentVoice()
+        if (voice) u.voice = voice
+        u.rate = Number(rateEl.value)
+        u.pitch = Number(pitchEl.value)
+        u.onend = next
+        u.onerror = (e) => {
+          if (e.error === 'canceled' || e.error === 'interrupted') return
+          stopWatchdog()
+          setTransport(false)
+          setStatus('朗读失败：' + e.error, false)
+        }
+        synth.speak(u)
+        setStatus('正在朗读 ' + i + ' / ' + chunks.length)
+      }
+      next()
+    }
+
+    playBtn.addEventListener('click', () => {
+      const text = textEl.value.trim()
+      if (!text) {
+        setStatus('请输入文字', false)
+        return
+      }
+      stopSpeak()
+      const chunks = chunkText(text)
+      if (!chunks.length) return
+      userPaused = false
+      setTransport(true)
+      startWatchdog()
+      speakChunks(chunks, speakGen)
+    })
+
+    pauseBtn.addEventListener('click', () => {
+      if (!synth.speaking && !userPaused) return
+      if (userPaused) {
+        userPaused = false
+        synth.resume()
+        startWatchdog()
+        setStatus('继续朗读')
+      } else {
+        userPaused = true
+        stopWatchdog()
+        synth.pause()
+        setStatus('已暂停')
+      }
+      setTransport(true)
+    })
+
+    stopBtn.addEventListener('click', () => {
+      stopSpeak()
+      setStatus('已停止')
+    })
 
     textEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && e.ctrlKey) {
@@ -245,21 +268,20 @@
 
     pitchEl.addEventListener('input', () => { pitchVal.textContent = pitchEl.value })
     rateEl.addEventListener('input', () => { rateVal.textContent = rateEl.value })
-    langEl.addEventListener('change', fillVoices)
+    langEl.addEventListener('change', () => {
+      selectedVoiceUri = ''
+      fillVoices()
+    })
+    voiceEl.addEventListener('change', () => { selectedVoiceUri = voiceEl.value })
+    window.addEventListener('pagehide', stopSpeak)
 
-    fetch(VOICES_URL)
-      .then((r) => r.json())
-      .then((data) => {
-        for (const item of data) {
-          if (!voicesByLang[item.Locale]) voicesByLang[item.Locale] = []
-          voicesByLang[item.Locale].push(item)
-        }
-        const langs = Object.keys(voicesByLang)
-        fillSelect(langEl, langs.map((l) => [l, l]), langs.includes('zh-CN') ? 'zh-CN' : langs[0])
-        fillVoices()
-        setStatus('已加载 ' + langs.length + ' 种语言')
-      })
-      .catch(() => setStatus('音色列表加载失败，请检查网络', false))
+    if (!synth) {
+      playBtn.disabled = true
+      setStatus('当前浏览器不支持 Web Speech API', false)
+    } else {
+      loadVoices()
+      synth.addEventListener('voiceschanged', loadVoices)
+    }
   </script>
 </body>
 

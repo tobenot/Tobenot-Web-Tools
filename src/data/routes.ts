@@ -248,9 +248,17 @@ export function isKnownRoute(path: string): boolean {
 export const globalChangelog: ChangelogEntry[] = [
   {
     date: '2026-08-28',
+    title: '语音合成改用 Web Speech API',
+    notes: [
+      '不再走非官方 Edge WebSocket；用浏览器标准朗读接口，Chrome / Edge 云端音色打开即可用',
+      '按句拆分并定时 resume，避开 Chrome 长句约 15 秒被截断的问题'
+    ]
+  },
+  {
+    date: '2026-08-28',
     title: '新增语音合成工具',
     notes: [
-      '把 simple-tts-js 的 Edge 在线语音合成收进独立页：选语言/音色、调音调语速，播放或下载 WebM',
+      '把 simple-tts-js 收进独立页：选语言/音色、调音调语速'
     ]
   },
   {
