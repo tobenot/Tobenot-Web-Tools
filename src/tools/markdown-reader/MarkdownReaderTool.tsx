@@ -943,6 +943,7 @@ export function MarkdownReaderTool() {
   const [gistPanelTab, setGistPanelTab] = useState<'instant' | 'share' | 'manage'>('instant')
   const [gistToken, setGistToken] = useState(loadGistToken)
   const [tokenInput, setTokenInput] = useState('')
+  const [tokenSaved, setTokenSaved] = useState(false)
   const [tokenUrlCopied, setTokenUrlCopied] = useState(false)
   const [tokenExpanded, setTokenExpanded] = useState(() => !loadGistToken())
   const [principlesExpanded, setPrinciplesExpanded] = useState(false)
@@ -1633,7 +1634,9 @@ export function MarkdownReaderTool() {
   const openGistPanel = useCallback((tab: 'instant' | 'share' | 'manage') => {
     const saved = loadGistToken()
     setGistToken(saved)
-    setTokenInput(saved)
+    /* 已存 token 只在顶部徽章提示「已就绪」，不塞回密码输入框，
+       避免圆点占位造成「这里是什么」的困惑；生成/拉取时由 tokenInput || gistToken 兜底 */
+    setTokenInput('')
     setTokenExpanded(!saved)
     setPrinciplesExpanded(false)
     setLimitsExpanded(false)
@@ -1642,6 +1645,7 @@ export function MarkdownReaderTool() {
     setGistPanelTab(tab)
     setShareError('')
     setGistListError('')
+    setTokenSaved(false)
     setGeneratedShareUrl('')
     setShareLinkCopied(false)
     setInstantShareUrl('')
@@ -1710,6 +1714,10 @@ export function MarkdownReaderTool() {
     if (saveGistToken(token)) {
       setGistToken(token)
       setShareError('')
+      setTokenSaved(true)
+      /* 收起 Token 区，露出下方「一键上传」分享按钮（否则展开的 Token 区会占满弹窗，
+         把核心内容区压成 0 高度，按钮看不见，用户只能重开弹窗） */
+      setTokenExpanded(false)
     } else {
       setShareError('无法写入本机存储，请检查浏览器设置')
     }
@@ -1719,6 +1727,7 @@ export function MarkdownReaderTool() {
     removeGistToken()
     setGistToken('')
     setTokenInput('')
+    setTokenSaved(false)
     setShareError('')
   }, [])
 
@@ -1752,6 +1761,8 @@ export function MarkdownReaderTool() {
       if (token !== gistToken) {
         saveGistToken(token)
         setGistToken(token)
+        setTokenSaved(true)
+        setTokenExpanded(false)
       }
     } catch (error: unknown) {
       setShareError(error instanceof Error ? error.message : '分享失败')
@@ -2454,7 +2465,7 @@ export function MarkdownReaderTool() {
                   <span className="text-sm font-bold text-gray-800">GitHub Gist API Token 授权</span>
                   {gistToken ? (
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-800 border border-green-200">
-                      本机已就绪 (末尾 {maskGistToken(gistToken)})
+                      本次会话已就绪 (末尾 {maskGistToken(gistToken)})
                     </span>
                   ) : (
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-200 animate-pulse">
@@ -2468,7 +2479,7 @@ export function MarkdownReaderTool() {
               </button>
 
               {tokenExpanded && (
-                <div className="p-4 bg-white border-t border-gray-100 space-y-3">
+                <div className="p-4 bg-white border-t border-gray-100 space-y-3 max-h-[50vh] overflow-y-auto">
                   <p className="text-xs text-gray-600 leading-relaxed">
                     Token 是您自主授权向 GitHub 官方 API 存取数据的安全凭证。<strong>它只保存在当前浏览器标签的会话存储（sessionStorage）中，关闭标签页即清除；本站服务器绝不接触、更不会上传该凭证。</strong>
                   </p>
@@ -2530,7 +2541,7 @@ export function MarkdownReaderTool() {
                       disabled={!tokenInput.trim()}
                       className="px-3 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors disabled:opacity-40 disabled:pointer-events-none shadow-sm"
                     >
-                      💾 保存 Token 到本机
+                      {tokenSaved ? '✅ 已保存' : '💾 保存 Token 到本机'}
                     </button>
                     {gistToken && (
                       <button
@@ -2685,7 +2696,7 @@ export function MarkdownReaderTool() {
                       <span className="text-indigo-500">📤</span> 准备就绪：上传并公开分享
                     </h4>
                     <p className="text-xs text-gray-500 text-left mb-4 leading-relaxed">
-                      系统将会将当前编辑框中所有 Markdown 文档内容，直接写入至您自有的 Secret Gist。该文件拥有专属 ID，链接中没有任何个人数据。
+                      将当前编辑框中的 Markdown 文档内容写入您自有的 Secret Gist。该文件拥有专属 ID，链接中不含任何个人数据。
                     </p>
                     
                     <button
@@ -2704,7 +2715,7 @@ export function MarkdownReaderTool() {
                         </>
                       ) : (
                         <>
-                          <span>🚀 一键上传并生成极简分享链接</span>
+                          <span>🚀 一键生成分享链接</span>
                         </>
                       )}
                     </button>
@@ -2715,7 +2726,7 @@ export function MarkdownReaderTool() {
                     <div className="border border-green-200 bg-green-50/30 rounded-lg p-4 shadow-sm animate-fade-in space-y-3">
                       <div className="flex items-center gap-2 text-green-800 font-bold text-sm">
                         <span>✨</span>
-                        <span>分享大链接创建成功，并已自动复制！</span>
+                        <span>分享链接创建成功{shareLinkCopied ? '，并已复制' : ''}</span>
                       </div>
                       
                       <div className="flex items-stretch gap-2">
@@ -2729,6 +2740,14 @@ export function MarkdownReaderTool() {
                         >
                           {shareLinkCopied ? '✅ 已复制' : '📋 复制'}
                         </button>
+                        <a
+                          href={generatedShareUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 px-4 bg-white border border-green-300 hover:bg-green-50 text-green-700 rounded-md text-xs font-semibold transition-all flex items-center justify-center shadow-sm"
+                        >
+                          👁️ 预览
+                        </a>
                       </div>
 
                       <div className="pt-2 border-t border-green-200/50">
@@ -2818,14 +2837,14 @@ export function MarkdownReaderTool() {
                             <div className="space-y-1">
                               <div className="flex items-center gap-1.5">
                                 <span className="text-[10px] text-gray-400 shrink-0 w-14 font-medium">读者查看链：</span>
-                                <div className="flex-1 bg-white border border-gray-200 rounded px-1.5 py-0.5 text-[10px] font-mono truncate select-all">{item.shareUrl}</div>
+                                <a href={item.shareUrl} target="_blank" rel="noopener noreferrer" title="在新标签打开预览" className="flex-1 bg-white border border-gray-200 rounded px-1.5 py-0.5 text-[10px] font-mono truncate text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-colors">{item.shareUrl}</a>
                                 <button type="button" onClick={() => void copyGistField(`${item.id}:share`, item.shareUrl, '')} className="px-2 py-0.5 text-[10px] font-semibold bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm shrink-0">
                                   {copiedGistField === `${item.id}:share` ? '✅ 已复制' : '📋 复制'}
                                 </button>
                               </div>
                               <div className="flex items-center gap-1.5">
                                 <span className="text-[10px] text-gray-400 shrink-0 w-14 font-medium">GitHub 销毁页：</span>
-                                <div className="flex-1 bg-white border border-gray-200 rounded px-1.5 py-0.5 text-[10px] font-mono truncate select-all">{item.htmlUrl}</div>
+                                <a href={item.htmlUrl} target="_blank" rel="noopener noreferrer" title="在新标签打开 GitHub Gist 页面" className="flex-1 bg-white border border-gray-200 rounded px-1.5 py-0.5 text-[10px] font-mono truncate text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-colors">{item.htmlUrl}</a>
                                 <button type="button" onClick={() => void copyGistField(`${item.id}:html`, item.htmlUrl, '')} className="px-2 py-0.5 text-[10px] font-semibold bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm shrink-0">
                                   {copiedGistField === `${item.id}:html` ? '✅ 已复制' : '📋 复制'}
                                 </button>
@@ -2878,14 +2897,14 @@ export function MarkdownReaderTool() {
                               <div className="space-y-1">
                                 <div className="flex items-center gap-1.5">
                                   <span className="text-[10px] text-gray-400 shrink-0 w-14 font-medium">读者查看链：</span>
-                                  <div className="flex-1 bg-white border border-gray-200 rounded px-1.5 py-0.5 text-[10px] font-mono truncate select-all">{shareUrl}</div>
+                                  <a href={shareUrl} target="_blank" rel="noopener noreferrer" title="在新标签打开预览" className="flex-1 bg-white border border-gray-200 rounded px-1.5 py-0.5 text-[10px] font-mono truncate text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-colors">{shareUrl}</a>
                                   <button type="button" onClick={() => void copyGistField(`remote-${item.id}:share`, shareUrl, '')} className="px-2 py-0.5 text-[10px] font-semibold bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm shrink-0">
                                     {copiedGistField === `remote-${item.id}:share` ? '✅ 已复制' : '📋 复制'}
                                   </button>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                   <span className="text-[10px] text-gray-400 shrink-0 w-14 font-medium">GitHub 销毁页：</span>
-                                  <div className="flex-1 bg-white border border-gray-200 rounded px-1.5 py-0.5 text-[10px] font-mono truncate select-all">{item.htmlUrl}</div>
+                                  <a href={item.htmlUrl} target="_blank" rel="noopener noreferrer" title="在新标签打开 GitHub Gist 页面" className="flex-1 bg-white border border-gray-200 rounded px-1.5 py-0.5 text-[10px] font-mono truncate text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-colors">{item.htmlUrl}</a>
                                   <button type="button" onClick={() => void copyGistField(`remote-${item.id}:html`, item.htmlUrl, '')} className="px-2 py-0.5 text-[10px] font-semibold bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-sm shrink-0">
                                     {copiedGistField === `remote-${item.id}:html` ? '✅ 已复制' : '📋 复制'}
                                   </button>
