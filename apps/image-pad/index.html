@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f7f7f8" />
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0%200%2064%2064'%3E%3Crect width='64' height='64' rx='14' fill='%23ea580c'/%3E%3Cpath d='M12 16h40M12 48h40' stroke='rgba(255,255,255,.35)' stroke-width='4' stroke-linecap='round'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-family='Arial, Helvetica, sans-serif' font-size='30' font-weight='800' fill='%23fff'%3E扩%3C/text%3E%3C/svg%3E" />
+  <title>图片比例扩展 | Mecha Tools</title>
+  <link rel="stylesheet" href="/src/index.css" />
+  <style>
+    canvas { max-width: 100%; border: 1px solid #e5e7eb; background: #fff; }
+    .drop {
+      border: 2px dashed #d1d5db; border-radius: 8px; padding: 28px; text-align: center;
+      cursor: pointer; background: #f9fafb;
+    }
+    .drop:hover, .drop.dragover { border-color: #ea580c; background: #fff7ed; }
+    #fileInput { display: none; }
+  </style>
+</head>
+
+<body class="min-h-screen bg-mech-bg text-mech-text antialiased">
+  <main class="max-w-3xl mx-auto px-4 py-8 space-y-6">
+    <header class="sticky top-0 z-30 border-b border-mech-edge/70 backdrop-blur bg-mech-bg/70 -mx-4 px-4 py-3">
+      <div class="flex items-center justify-between">
+        <a class="font-semibold tracking-wider hover:text-black" href="/">Mecha Tools</a>
+        <a class="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors" href="/">返回首页</a>
+      </div>
+    </header>
+
+    <section class="bg-mech-panel border border-mech-edge rounded-xl shadow-subtle p-6 space-y-5">
+      <div>
+        <h1 class="text-xl font-semibold tracking-wide">图片比例扩展</h1>
+        <p class="text-mech-muted mt-2">用底色把画布撑到目标宽高比，原图居中、不缩放。适合封面、视频缩略图。</p>
+      </div>
+
+      <div id="dropArea" class="drop">
+        <p>点击或拖入图片</p>
+        <input type="file" id="fileInput" accept="image/*">
+      </div>
+
+      <div class="flex flex-wrap items-center gap-4">
+        <label class="flex items-center gap-2">比例
+          <select id="ratioSelect" class="border border-mech-edge rounded-md px-2 py-1">
+            <option value="16:9" selected>16:9</option>
+            <option value="9:16">9:16</option>
+            <option value="4:3">4:3</option>
+            <option value="1:1">1:1</option>
+            <option value="21:9">21:9</option>
+          </select>
+        </label>
+        <label class="flex items-center gap-2">底色
+          <input type="color" id="bgColor" value="#cccccc">
+        </label>
+        <button id="downloadBtn" disabled class="px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-300 disabled:cursor-not-allowed">下载 PNG</button>
+        <span id="sizeInfo" class="text-sm text-mech-muted"></span>
+      </div>
+
+      <canvas id="canvas"></canvas>
+    </section>
+  </main>
+
+  <script>
+    const fileInput = document.getElementById('fileInput')
+    const dropArea = document.getElementById('dropArea')
+    const bgColor = document.getElementById('bgColor')
+    const ratioSelect = document.getElementById('ratioSelect')
+    const downloadBtn = document.getElementById('downloadBtn')
+    const sizeInfo = document.getElementById('sizeInfo')
+    const canvas = document.getElementById('canvas')
+    const ctx = canvas.getContext('2d')
+    let originalImage = null
+
+    function parseRatio(value) {
+      const [a, b] = value.split(':').map(Number)
+      return a / b
+    }
+
+    function processImage() {
+      if (!originalImage) return
+      const targetRatio = parseRatio(ratioSelect.value)
+      const imgWidth = originalImage.width
+      const imgHeight = originalImage.height
+      const imgRatio = imgWidth / imgHeight
+      let newWidth, newHeight
+      if (imgRatio < targetRatio) {
+        newHeight = imgHeight
+        newWidth = Math.round(imgHeight * targetRatio)
+      } else {
+        newWidth = imgWidth
+        newHeight = Math.round(imgWidth / targetRatio)
+      }
+      canvas.width = newWidth
+      canvas.height = newHeight
+      ctx.fillStyle = bgColor.value
+      ctx.fillRect(0, 0, newWidth, newHeight)
+      ctx.drawImage(originalImage, (newWidth - imgWidth) / 2, (newHeight - imgHeight) / 2)
+      downloadBtn.disabled = false
+      sizeInfo.textContent = `${imgWidth}×${imgHeight} → ${newWidth}×${newHeight}`
+    }
+
+    function loadFile(file) {
+      if (!file || !file.type.startsWith('image/')) return
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        originalImage = new Image()
+        originalImage.onload = processImage
+        originalImage.src = event.target.result
+      }
+      reader.readAsDataURL(file)
+    }
+
+    dropArea.addEventListener('click', () => fileInput.click())
+    dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('dragover') })
+    dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'))
+    dropArea.addEventListener('drop', (e) => {
+      e.preventDefault()
+      dropArea.classList.remove('dragover')
+      loadFile(e.dataTransfer.files[0])
+    })
+    fileInput.addEventListener('change', (e) => loadFile(e.target.files[0]))
+    bgColor.addEventListener('input', processImage)
+    ratioSelect.addEventListener('change', processImage)
+    downloadBtn.addEventListener('click', () => {
+      const link = document.createElement('a')
+      const ratio = ratioSelect.value.replace(':', 'x')
+      link.download = `image-${ratio}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    })
+  </script>
+</body>
+</html>

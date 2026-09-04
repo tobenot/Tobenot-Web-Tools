@@ -1,0 +1,8 @@
+{
+  "title": "文件编码转换",
+  "description": "检测文本编码并转换为 UTF-8 / UTF-16，支持 GBK 等作为源编码读取",
+  "version": "0.1.0",
+  "updatedAt": "2026-08-25",
+  "tags": ["encoding", "utf-8", "gbk", "charset"],
+  "category": "codec"
+}

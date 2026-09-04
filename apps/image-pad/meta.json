@@ -1,0 +1,8 @@
+{
+  "title": "图片比例扩展",
+  "description": "把图片铺底色扩展到指定宽高比（默认 16:9），原图像素居中不缩放",
+  "version": "0.1.0",
+  "updatedAt": "2026-08-25",
+  "tags": ["image", "aspect-ratio", "16:9", "pad"],
+  "category": "image"
+}
