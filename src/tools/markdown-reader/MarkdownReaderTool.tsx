@@ -1921,7 +1921,7 @@ export function MarkdownReaderTool() {
         {/* 格式组（阅读模式下无意义，隐藏） */}
         {!readMode && (
           <>
-            <div className="flex flex-wrap items-center gap-1">
+            <div className="hidden lg:flex flex-wrap items-center gap-1">
               <button onClick={() => wrapSelection('**', '**')} className={BTN}>加粗</button>
               <button onClick={() => wrapSelection('*', '*')} className={BTN}>斜体</button>
               <button onClick={() => insertAtLineStart('## ')} className={BTN}>标题</button>
@@ -1930,28 +1930,28 @@ export function MarkdownReaderTool() {
               <button onClick={() => insertAtLineStart('> ')} className={BTN}>引用</button>
               <button onClick={() => insertAtLineStart('- ')} className={BTN}>列表</button>
             </div>
-            <div className="w-px h-6 bg-gray-300 mx-1.5" />
+            <div className="hidden lg:block w-px h-6 bg-gray-300 mx-1.5" />
           </>
         )}
 
         {/* 文档组 */}
         <div className="flex flex-wrap items-center gap-1">
           <button onClick={() => setHistoryOpen(true)} className={BTN} title="翻阅已归档的历史文档">
-            📚 历史
+            📚 <span className="hidden sm:inline">历史</span>
             {mdHistory.length > 0 && <span className="ml-1 text-[10px] font-bold text-gray-500">{mdHistory.length}</span>}
           </button>
-          <button onClick={clearEditor} disabled={!md.trim()} className={`${BTN} disabled:opacity-40`} title="清空编辑器，当前内容存入历史">
+          <button onClick={clearEditor} disabled={!md.trim()} className={`hidden lg:inline-flex ${BTN} disabled:opacity-40`} title="清空编辑器，当前内容存入历史">
             🧹 新建空白
           </button>
         </div>
-        <div className="w-px h-6 bg-gray-300 mx-1.5" />
+        <div className="hidden lg:block w-px h-6 bg-gray-300 mx-1.5" />
 
         {/* 视图组 */}
         <div className="flex flex-wrap items-center gap-1">
           <button onClick={() => setTocOpen(!tocOpen)} className={tocOpen ? BTN_ACTIVE : BTN} title={isMobile ? '目录抽屉' : '目录侧栏'}>
-            📑 目录
+            📑 <span className="hidden sm:inline">目录</span>
           </button>
-          <button onClick={() => setSyntaxGuideOpen(true)} className={BTN} title="查看本阅读器增强语法：Callout、决策面板、图表等">
+          <button onClick={() => setSyntaxGuideOpen(true)} className={`hidden lg:inline-flex ${BTN}`} title="查看本阅读器增强语法：Callout、决策面板、图表等">
             语法说明
           </button>
           <button onClick={() => setReadMode((v) => !v)} className={`hidden lg:inline-flex ${readMode ? BTN_ACTIVE : BTN}`} title="阅读模式下隐藏编辑器，预览铺满整个页面">
@@ -1961,13 +1961,13 @@ export function MarkdownReaderTool() {
 
         {/* 右侧：主操作 + 风格 + 更多 */}
         <div className="ml-auto flex flex-wrap items-center gap-1">
-          <button onClick={() => openGistPanel('instant')} className={BTN_PRIMARY} title="生成即时链接（正文进 URL）或查看任意 HTML 嵌入指南；也可改用 Gist 分享大文档">
-            🔗 分享与嵌入
+          <button onClick={() => openGistPanel('instant')} className={`${BTN_PRIMARY} shrink-0`} title="生成即时链接（正文进 URL）或查看任意 HTML 嵌入指南；也可改用 Gist 分享大文档">
+            🔗 <span className="hidden sm:inline">分享与嵌入</span><span className="sm:hidden">分享</span>
           </button>
           <select
             value={style}
             onChange={(e) => setStyle(e.target.value as StyleKey)}
-            className="px-2.5 py-1.5 text-sm border border-gray-300 rounded bg-white text-gray-700 focus:border-indigo-400 focus:outline-none"
+            className="px-2.5 py-1.5 text-sm border border-gray-300 rounded bg-white text-gray-700 focus:border-indigo-400 focus:outline-none max-w-[92px]"
             title="阅读器排版风格"
           >
             {STYLE_OPTIONS.map(opt => (
@@ -1988,7 +1988,27 @@ export function MarkdownReaderTool() {
             {moreMenuOpen && (
               <>
                 <div className="fixed inset-0 z-30" onClick={() => setMoreMenuOpen(false)} />
-                <div className="absolute right-0 top-full mt-1.5 z-40 w-60 rounded-lg border border-gray-200 bg-white shadow-xl p-1.5 space-y-0.5">
+                <div className="absolute right-0 top-full mt-1.5 z-40 w-60 rounded-lg border border-gray-200 bg-white shadow-xl p-1.5 space-y-0.5 max-h-[70vh] overflow-y-auto overscroll-contain">
+                  {/* 手机端：编辑格式与文档操作收进菜单 */}
+                  <div className="lg:hidden">
+                    {!readMode && (
+                      <>
+                        <div className="px-2.5 pt-1 pb-0.5 text-[11px] font-bold text-gray-400 uppercase tracking-wider">格式</div>
+                        <div className="grid grid-cols-4 gap-1 px-2 pb-1.5">
+                          <button onClick={() => { setMoreMenuOpen(false); wrapSelection('**', '**') }} className="px-1 py-1.5 text-xs font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200">加粗</button>
+                          <button onClick={() => { setMoreMenuOpen(false); wrapSelection('*', '*') }} className="px-1 py-1.5 text-xs font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200 italic">斜体</button>
+                          <button onClick={() => { setMoreMenuOpen(false); insertAtLineStart('## ') }} className="px-1 py-1.5 text-xs font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200">标题</button>
+                          <button onClick={() => { setMoreMenuOpen(false); wrapSelection('`', '`') }} className="px-1 py-1.5 text-xs font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200 font-mono">代码</button>
+                          <button onClick={() => { setMoreMenuOpen(false); wrapSelection('[', '](链接地址)') }} className="px-1 py-1.5 text-xs font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200">链接</button>
+                          <button onClick={() => { setMoreMenuOpen(false); insertAtLineStart('> ') }} className="px-1 py-1.5 text-xs font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200">引用</button>
+                          <button onClick={() => { setMoreMenuOpen(false); insertAtLineStart('- ') }} className="px-1 py-1.5 text-xs font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200">列表</button>
+                        </div>
+                        <button onClick={() => { setMoreMenuOpen(false); clearEditor() }} disabled={!md.trim()} className={`${BTN_MENU} disabled:opacity-40`}>🧹 新建空白</button>
+                      </>
+                    )}
+                    <button onClick={() => { setMoreMenuOpen(false); setSyntaxGuideOpen(true) }} className={BTN_MENU}>📖 语法说明</button>
+                    <div className="my-1 h-px bg-gray-100" />
+                  </div>
                   <button
                     onClick={() => { setMoreMenuOpen(false); void exportAsImage() }}
                     disabled={exporting}
