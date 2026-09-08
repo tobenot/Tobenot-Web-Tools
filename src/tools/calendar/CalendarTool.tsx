@@ -93,6 +93,15 @@ function getCellLabelColor(info: DayInfo): string {
   return 'text-mech-muted'
 }
 
+/** 预计算某月全部日期的信息 */
+function getMonthDayInfos(year: number, month: number): Record<number, DayInfo> {
+  const infos: Record<number, DayInfo> = {}
+  for (let d = 1; d <= getDaysInMonth(year, month); d++) {
+    infos[d] = getDayInfo(year, month, d)
+  }
+  return infos
+}
+
 /* ───── 节假日 API 数据缓存（增强） ───── */
 
 interface HolidayApiEntry {
@@ -103,36 +112,161 @@ interface HolidayApiEntry {
 
 type HolidayApiData = Record<string, HolidayApiEntry>
 
-function useHolidayApi(year: number): HolidayApiData | null {
+/**
+ * 拉取指定年份的法定节假日数据（可跨年）。结果合并后统一返回；
+ * 命中的年份走 localStorage 缓存，未命中的才发请求，网络失败时
+ * 降级使用本地 HolidayUtil（见 getHolidayStatus）。
+ */
+function useHolidayApi(years: number[]): HolidayApiData | null {
   const [data, setData] = useState<HolidayApiData | null>(null)
+  const key = years.join(',')
 
   useEffect(() => {
-    // 先检查 localStorage 缓存
-    const cacheKey = `holiday_api_${year}`
-    const cached = localStorage.getItem(cacheKey)
-    if (cached) {
-      try {
-        setData(JSON.parse(cached))
-        return
-      } catch { /* ignore */ }
+    let cancelled = false
+    const needed = [...new Set(years)]
+    const merged: HolidayApiData = {}
+    let pending = needed.length
+    const controllers: AbortController[] = []
+
+    for (const y of needed) {
+      let cached: string | null = null
+      try { cached = localStorage.getItem(`holiday_api_${y}`) } catch { /* ignore */ }
+      if (cached) {
+        try { Object.assign(merged, JSON.parse(cached)) } catch { /* ignore */ }
+        pending--
+      }
     }
 
-    // 请求 API
-    const controller = new AbortController()
-    fetch(`https://api.jiejiariapi.com/v1/holidays/${year}`, { signal: controller.signal })
-      .then(res => res.ok ? res.json() : null)
-      .then(json => {
-        if (json && typeof json === 'object') {
-          setData(json)
-          localStorage.setItem(cacheKey, JSON.stringify(json))
-        }
-      })
-      .catch(() => { /* 网络失败时降级使用本地 HolidayUtil */ })
+    if (pending === 0) {
+      setData(merged)
+      return
+    }
 
-    return () => controller.abort()
-  }, [year])
+    for (const y of needed) {
+      const cacheKey = `holiday_api_${y}`
+      let cached: string | null = null
+      try { cached = localStorage.getItem(cacheKey) } catch { /* ignore */ }
+      if (cached) continue
+      const controller = new AbortController()
+      controllers.push(controller)
+      fetch(`https://api.jiejiariapi.com/v1/holidays/${y}`, { signal: controller.signal })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((json) => {
+          if (json && typeof json === 'object' && !cancelled) {
+            Object.assign(merged, json)
+            try { localStorage.setItem(cacheKey, JSON.stringify(json)) } catch { /* ignore */ }
+          }
+        })
+        .catch(() => { /* 网络失败时降级使用本地 HolidayUtil */ })
+        .finally(() => {
+          pending--
+          if (pending === 0 && !cancelled) setData(merged)
+        })
+    }
+
+    return () => {
+      cancelled = true
+      controllers.forEach((c) => c.abort())
+    }
+  }, [key])
 
   return data
+}
+
+/* ───── 单月网格组件 ───── */
+
+interface MonthGridProps {
+  year: number
+  month: number // 0-11
+  dayInfos: Record<number, DayInfo>
+  todayIso: string
+  selectedIso: string | null
+  getHolidayStatus: (iso: string) => { name: string; isOffDay: boolean } | null
+  onSelect: (day: number) => void
+}
+
+function MonthGrid({ year, month, dayInfos, todayIso, selectedIso, getHolidayStatus, onSelect }: MonthGridProps) {
+  const days = getDaysInMonth(year, month)
+  const firstWeekday = getWeekday(year, month, 1)
+
+  const weeks: Array<Array<{ day: number | null; iso?: string }>> = []
+  let currentWeek: Array<{ day: number | null; iso?: string }> = []
+
+  for (let i = 0; i < firstWeekday; i++) currentWeek.push({ day: null })
+
+  for (let d = 1; d <= days; d++) {
+    currentWeek.push({ day: d, iso: formatDate(year, month, d) })
+    if (currentWeek.length === 7) {
+      weeks.push(currentWeek)
+      currentWeek = []
+    }
+  }
+  if (currentWeek.length > 0) {
+    while (currentWeek.length < 7) currentWeek.push({ day: null })
+    weeks.push(currentWeek)
+  }
+
+  return (
+    <div>
+      <div className="flex items-baseline gap-2 mb-2">
+        <span className="text-base font-semibold text-mech-text tabular-nums">{year} 年 {month + 1} 月</span>
+      </div>
+
+      <div className="grid grid-cols-7 gap-1">
+        {['日', '一', '二', '三', '四', '五', '六'].map((w, i) => (
+          <div key={w} className={`text-center text-sm py-1 ${i === 0 || i === 6 ? 'text-rose-400' : 'text-mech-muted'}`}>{w}</div>
+        ))}
+        {weeks.map((week, wi) => (
+          <div key={wi} className="contents">
+            {week.map((cell, ci) => {
+              const isToday = cell.iso === todayIso
+              const isSelected = cell.iso && selectedIso === cell.iso
+              const info = cell.day ? dayInfos[cell.day] : null
+              const holidayStatus = cell.iso ? getHolidayStatus(cell.iso) : null
+              const isWeekend = ci === 0 || ci === 6
+
+              const showHolidayBadge = holidayStatus !== null
+              const isHolidayOff = holidayStatus?.isOffDay === true
+              const isWorkDay = holidayStatus?.isOffDay === false
+
+              return (
+                <button
+                  key={ci}
+                  disabled={!cell.day}
+                  onClick={() => cell.day && onSelect(cell.day)}
+                  className={
+                    'relative bg-mech-panel border border-mech-edge rounded-[3px] flex flex-col items-center justify-center select-none py-1 min-h-[52px] ' +
+                    (cell.day
+                      ? 'hover:border-mech-accent cursor-pointer ' +
+                        (isSelected ? 'border-mech-accent ring-1 ring-mech-accent/30 ' : '') +
+                        (isToday ? 'bg-white ring-2 ring-blue-300/50 ' : '') +
+                        (isHolidayOff ? 'bg-rose-50/50 ' : '') +
+                        (isWorkDay ? 'bg-amber-50/50 ' : '')
+                      : 'opacity-30 cursor-default')
+                  }
+                  aria-pressed={!!isSelected}
+                >
+                  {showHolidayBadge && cell.day && (
+                    <span className={`absolute top-0.5 right-0.5 text-[9px] leading-none font-medium ${isHolidayOff ? 'text-rose-500' : 'text-amber-600'}`}>
+                      {isHolidayOff ? '休' : '班'}
+                    </span>
+                  )}
+                  <span className={`tabular-nums text-sm font-medium ${isWeekend && !isWorkDay ? 'text-rose-500' : 'text-mech-text'}`}>
+                    {cell.day ?? ''}
+                  </span>
+                  {info && cell.day && (
+                    <span className={`text-[10px] leading-tight truncate max-w-full px-0.5 ${getCellLabelColor(info)}`}>
+                      {getCellLabel(info)}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export function CalendarTool() {
@@ -144,12 +278,20 @@ export function CalendarTool() {
     return { y: now.getFullYear(), m: now.getMonth(), d: now.getDate() }
   }, [now])
 
-  const [year, setYear] = useState(initial.y)
-  const [month, setMonth] = useState(initial.m) // 0-11
-  const [selectedDay, setSelectedDay] = useState<number | null>(initial.d)
+  /* 窗口第一月（上方）；下方永远是其下一个月，构成双月连续视图 */
+  const [baseYear, setBaseYear] = useState(initial.y)
+  const [baseMonth, setBaseMonth] = useState(initial.m) // 0-11
+  const [selected, setSelected] = useState<{ y: number; m: number; d: number } | null>(initial)
 
-  // 节假日 API 数据（增强本地 HolidayUtil）
-  const holidayApiData = useHolidayApi(year)
+  const nextDate = useMemo(() => new Date(baseYear, baseMonth + 1, 1), [baseYear, baseMonth])
+  const nextYear = nextDate.getFullYear()
+  const nextMon = nextDate.getMonth()
+
+  // 节假日 API 数据（跨年合并）
+  const holidayApiData = useHolidayApi([baseYear, nextYear])
+
+  const baseDayInfos = useMemo(() => getMonthDayInfos(baseYear, baseMonth), [baseYear, baseMonth])
+  const nextDayInfos = useMemo(() => getMonthDayInfos(nextYear, nextMon), [nextYear, nextMon])
 
   useEffect(() => {
     const onNav = () => {
@@ -157,79 +299,47 @@ export function CalendarTool() {
       if (path !== 'calendar') return
       const parsed = parseISODate(params.get('d') || undefined)
       if (parsed) {
-        setYear(parsed.y)
-        setMonth(parsed.m)
-        setSelectedDay(parsed.d)
+        setBaseYear(parsed.y)
+        setBaseMonth(parsed.m)
+        setSelected(parsed)
       }
     }
     window.addEventListener('popstate', onNav)
     return () => window.removeEventListener('popstate', onNav)
   }, [])
 
-  const goTo = useCallback((y: number, m: number) => {
-    setYear(y)
-    setMonth(m)
-  }, [])
-
   function prevMonth() {
-    const d = new Date(year, month, 1)
+    const d = new Date(baseYear, baseMonth, 1)
     d.setMonth(d.getMonth() - 1)
-    goTo(d.getFullYear(), d.getMonth())
+    setBaseYear(d.getFullYear())
+    setBaseMonth(d.getMonth())
   }
 
   function nextMonth() {
-    const d = new Date(year, month, 1)
+    const d = new Date(baseYear, baseMonth, 1)
     d.setMonth(d.getMonth() + 1)
-    goTo(d.getFullYear(), d.getMonth())
+    setBaseYear(d.getFullYear())
+    setBaseMonth(d.getMonth())
   }
 
-  function selectDay(day: number) {
-    setSelectedDay(day)
-    const iso = formatDate(year, month, day)
+  function selectDay(day: number, y: number, m: number) {
+    setSelected({ y, m, d: day })
+    const iso = formatDate(y, m, day)
     setStateHash({ d: iso })
   }
 
-  const days = getDaysInMonth(year, month)
-  const firstWeekday = getWeekday(year, month, 1)
   const todayIso = formatDate(now.getFullYear(), now.getMonth(), now.getDate())
+  const isoSelected = selected ? formatDate(selected.y, selected.m, selected.d) : null
 
-  // 预计算本月每日的农历信息
-  const monthDayInfos = useMemo(() => {
-    const infos: Record<number, DayInfo> = {}
-    for (let d = 1; d <= getDaysInMonth(year, month); d++) {
-      infos[d] = getDayInfo(year, month, d)
-    }
-    return infos
-  }, [year, month])
+  const windowTitle = nextYear === baseYear
+    ? `${baseYear} 年 ${baseMonth + 1} – ${nextMon + 1} 月`
+    : `${baseYear} 年 ${baseMonth + 1} 月 – ${nextYear} 年 ${nextMon + 1} 月`
 
-  const weeks: Array<Array<{ day: number | null; iso?: string }>> = []
-  let currentWeek: Array<{ day: number | null; iso?: string }> = []
-
-  // Fill leading blanks
-  for (let i = 0; i < firstWeekday; i++) currentWeek.push({ day: null })
-
-  for (let d = 1; d <= days; d++) {
-    const iso = formatDate(year, month, d)
-    currentWeek.push({ day: d, iso })
-    if (currentWeek.length === 7) {
-      weeks.push(currentWeek)
-      currentWeek = []
-    }
-  }
-  if (currentWeek.length > 0) {
-    while (currentWeek.length < 7) currentWeek.push({ day: null })
-    weeks.push(currentWeek)
-  }
-
-  const isoSelected = selectedDay ? formatDate(year, month, selectedDay) : null
-
-  // 获取选中日期的综合假日信息（API 优先，本地 HolidayUtil 兜底）
+  // 获取日期的综合假日信息（API 优先，本地 HolidayUtil 兜底）
   const getHolidayStatus = useCallback((iso: string): { name: string; isOffDay: boolean } | null => {
-    // 优先使用 API 数据
     if (holidayApiData && holidayApiData[iso]) {
       return { name: holidayApiData[iso].name, isOffDay: holidayApiData[iso].isOffDay }
     }
-    // 兜底用本地 HolidayUtil
     const parsed = parseISODate(iso)
     if (!parsed) return null
     const h = HolidayUtil.getHoliday(parsed.y, parsed.m + 1, parsed.d)
@@ -239,16 +349,17 @@ export function CalendarTool() {
 
   // 选中日期的详细信息
   const selectedInfo = useMemo(() => {
-    if (!selectedDay || !monthDayInfos[selectedDay]) return null
-    return monthDayInfos[selectedDay]
-  }, [selectedDay, monthDayInfos])
+    if (!selected) return null
+    return getDayInfo(selected.y, selected.m, selected.d)
+  }, [selected])
 
   return (
     <ToolLayout
       title="日历工具"
-      description="支持农历、二十四节气、传统节日与中国法定节假日/调休标记。"
+      description="支持农历、二十四节气、传统节日与中国法定节假日/调休标记，双月视图便于跨月查看。"
       designNotes={[
         '纯哈希路由，链接可直接分享保存',
+        '双月视图：当前月在上、下月在下，跨月节假日（如中秋→国庆）一屏尽览',
         '农历/节气基于 lunar-typescript 本地计算',
         '法定节假日通过 jiejiariapi.com API 增强',
         '机械风格面板与边框，清晰的层次对比',
@@ -260,7 +371,7 @@ export function CalendarTool() {
           <div className="flex items-center gap-2">
             <button className="inline-flex items-center gap-2 px-3 py-2 rounded-[3px] border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors" onClick={prevMonth} aria-label="上一月">←</button>
             <div className="text-lg font-medium tabular-nums tracking-wide">
-              {year} 年 {month + 1} 月
+              {windowTitle}
             </div>
             <button className="inline-flex items-center gap-2 px-3 py-2 rounded-[3px] border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors" onClick={nextMonth} aria-label="下一月">→</button>
           </div>
@@ -269,81 +380,42 @@ export function CalendarTool() {
               className="inline-flex items-center gap-2 px-3 py-2 rounded-[3px] border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors"
               onClick={() => {
                 const d = new Date()
-                setYear(d.getFullYear())
-                setMonth(d.getMonth())
-                setSelectedDay(d.getDate())
+                setBaseYear(d.getFullYear())
+                setBaseMonth(d.getMonth())
+                setSelected({ y: d.getFullYear(), m: d.getMonth(), d: d.getDate() })
                 setStateHash({ d: formatDate(d.getFullYear(), d.getMonth(), d.getDate()) })
               }}
             >今天</button>
           </div>
         </div>
 
-        {/* 农历月份提示 */}
-        {monthDayInfos[1] && (
+        {/* 农历年份提示（基于上方月） */}
+        {baseDayInfos[1] && (
           <div className="text-sm text-mech-muted flex items-center gap-2">
-            <span>{monthDayInfos[1].ganZhiYear}年</span>
-            <span>【{monthDayInfos[1].shengXiao}年】</span>
+            <span>{baseDayInfos[1].ganZhiYear}年</span>
+            <span>【{baseDayInfos[1].shengXiao}年】</span>
           </div>
         )}
 
-        {/* 日历网格 */}
-        <div className="grid grid-cols-7 gap-1">
-          {['日','一','二','三','四','五','六'].map((w, i) => (
-            <div key={w} className={`text-center text-sm py-1 ${i === 0 || i === 6 ? 'text-rose-400' : 'text-mech-muted'}`}>{w}</div>
-          ))}
-          {weeks.map((week, wi) => (
-            <div key={wi} className="contents">
-              {week.map((cell, ci) => {
-                const isToday = cell.iso === todayIso
-                const isSelected = cell.iso && isoSelected === cell.iso
-                const info = cell.day ? monthDayInfos[cell.day] : null
-                const holidayStatus = cell.iso ? getHolidayStatus(cell.iso) : null
-                const isWeekend = ci === 0 || ci === 6
-
-                // 假日标记
-                const showHolidayBadge = holidayStatus !== null
-                const isHolidayOff = holidayStatus?.isOffDay === true
-                const isWorkDay = holidayStatus?.isOffDay === false // 调休上班
-
-                return (
-                  <button
-                    key={ci}
-                    disabled={!cell.day}
-                    onClick={() => cell.day && selectDay(cell.day)}
-                    className={
-                      'relative bg-mech-panel border border-mech-edge rounded-[3px] flex flex-col items-center justify-center select-none py-1 min-h-[52px] ' +
-                      (cell.day
-                        ? 'hover:border-mech-accent cursor-pointer ' +
-                          (isSelected ? 'border-mech-accent ring-1 ring-mech-accent/30 ' : '') +
-                          (isToday ? 'bg-white ring-2 ring-blue-300/50 ' : '') +
-                          (isHolidayOff ? 'bg-rose-50/50 ' : '') +
-                          (isWorkDay ? 'bg-amber-50/50 ' : '')
-                        : 'opacity-30 cursor-default')
-                    }
-                    aria-pressed={!!isSelected}
-                  >
-                    {/* 假日/调休角标 */}
-                    {showHolidayBadge && cell.day && (
-                      <span className={`absolute top-0.5 right-0.5 text-[9px] leading-none font-medium ${isHolidayOff ? 'text-rose-500' : 'text-amber-600'}`}>
-                        {isHolidayOff ? '休' : '班'}
-                      </span>
-                    )}
-                    {/* 公历日期 */}
-                    <span className={`tabular-nums text-sm font-medium ${isWeekend && !isWorkDay ? 'text-rose-500' : 'text-mech-text'}`}>
-                      {cell.day ?? ''}
-                    </span>
-                    {/* 农历/节气标注 */}
-                    {info && cell.day && (
-                      <span className={`text-[10px] leading-tight truncate max-w-full px-0.5 ${getCellLabelColor(info)}`}>
-                        {getCellLabel(info)}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          ))}
-        </div>
+        {/* 双月：上方月 + 下方月 */}
+        <MonthGrid
+          year={baseYear}
+          month={baseMonth}
+          dayInfos={baseDayInfos}
+          todayIso={todayIso}
+          selectedIso={isoSelected}
+          getHolidayStatus={getHolidayStatus}
+          onSelect={(day) => selectDay(day, baseYear, baseMonth)}
+        />
+        <MonthGrid
+          year={nextYear}
+          month={nextMon}
+          dayInfos={nextDayInfos}
+          todayIso={todayIso}
+          selectedIso={isoSelected}
+          getHolidayStatus={getHolidayStatus}
+          onSelect={(day) => selectDay(day, nextYear, nextMon)}
+        />
 
         {/* 选中日期详情 */}
         <div className="border border-mech-edge rounded-[3px] bg-mech-panel p-3 min-h-[80px]">
