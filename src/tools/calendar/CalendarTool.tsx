@@ -370,14 +370,14 @@ export function CalendarTool() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button className="inline-flex items-center gap-2 px-3 py-2 rounded-[3px] border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors" onClick={prevMonth} aria-label="上一月">←</button>
-            <div className="text-lg font-medium tabular-nums tracking-wide">
+            <div className="text-lg font-medium tabular-nums tracking-wide whitespace-nowrap">
               {windowTitle}
             </div>
             <button className="inline-flex items-center gap-2 px-3 py-2 rounded-[3px] border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors" onClick={nextMonth} aria-label="下一月">→</button>
           </div>
           <div className="flex items-center gap-2">
             <button
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-[3px] border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-[3px] border border-mech-edge bg-white hover:bg-neutral-50 text-mech-text transition-colors shrink-0 whitespace-nowrap"
               onClick={() => {
                 const d = new Date()
                 setBaseYear(d.getFullYear())
