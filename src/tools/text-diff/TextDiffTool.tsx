@@ -145,7 +145,7 @@ export function TextDiffTool() {
 
         {!textA && !textB && (
           <div className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
-            在左右两栏输入文本，自动显示差异对比
+            在两个输入框输入文本，自动显示差异对比
           </div>
         )}
       </div>
