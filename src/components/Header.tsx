@@ -20,14 +20,14 @@ export function Header() {
         }}
       />
 
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center">
         {/* Logo */}
         <a
           href="/"
-          className="flex items-center gap-3 font-bold text-xl tracking-wider text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors group"
+          className="flex items-center gap-3 font-bold text-xl tracking-wider text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors group shrink-0"
         >
           <div className="text-2xl group-hover:scale-110 transition-transform duration-300">⚙️</div>
-          <span>Mecha Tools</span>
+          <span className="hidden sm:inline">Mecha Tools</span>
         </a>
 
         {/* 导航菜单 */}
