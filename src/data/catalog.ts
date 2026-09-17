@@ -16,12 +16,13 @@ export function isToolCategory(value: unknown): value is ToolCategory {
 }
 
 export function matchesToolQuery(
-  item: { title: string; description: string; tags?: string[]; category?: ToolCategory },
+  item: { title: string; description: string; id?: string; tags?: string[]; category?: ToolCategory },
   query: string,
 ): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
   if (item.title.toLowerCase().includes(q) || item.description.toLowerCase().includes(q)) return true
+  if (item.id?.toLowerCase().includes(q)) return true
   if (item.tags?.some((t) => t.toLowerCase().includes(q))) return true
   const label = toolCategories.find((c) => c.id === item.category)?.label ?? ''
   return label.toLowerCase().includes(q)

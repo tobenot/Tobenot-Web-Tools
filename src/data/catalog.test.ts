@@ -23,6 +23,13 @@ describe('catalog', () => {
     expect(matchesToolQuery(image, '正则')).toBe(false)
   })
 
+  it('按 id 也能搜到（如 ca → calendar）', () => {
+    const calendar = { id: 'calendar', title: '日历工具', description: '快速查看与分享指定日期' }
+    expect(matchesToolQuery(calendar, 'ca')).toBe(true)
+    expect(matchesToolQuery(calendar, 'CAL')).toBe(true)
+    expect(matchesToolQuery(calendar, 'xyz')).toBe(false)
+  })
+
   it('空查询不过滤；无分组的条目不进任何组', () => {
     expect(matchesToolQuery(orphan, '')).toBe(true)
     expect(groupToolsByCategory([image, codec, orphan]).map((g) => g.id)).toEqual(['image', 'codec'])
