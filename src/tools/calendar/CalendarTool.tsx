@@ -213,7 +213,7 @@ export function MonthGrid({ year, month, dayInfos, todayIso, selectedIso, getHol
         <span className="text-base font-semibold text-mech-text tabular-nums">{year} 年 {month + 1} 月</span>
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-1 -mx-3 sm:mx-0">
         {['日', '一', '二', '三', '四', '五', '六'].map((w, i) => (
           <div key={w} className={`text-center text-sm py-1 ${i === 0 || i === 6 ? 'text-rose-400' : 'text-mech-muted'}`}>{w}</div>
         ))}
@@ -233,32 +233,39 @@ export function MonthGrid({ year, month, dayInfos, todayIso, selectedIso, getHol
                   key={ci}
                   disabled={!cell.day}
                   onClick={() => cell.day && onSelect(cell.day)}
-                  title={holidayTheme.kind === 'off' && holidayTheme.name ? holidayTheme.name : undefined}
+                  title={holidayTheme.title ?? undefined}
                   className={
-                    'relative bg-mech-panel border border-mech-edge rounded-[3px] flex flex-col items-center justify-center select-none py-1 min-h-[52px] overflow-hidden ' +
+                    'relative bg-mech-panel border border-mech-edge rounded-[3px] flex flex-col items-stretch justify-center select-none py-1 px-1 sm:px-1.5 min-h-[52px] ' +
                     (cell.day
                       ? 'hover:border-mech-accent cursor-pointer ' +
                         (isSelected ? 'border-mech-accent ring-1 ring-mech-accent/30 ' : '') +
-                        (holidayTheme.kind === 'off' ? 'bg-rose-50 border-rose-300 ' : '') +
-                        (holidayTheme.kind === 'work' ? 'bg-amber-50 border-amber-300 ' : '') +
+                        (holidayTheme.kind === 'off' ? 'bg-rose-50/60 border-rose-200 ' : '') +
+                        (holidayTheme.kind === 'work' ? 'bg-amber-50/60 border-amber-200 ' : '') +
                         (isToday ? 'ring-2 ring-blue-300/70 ' : '')
                       : 'opacity-30 cursor-default')
                   }
                   aria-pressed={!!isSelected}
                 >
-                  {holidayTheme.kind !== 'none' && (
-                    <span className={`absolute top-0 inset-x-0 h-[3px] ${holidayTheme.kind === 'off' ? 'bg-rose-500' : 'bg-amber-500'}`} />
-                  )}
-                  <span className={
-                    'tabular-nums text-sm ' +
-                    (holidayTheme.kind === 'off' ? 'font-bold text-rose-600 ' : '') +
-                    (holidayTheme.kind === 'work' ? 'font-bold text-amber-700 ' : '') +
-                    (holidayTheme.kind === 'none' ? (isWeekend ? 'font-medium text-rose-500 ' : 'font-medium text-mech-text ') : '')
-                  }>
-                    {cell.day ?? ''}
+                  <span className="flex items-center justify-between w-full h-4">
+                    <span className={
+                      'tabular-nums text-sm leading-none ' +
+                      (holidayTheme.kind === 'off' ? 'font-semibold text-rose-600 ' : '') +
+                      (holidayTheme.kind === 'work' ? 'font-semibold text-amber-700 ' : '') +
+                      (holidayTheme.kind === 'none' ? (isWeekend ? 'font-medium text-rose-500 ' : 'font-medium text-mech-text ') : '')
+                    }>
+                      {cell.day ?? ''}
+                    </span>
+                    {holidayTheme.badge && (
+                      <span className={
+                        'inline-flex shrink-0 items-center justify-center w-4 h-4 rounded-[2px] text-[9px] leading-none font-bold text-white ' +
+                        (holidayTheme.kind === 'off' ? 'bg-rose-500' : 'bg-amber-500')
+                      }>
+                        {holidayTheme.badge}
+                      </span>
+                    )}
                   </span>
                   {info && cell.day && (
-                    <span className={`text-[10px] leading-tight truncate max-w-full px-0.5 ${getCellLabelColor(info)}`}>
+                    <span className={`text-[10px] leading-tight truncate max-w-full text-left ${getCellLabelColor(info)}`}>
                       {getCellLabel(info)}
                     </span>
                   )}
@@ -482,9 +489,9 @@ export function CalendarTool() {
         </div>
 
         {/* 图例 */}
-        <div className="flex items-center gap-4 text-xs text-mech-muted">
-          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-rose-50 border border-rose-300 relative overflow-hidden"><span className="absolute top-0 inset-x-0 h-[3px] bg-rose-500" /></span>休</span>
-          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-amber-50 border border-amber-300 relative overflow-hidden"><span className="absolute top-0 inset-x-0 h-[3px] bg-amber-500" /></span>班</span>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-mech-muted">
+          <span className="flex items-center gap-1"><span className="inline-flex items-center justify-center w-4 h-4 rounded-[2px] bg-rose-500 text-[9px] leading-none font-bold text-white">休</span>放假</span>
+          <span className="flex items-center gap-1"><span className="inline-flex items-center justify-center w-4 h-4 rounded-[2px] bg-amber-500 text-[9px] leading-none font-bold text-white">班</span>调休上班</span>
           <span className="flex items-center gap-1"><span className="text-emerald-600">●</span>节气</span>
           <span className="flex items-center gap-1"><span className="text-rose-500">●</span>节日</span>
         </div>
