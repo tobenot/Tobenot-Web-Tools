@@ -9,19 +9,19 @@ import { getCellHolidayTheme } from './cellTheme'
 
 describe('CalendarTool 格子假日主题', () => {
   it('无假日状态为普通格', () => {
-    expect(getCellHolidayTheme(null)).toEqual({ kind: 'none', label: null })
+    expect(getCellHolidayTheme(null)).toEqual({ kind: 'none', name: null })
   })
 
-  it('放假（isOffDay=true）→ off，标签用假日名', () => {
-    expect(getCellHolidayTheme({ name: '国庆节', isOffDay: true })).toEqual({ kind: 'off', label: '国庆节' })
+  it('放假（isOffDay=true）→ off，name 用假日名', () => {
+    expect(getCellHolidayTheme({ name: '国庆节', isOffDay: true })).toEqual({ kind: 'off', name: '国庆节' })
   })
 
-  it('放假但名字为空 → 兜底「休」', () => {
-    expect(getCellHolidayTheme({ name: '', isOffDay: true })).toEqual({ kind: 'off', label: '休' })
+  it('放假但名字为空 → name 兜底 null', () => {
+    expect(getCellHolidayTheme({ name: '', isOffDay: true })).toEqual({ kind: 'off', name: null })
   })
 
-  it('调休上班（isOffDay=false）→ work，标签固定「班」', () => {
-    expect(getCellHolidayTheme({ name: '国庆节调休', isOffDay: false })).toEqual({ kind: 'work', label: '班' })
+  it('调休上班（isOffDay=false）→ work，name 为 null', () => {
+    expect(getCellHolidayTheme({ name: '国庆节调休', isOffDay: false })).toEqual({ kind: 'work', name: null })
   })
 })
 
@@ -86,46 +86,54 @@ async function cleanup(root: { unmount: () => void }, container: HTMLElement) {
   container.remove()
 }
 
-describe('MonthGrid 假日/调休视觉区分', () => {
+describe('MonthGrid 假日/调休轻量视觉区分', () => {
   const mockHoliday = (iso: string) => {
     if (iso === '2026-09-15') return { name: '国庆节', isOffDay: true }
     if (iso === '2026-09-18') return { name: '国庆节调休', isOffDay: false }
     return null
   }
 
-  it('放假格：玫红实底 + 假日名（农历标签被替换）', async () => {
+  it('放假格：玫红浅底 + 边框 + 顶部色条，农历标签保留，假日名进悬停提示', async () => {
     const { container, root } = await renderGrid({ getHolidayStatus: mockHoliday })
     const btn = dayButton(container, 15)
-    expect(btn.className).toContain('bg-rose-500')
-    expect(btn.className).toContain('border-rose-500')
-    expect(btn.textContent).toContain('国庆节')
-    expect(btn.textContent).not.toContain('初')
-    await cleanup(root, container)
-  })
-
-  it('调休格：琥珀实底 + 「班」', async () => {
-    const { container, root } = await renderGrid({ getHolidayStatus: mockHoliday })
-    const btn = dayButton(container, 18)
-    expect(btn.className).toContain('bg-amber-500')
-    expect(btn.textContent).toContain('班')
-    expect(btn.textContent).not.toContain('初')
-    await cleanup(root, container)
-  })
-
-  it('普通格：无实底类，保留农历标签', async () => {
-    const { container, root } = await renderGrid({ getHolidayStatus: mockHoliday })
-    const btn = dayButton(container, 20)
+    expect(btn.className).toContain('bg-rose-50')
+    expect(btn.className).toContain('border-rose-300')
     expect(btn.className).not.toContain('bg-rose-500')
-    expect(btn.className).not.toContain('bg-amber-500')
+    expect(btn.querySelector('span.bg-rose-500'), 'top color bar').toBeTruthy()
+    expect(btn.title).toBe('国庆节')
     expect(btn.textContent).toContain('初')
     await cleanup(root, container)
   })
 
-  it('今天恰是假日：红底不被白底覆盖，且保留今天高亮环', async () => {
+  it('调休格：琥珀浅底 + 边框 + 顶部色条，农历标签保留，无假日名提示', async () => {
+    const { container, root } = await renderGrid({ getHolidayStatus: mockHoliday })
+    const btn = dayButton(container, 18)
+    expect(btn.className).toContain('bg-amber-50')
+    expect(btn.className).toContain('border-amber-300')
+    expect(btn.className).not.toContain('bg-amber-500')
+    expect(btn.querySelector('span.bg-amber-500'), 'top color bar').toBeTruthy()
+    expect(btn.title).toBe('')
+    expect(btn.textContent).toContain('初')
+    await cleanup(root, container)
+  })
+
+  it('普通格：无浅底无边框无顶部色条，农历标签保留', async () => {
+    const { container, root } = await renderGrid({ getHolidayStatus: mockHoliday })
+    const btn = dayButton(container, 20)
+    expect(btn.className).not.toContain('bg-rose-50')
+    expect(btn.className).not.toContain('bg-amber-50')
+    expect(btn.className).not.toContain('border-rose-300')
+    expect(btn.className).not.toContain('border-amber-300')
+    expect(btn.querySelector('span.bg-rose-500')).toBeNull()
+    expect(btn.querySelector('span.bg-amber-500')).toBeNull()
+    expect(btn.textContent).toContain('初')
+    await cleanup(root, container)
+  })
+
+  it('今天恰是假日：玫红浅底保留，且有今天高亮环', async () => {
     const { container, root } = await renderGrid({ getHolidayStatus: mockHoliday, todayIso: '2026-09-15' })
     const btn = dayButton(container, 15)
-    expect(btn.className).toContain('bg-rose-500')
-    expect(btn.className).not.toContain('bg-white')
+    expect(btn.className).toContain('bg-rose-50')
     expect(btn.className).toContain('ring-2')
     await cleanup(root, container)
   })
