@@ -247,6 +247,15 @@ export function isKnownRoute(path: string): boolean {
 
 export const globalChangelog: ChangelogEntry[] = [
   {
+    date: '2026-09-17',
+    title: '日历强化假日/调休视觉区分',
+    notes: [
+      '假日格改为玫红实底+白字并直接显示假日名（如「国庆节」），调休上班格改为琥珀实底+「班」字，替换原右上角 9px 小角标',
+      '农历/节气标签在假日格自动让位；今天恰是假日时红底不再被「今天」白底覆盖，高亮环保留',
+      '图例同步更新为实底色块'
+    ]
+  },
+  {
     date: '2026-08-28',
     title: '语音合成改用 Web Speech API',
     notes: [

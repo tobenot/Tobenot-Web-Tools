@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { ToolLayout } from '../../components/ToolLayout'
 import { setStateHash, getRouteLocation } from '../../utils/hash'
 import { Solar, HolidayUtil } from 'lunar-typescript'
+import { getCellHolidayTheme } from './cellTheme'
 
 /* ───── 基础日期工具函数 ───── */
 
@@ -185,7 +186,7 @@ interface MonthGridProps {
   onSelect: (day: number) => void
 }
 
-function MonthGrid({ year, month, dayInfos, todayIso, selectedIso, getHolidayStatus, onSelect }: MonthGridProps) {
+export function MonthGrid({ year, month, dayInfos, todayIso, selectedIso, getHolidayStatus, onSelect }: MonthGridProps) {
   const days = getDaysInMonth(year, month)
   const firstWeekday = getWeekday(year, month, 1)
 
@@ -225,9 +226,7 @@ function MonthGrid({ year, month, dayInfos, todayIso, selectedIso, getHolidaySta
               const holidayStatus = cell.iso ? getHolidayStatus(cell.iso) : null
               const isWeekend = ci === 0 || ci === 6
 
-              const showHolidayBadge = holidayStatus !== null
-              const isHolidayOff = holidayStatus?.isOffDay === true
-              const isWorkDay = holidayStatus?.isOffDay === false
+              const holidayTheme = getCellHolidayTheme(holidayStatus)
 
               return (
                 <button
@@ -239,24 +238,29 @@ function MonthGrid({ year, month, dayInfos, todayIso, selectedIso, getHolidaySta
                     (cell.day
                       ? 'hover:border-mech-accent cursor-pointer ' +
                         (isSelected ? 'border-mech-accent ring-1 ring-mech-accent/30 ' : '') +
-                        (isToday ? 'bg-white ring-2 ring-blue-300/50 ' : '') +
-                        (isHolidayOff ? 'bg-rose-50/50 ' : '') +
-                        (isWorkDay ? 'bg-amber-50/50 ' : '')
+                        (holidayTheme.kind === 'off' ? 'bg-rose-500 border-rose-500 ' : '') +
+                        (holidayTheme.kind === 'work' ? 'bg-amber-500 border-amber-500 ' : '') +
+                        (isToday ? 'ring-2 ring-blue-300/70 ' : '')
                       : 'opacity-30 cursor-default')
                   }
                   aria-pressed={!!isSelected}
                 >
-                  {showHolidayBadge && cell.day && (
-                    <span className={`absolute top-0.5 right-0.5 text-[9px] leading-none font-medium ${isHolidayOff ? 'text-rose-500' : 'text-amber-600'}`}>
-                      {isHolidayOff ? '休' : '班'}
-                    </span>
-                  )}
-                  <span className={`tabular-nums text-sm font-medium ${isWeekend && !isWorkDay ? 'text-rose-500' : 'text-mech-text'}`}>
+                  <span className={
+                    'tabular-nums text-sm ' +
+                    (holidayTheme.kind === 'off' ? 'font-bold text-white ' : '') +
+                    (holidayTheme.kind === 'work' ? 'font-bold text-amber-950 ' : '') +
+                    (holidayTheme.kind === 'none' ? (isWeekend ? 'font-medium text-rose-500 ' : 'font-medium text-mech-text ') : '')
+                  }>
                     {cell.day ?? ''}
                   </span>
                   {info && cell.day && (
-                    <span className={`text-[10px] leading-tight truncate max-w-full px-0.5 ${getCellLabelColor(info)}`}>
-                      {getCellLabel(info)}
+                    <span className={
+                      'text-[10px] leading-tight truncate max-w-full px-0.5 ' +
+                      (holidayTheme.kind === 'off' ? 'text-white font-medium ' : '') +
+                      (holidayTheme.kind === 'work' ? 'text-amber-950 font-medium ' : '') +
+                      (holidayTheme.kind === 'none' ? getCellLabelColor(info) : '')
+                    }>
+                      {holidayTheme.kind !== 'none' ? holidayTheme.label : getCellLabel(info)}
                     </span>
                   )}
                 </button>
@@ -480,8 +484,8 @@ export function CalendarTool() {
 
         {/* 图例 */}
         <div className="flex items-center gap-4 text-xs text-mech-muted">
-          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-rose-50 border border-rose-200" />休</span>
-          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-amber-50 border border-amber-200" />班</span>
+          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-rose-500" />休</span>
+          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-amber-500" />班</span>
           <span className="flex items-center gap-1"><span className="text-emerald-600">●</span>节气</span>
           <span className="flex items-center gap-1"><span className="text-rose-500">●</span>节日</span>
         </div>
